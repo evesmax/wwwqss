@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+      --background: 0 0% 100%;
+--foreground: 0 0% 34%; /* Color #575757 para el texto */
+--muted: 60 4.8% 95.9%;
+--muted-foreground: 0 0% 34%;
+--popover: 0 0% 100%;
+--popover-foreground: 0 0% 34%;
+--card: 0 0% 100%;
+--card-foreground: 0 0% 34%;
+--border: 20 5.9% 90%;
+--input: 20 5.9% 90%;
+/* Azul del logo Q Software Solutions */
+--primary: 196 100% 47%;
+--primary-foreground: 0 0% 100%;
+/* Verde del logo Q Software Solutions */
+--secondary: 120 100% 20%;
+--secondary-foreground: 0 0% 100%;
+--accent: 196 100% 47%;
+--accent-foreground: 0 0% 100%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 196 100% 47%;
+--radius: 0.5rem;
+  }
+  .dark {
+      --background: 240 10% 3.9%;
+--foreground: 0 0% 98%;
+--muted: 240 3.7% 15.9%;
+--muted-foreground: 240 5% 64.9%;
+--popover: 240 10% 3.9%;
+--popover-foreground: 0 0% 98%;
+--card: 240 10% 3.9%;
+--card-foreground: 0 0% 98%;
+--border: 240 3.7% 15.9%;
+--input: 240 3.7% 15.9%;
+/* Azul del logo Q Software Solutions */
+--primary: 196 100% 47%;
+--primary-foreground: 0 0% 100%;
+/* Verde del logo Q Software Solutions */
+--secondary: 120 100% 20%;
+--secondary-foreground: 0 0% 100%;
+--accent: 196 100% 47%;
+--accent-foreground: 0 0% 100%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--ring: 196 100% 47%;
+--radius: 0.5rem;
+  }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  /* Color azul para títulos */
+  h1, h2, h3, h4, h5, h6 {
+    color: #00aeef;
+  }
+}
+
+/* Estilo para botones al pasar el cursor */
+.btn-hover-effect,
+.btn-hover-effect:hover,
+button:hover,
+.button:hover,
+a[role="button"]:hover,
+[class*="btn-"]:hover,
+[class^="btn"]:hover {
+  background-color: #474747 !important;
+  border-color: #474747 !important;
+  color: white !important;
+  transition: all 0.3s ease;
+}
+
+/* Animación para carrusel de logotipos */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 20s linear infinite;
+}
+
+.animate-scroll:hover {
+  animation-play-state: paused;
+}

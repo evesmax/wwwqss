@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con degradado sutil -->
+  <rect width="800" height="600" fill="#f0f4f8" rx="10" ry="10"/>
+  
+  <!-- Carretera -->
+  <rect x="50" y="400" width="700" height="60" fill="#333333" rx="2" ry="2"/>
+  <rect x="50" y="428" width="700" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="50" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="130" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="210" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="290" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="370" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="450" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="530" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="610" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  <rect x="690" y="428" width="40" height="4" fill="#ffffff" stroke="none"/>
+  
+  <!-- Camión de transporte principal (en colores de QNexus) -->
+  <g transform="translate(500, 370) scale(1.2)">
+    <!-- Cabina del camión -->
+    <rect x="0" y="0" width="80" height="50" fill="#033866" rx="10" ry="10"/>
+    <rect x="65" y="15" width="15" height="35" fill="#033866"/>
+    
+    <!-- Parabrisas -->
+    <rect x="10" y="10" width="45" height="25" fill="#a0d8ef" rx="2" ry="2"/>
+    
+    <!-- Luces -->
+    <rect x="0" y="15" width="5" height="10" fill="#ffcc00" rx="2" ry="2"/>
+    
+    <!-- Caja de carga -->
+    <rect x="80" y="0" width="120" height="50" fill="#008309"/>
+    <rect x="80" y="0" width="120" height="10" fill="#006307"/>
+    
+    <!-- Ruedas -->
+    <circle cx="30" cy="50" r="15" fill="#333333"/>
+    <circle cx="30" cy="50" r="8" fill="#666666"/>
+    <circle cx="100" cy="50" r="15" fill="#333333"/>
+    <circle cx="100" cy="50" r="8" fill="#666666"/>
+    <circle cx="170" cy="50" r="15" fill="#333333"/>
+    <circle cx="170" cy="50" r="8" fill="#666666"/>
+    
+    <!-- Logo de QNexus (simplificado) -->
+    <text x="130" y="35" font-family="Arial" font-size="14" font-weight="bold" fill="#ffffff">QNexus</text>
+  </g>
+  
+  <!-- Edificio almacén/centro logístico -->
+  <g transform="translate(100, 220)">
+    <!-- Estructura principal -->
+    <rect x="0" y="0" width="180" height="180" fill="#d0d8e0"/>
+    
+    <!-- Techo -->
+    <polygon points="0,0 90,30 180,0" fill="#033866"/>
+    
+    <!-- Puerta -->
+    <rect x="70" y="120" width="40" height="60" fill="#555555"/>
+    
+    <!-- Ventanas -->
+    <rect x="20" y="40" width="30" height="20" fill="#a0d8ef"/>
+    <rect x="70" y="40" width="30" height="20" fill="#a0d8ef"/>
+    <rect x="130" y="40" width="30" height="20" fill="#a0d8ef"/>
+    <rect x="20" y="80" width="30" height="20" fill="#a0d8ef"/>
+    <rect x="130" y="80" width="30" height="20" fill="#a0d8ef"/>
+  </g>
+  
+  <!-- Panel/tablero de control flotante (simboliza la gestión) -->
+  <g transform="translate(350, 100)">
+    <!-- Tablero -->
+    <rect x="0" y="0" width="180" height="120" fill="#ffffff" stroke="#033866" stroke-width="3" rx="5" ry="5"/>
+    
+    <!-- Elementos de control -->
+    <rect x="20" y="20" width="140" height="15" fill="#f0f0f0" rx="3" ry="3"/>
+    <rect x="20" y="45" width="60" height="30" fill="#008309" rx="3" ry="3"/>
+    <rect x="90" y="45" width="70" height="30" fill="#f0f0f0" rx="3" ry="3"/>
+    
+    <!-- Gráficos simplificados -->
+    <polyline points="30,95 50,75 70,85 90,70 110,80 130,65 150,75" fill="none" stroke="#033866" stroke-width="2"/>
+    
+    <!-- Indicadores -->
+    <circle cx="30" cy="105" r="5" fill="#008309"/>
+    <circle cx="50" cy="105" r="5" fill="#ffcc00"/>
+    <circle cx="70" cy="105" r="5" fill="#033866"/>
+  </g>
+  
+  <!-- Pequeños elementos de fondo (cajas, contenedores) -->
+  <g transform="translate(70, 340)">
+    <rect x="0" y="0" width="25" height="25" fill="#d0d8e0" stroke="#999999" stroke-width="1"/>
+    <rect x="30" y="0" width="20" height="30" fill="#008309" stroke="#006307" stroke-width="1"/>
+    <rect x="55" y="10" width="30" height="20" fill="#033866" stroke="#023055" stroke-width="1"/>
+  </g>
+  
+  <!-- Gráfico de crecimiento (para simbolizar optimización) -->
+  <g transform="translate(600, 190)">
+    <!-- Marco del gráfico -->
+    <rect x="0" y="0" width="120" height="80" fill="#ffffff" rx="5" ry="5" stroke="#cccccc" stroke-width="1"/>
+    
+    <!-- Ejes -->
+    <line x1="10" y1="70" x2="110" y2="70" stroke="#999999" stroke-width="1"/>
+    <line x1="10" y1="10" x2="10" y2="70" stroke="#999999" stroke-width="1"/>
+    
+    <!-- Gráfico de barras ascendente -->
+    <rect x="20" y="50" width="15" height="20" fill="#033866"/>
+    <rect x="40" y="40" width="15" height="30" fill="#033866"/>
+    <rect x="60" y="30" width="15" height="40" fill="#033866"/>
+    <rect x="80" y="15" width="15" height="55" fill="#008309"/>
+  </g>
+</svg>

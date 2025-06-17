@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con gradiente suave -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f9fa" />
+      <stop offset="100%" stop-color="#e9ecef" />
+    </linearGradient>
+    <linearGradient id="road-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#333333" />
+      <stop offset="100%" stop-color="#555555" />
+    </linearGradient>
+    <linearGradient id="chart-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#575757" />
+      <stop offset="100%" stop-color="#008309" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="1200" height="800" fill="url(#bg-gradient)" rx="0" ry="0"/>
+  
+  <!-- Carretera base -->
+  <rect x="50" y="600" width="1100" height="100" fill="url(#road-gradient)" rx="2" ry="2"/>
+  <rect x="50" y="645" width="1100" height="10" fill="#ffffff" fill-opacity="0.3"/>
+  
+  <!-- Camiones de la flotilla -->
+  <!-- Camión 1 -->
+  <g transform="translate(150, 570) scale(1.2)">
+    <rect x="0" y="0" width="60" height="35" fill="#575757" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#575757"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Camión 2 -->
+  <g transform="translate(400, 585) scale(1)">
+    <rect x="0" y="0" width="60" height="35" fill="#575757" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#575757"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Camión 3 -->
+  <g transform="translate(700, 575) scale(1.3)">
+    <rect x="0" y="0" width="60" height="35" fill="#008309" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#008309"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Camión 4 -->
+  <g transform="translate(950, 590) scale(0.9)">
+    <rect x="0" y="0" width="60" height="35" fill="#575757" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#575757"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333" stroke="#777777" stroke-width="2"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Panel de control translúcido superpuesto -->
+  <rect x="150" y="100" width="900" height="400" rx="15" ry="15" fill="white" fill-opacity="0.85" stroke="#575757" stroke-width="2"/>
+  
+  <!-- Título del panel -->
+  <rect x="150" y="100" width="900" height="60" rx="15" ry="15" fill="#575757"/>
+  <text x="180" y="140" font-family="Arial" font-size="22" font-weight="bold" fill="white">Sistema de Control y Administración de Flotilla QNexus</text>
+  
+  <!-- Gráficos y elementos de control -->
+  
+  <!-- Panel de métricas -->
+  <g transform="translate(180, 190)">
+    <rect x="0" y="0" width="250" height="250" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="20" y="30" font-family="Arial" font-size="16" font-weight="bold" fill="#575757">Rendimiento de Flotilla</text>
+    
+    <!-- Barras de estadísticas -->
+    <rect x="30" y="50" width="180" height="25" rx="3" ry="3" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+    <rect x="30" y="50" width="140" height="25" rx="3" ry="3" fill="#033866"/>
+    <text x="40" y="68" font-family="Arial" font-size="14" fill="white">Eficiencia: 78%</text>
+    
+    <rect x="30" y="90" width="180" height="25" rx="3" ry="3" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+    <rect x="30" y="90" width="160" height="25" rx="3" ry="3" fill="#033866"/>
+    <text x="40" y="108" font-family="Arial" font-size="14" fill="white">Disponibilidad: 85%</text>
+    
+    <rect x="30" y="130" width="180" height="25" rx="3" ry="3" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+    <rect x="30" y="130" width="155" height="25" rx="3" ry="3" fill="#008309"/>
+    <text x="40" y="148" font-family="Arial" font-size="14" fill="white">En Tránsito: 82%</text>
+    
+    <rect x="30" y="170" width="180" height="25" rx="3" ry="3" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+    <rect x="30" y="170" width="170" height="25" rx="3" ry="3" fill="#008309"/>
+    <text x="40" y="188" font-family="Arial" font-size="14" fill="white">Cumplimiento: 94%</text>
+    
+    <!-- Leyenda -->
+    <rect x="30" y="210" width="15" height="15" fill="#033866"/>
+    <text x="50" y="223" font-family="Arial" font-size="12" fill="#404040">Indicadores primarios</text>
+    <rect x="30" y="230" width="15" height="15" fill="#008309"/>
+    <text x="50" y="243" font-family="Arial" font-size="12" fill="#404040">Indicadores secundarios</text>
+  </g>
+  
+  <!-- Gráfico de líneas -->
+  <g transform="translate(450, 190)">
+    <rect x="0" y="0" width="350" height="250" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="20" y="30" font-family="Arial" font-size="16" font-weight="bold" fill="#033866">Desempeño Mensual</text>
+    
+    <!-- Ejes -->
+    <line x1="40" y1="200" x2="320" y2="200" stroke="#e0e0e0" stroke-width="1"/>
+    <line x1="40" y1="50" x2="40" y2="200" stroke="#e0e0e0" stroke-width="1"/>
+    
+    <!-- Líneas de grid -->
+    <line x1="40" y1="125" x2="320" y2="125" stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="40" y1="150" x2="320" y2="150" stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="40" y1="175" x2="320" y2="175" stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="40" y1="100" x2="320" y2="100" stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>
+    <line x1="40" y1="75" x2="320" y2="75" stroke="#e0e0e0" stroke-width="1" stroke-dasharray="5,5"/>
+    
+    <!-- Gráfico de línea de rendimiento -->
+    <polyline points="40,180 75,150 110,160 145,120 180,130 215,100 250,90 285,70 320,80" fill="none" stroke="#033866" stroke-width="3" stroke-linejoin="round"/>
+    
+    <!-- Gráfico de línea de eficiencia -->
+    <polyline points="40,170 75,155 110,140 145,130 180,120 215,110 250,95 285,85 320,65" fill="none" stroke="#008309" stroke-width="3" stroke-linejoin="round"/>
+    
+    <!-- Puntos de datos -->
+    <circle cx="40" cy="180" r="4" fill="#033866"/>
+    <circle cx="75" cy="150" r="4" fill="#033866"/>
+    <circle cx="110" cy="160" r="4" fill="#033866"/>
+    <circle cx="145" cy="120" r="4" fill="#033866"/>
+    <circle cx="180" cy="130" r="4" fill="#033866"/>
+    <circle cx="215" cy="100" r="4" fill="#033866"/>
+    <circle cx="250" cy="90" r="4" fill="#033866"/>
+    <circle cx="285" cy="70" r="4" fill="#033866"/>
+    <circle cx="320" cy="80" r="4" fill="#033866"/>
+    
+    <circle cx="40" cy="170" r="4" fill="#008309"/>
+    <circle cx="75" cy="155" r="4" fill="#008309"/>
+    <circle cx="110" cy="140" r="4" fill="#008309"/>
+    <circle cx="145" cy="130" r="4" fill="#008309"/>
+    <circle cx="180" cy="120" r="4" fill="#008309"/>
+    <circle cx="215" cy="110" r="4" fill="#008309"/>
+    <circle cx="250" cy="95" r="4" fill="#008309"/>
+    <circle cx="285" cy="85" r="4" fill="#008309"/>
+    <circle cx="320" cy="65" r="4" fill="#008309"/>
+    
+    <!-- Leyenda -->
+    <rect x="40" y="220" width="15" height="3" fill="#033866"/>
+    <text x="60" y="223" font-family="Arial" font-size="12" fill="#404040">Rendimiento</text>
+    <rect x="150" y="220" width="15" height="3" fill="#008309"/>
+    <text x="170" y="223" font-family="Arial" font-size="12" fill="#404040">Eficiencia</text>
+  </g>
+  
+  <!-- Mapa de ruta con ubicaciones -->
+  <g transform="translate(820, 190)">
+    <rect x="0" y="0" width="200" height="250" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="20" y="30" font-family="Arial" font-size="16" font-weight="bold" fill="#033866">Rutas Activas</text>
+    
+    <!-- Mapa simplificado -->
+    <rect x="20" y="50" width="160" height="160" rx="5" ry="5" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+    
+    <!-- Ruta 1 -->
+    <path d="M40,150 C60,120 80,140 100,100 C120,60 150,90 160,70" fill="none" stroke="#033866" stroke-width="3" stroke-dasharray="0"/>
+    
+    <!-- Ruta 2 -->
+    <path d="M40,110 C70,140 100,90 130,130 C160,170 180,120 160,100" fill="none" stroke="#008309" stroke-width="3" stroke-dasharray="0"/>
+    
+    <!-- Ubicaciones -->
+    <circle cx="40" cy="150" r="6" fill="#033866" stroke="white" stroke-width="2"/>
+    <circle cx="160" cy="70" r="6" fill="#033866" stroke="white" stroke-width="2"/>
+    <circle cx="40" cy="110" r="6" fill="#008309" stroke="white" stroke-width="2"/>
+    <circle cx="160" cy="100" r="6" fill="#008309" stroke="white" stroke-width="2"/>
+    
+    <!-- Estado de vehículos -->
+    <rect x="20" y="220" width="12" height="12" rx="6" ry="6" fill="#033866"/>
+    <text x="40" y="230" font-family="Arial" font-size="12" fill="#404040">8 vehículos</text>
+    <rect x="100" y="220" width="12" height="12" rx="6" ry="6" fill="#008309"/>
+    <text x="120" y="230" font-family="Arial" font-size="12" fill="#404040">12 vehículos</text>
+  </g>
+  
+  <!-- Estadísticas numéricas en el fondo -->
+  <g transform="translate(180, 460)">
+    <rect x="0" y="0" width="150" height="80" rx="10" ry="10" fill="#033866"/>
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">Total Flotilla</text>
+    <text x="20" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="white">48</text>
+    <text x="70" y="60" font-family="Arial" font-size="14" fill="white">vehículos</text>
+  </g>
+  
+  <g transform="translate(350, 460)">
+    <rect x="0" y="0" width="150" height="80" rx="10" ry="10" fill="#033866"/>
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">Entregas Hoy</text>
+    <text x="20" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="white">186</text>
+  </g>
+  
+  <g transform="translate(520, 460)">
+    <rect x="0" y="0" width="150" height="80" rx="10" ry="10" fill="#008309"/>
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">Eficiencia</text>
+    <text x="20" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="white">92%</text>
+  </g>
+  
+  <g transform="translate(690, 460)">
+    <rect x="0" y="0" width="150" height="80" rx="10" ry="10" fill="#008309"/>
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">Combustible</text>
+    <text x="20" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="white">-12%</text>
+  </g>
+  
+  <g transform="translate(860, 460)">
+    <rect x="0" y="0" width="150" height="80" rx="10" ry="10" fill="#033866"/>
+    <text x="20" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="white">En Tiempo</text>
+    <text x="20" y="60" font-family="Arial" font-size="28" font-weight="bold" fill="white">95%</text>
+  </g>
+</svg>

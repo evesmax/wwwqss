@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con gradiente suave -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f9fa" />
+      <stop offset="100%" stop-color="#e9ecef" />
+    </linearGradient>
+    <linearGradient id="control-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#033866" />
+      <stop offset="100%" stop-color="#012545" />
+    </linearGradient>
+    <linearGradient id="chart-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#033866" />
+      <stop offset="100%" stop-color="#008309" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="1200" height="800" fill="url(#bg-gradient)" rx="0" ry="0"/>
+  
+  <!-- Estructura principal de edificio/centro logístico -->
+  <g transform="translate(150, 150)">
+    <!-- Edificio principal -->
+    <rect x="0" y="0" width="400" height="250" fill="#f0f0f0" stroke="#e0e0e0" stroke-width="2"/>
+    
+    <!-- Techo -->
+    <polygon points="0,0 200,-50 400,0" fill="#033866"/>
+    
+    <!-- Ventanas -->
+    <rect x="40" y="50" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="120" y="50" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="200" y="50" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="280" y="50" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    
+    <rect x="40" y="110" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="120" y="110" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="200" y="110" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    <rect x="280" y="110" width="60" height="40" fill="#a0d8ef" stroke="#ffffff" stroke-width="2"/>
+    
+    <!-- Puerta principal -->
+    <rect x="160" y="170" width="80" height="80" fill="#033866"/>
+    
+    <!-- Logo -->
+    <rect x="170" y="180" width="60" height="30" rx="5" ry="5" fill="#f8f9fa"/>
+    <text x="180" y="200" font-family="Arial" font-size="16" font-weight="bold" fill="#033866">QNexus</text>
+  </g>
+  
+  <!-- Panel de control central (Sistema de Control) -->
+  <g transform="translate(650, 100)">
+    <rect x="0" y="0" width="400" height="300" rx="15" ry="15" fill="white" stroke="#033866" stroke-width="2" filter="drop-shadow(0px 10px 20px rgba(0,0,0,0.1))"/>
+    
+    <!-- Título -->
+    <rect x="0" y="0" width="400" height="50" rx="15" ry="15" fill="url(#control-gradient)"/>
+    <text x="20" y="30" font-family="Arial" font-size="18" font-weight="bold" fill="white">Sistema de Control Central</text>
+    
+    <!-- Áreas de control -->
+    <rect x="20" y="70" width="170" height="100" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="40" y="95" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Flotas</text>
+    <!-- Indicadores -->
+    <rect x="40" y="110" width="130" height="10" rx="5" ry="5" fill="#f0f0f0"/>
+    <rect x="40" y="110" width="100" height="10" rx="5" ry="5" fill="#033866"/>
+    <text x="40" y="135" font-family="Arial" font-size="12" fill="#404040">48 vehículos activos</text>
+    <text x="40" y="155" font-family="Arial" font-size="12" fill="#008309">98% disponibilidad</text>
+    
+    <rect x="210" y="70" width="170" height="100" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="230" y="95" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Rutas</text>
+    <!-- Indicadores -->
+    <rect x="230" y="110" width="130" height="10" rx="5" ry="5" fill="#f0f0f0"/>
+    <rect x="230" y="110" width="115" height="10" rx="5" ry="5" fill="#033866"/>
+    <text x="230" y="135" font-family="Arial" font-size="12" fill="#404040">24 rutas optimizadas</text>
+    <text x="230" y="155" font-family="Arial" font-size="12" fill="#008309">-18% tiempo</text>
+    
+    <rect x="20" y="190" width="170" height="100" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="40" y="215" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Mantenimiento</text>
+    <!-- Indicadores -->
+    <rect x="40" y="230" width="130" height="10" rx="5" ry="5" fill="#f0f0f0"/>
+    <rect x="40" y="230" width="120" height="10" rx="5" ry="5" fill="#008309"/>
+    <text x="40" y="255" font-family="Arial" font-size="12" fill="#404040">Preventivo: 95%</text>
+    <text x="40" y="275" font-family="Arial" font-size="12" fill="#008309">-32% incidencias</text>
+    
+    <rect x="210" y="190" width="170" height="100" rx="10" ry="10" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="230" y="215" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Combustible</text>
+    <!-- Indicadores -->
+    <rect x="230" y="230" width="130" height="10" rx="5" ry="5" fill="#f0f0f0"/>
+    <rect x="230" y="230" width="95" height="10" rx="5" ry="5" fill="#008309"/>
+    <text x="230" y="255" font-family="Arial" font-size="12" fill="#404040">Consumo: -15%</text>
+    <text x="230" y="275" font-family="Arial" font-size="12" fill="#008309">+22% eficiencia</text>
+  </g>
+  
+  <!-- Zona inferior con camiones y tabletas de control -->
+  
+  <!-- Camión 1 -->
+  <g transform="translate(150, 450) scale(1.2)">
+    <rect x="0" y="0" width="80" height="45" fill="#033866" rx="10" ry="10"/>
+    <rect x="80" y="15" width="120" height="30" fill="#033866"/>
+    <rect x="5" y="15" width="35" height="20" fill="#a0d8ef" rx="2" ry="2"/>
+    <rect x="25" y="45" width="20" height="20" rx="10" ry="10" fill="#333333"/>
+    <rect x="65" y="45" width="20" height="20" rx="10" ry="10" fill="#333333"/>
+    <rect x="105" y="45" width="20" height="20" rx="10" ry="10" fill="#333333"/>
+    <rect x="160" y="45" width="20" height="20" rx="10" ry="10" fill="#333333"/>
+    <text x="110" y="35" font-family="Arial" font-size="14" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Tableta de control para soluciones personalizadas -->
+  <g transform="translate(450, 430)">
+    <rect x="0" y="0" width="170" height="250" rx="15" ry="15" fill="#f1f3f5" stroke="#033866" stroke-width="3"/>
+    <rect x="10" y="10" width="150" height="200" rx="5" ry="5" fill="#ffffff"/>
+    
+    <!-- Título -->
+    <text x="20" y="40" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Soluciones Personalizadas</text>
+    
+    <!-- Contenido de la tableta -->
+    <rect x="20" y="60" width="130" height="20" rx="3" ry="3" fill="#f0f0f0"/>
+    <rect x="20" y="90" width="130" height="20" rx="3" ry="3" fill="#f0f0f0"/>
+    <rect x="20" y="120" width="130" height="20" rx="3" ry="3" fill="#f0f0f0"/>
+    
+    <!-- Gráfica personalizada -->
+    <rect x="20" y="150" width="130" height="50" rx="3" ry="3" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+    <polyline points="30,190 45,170 60,175 75,160 90,165 105,150 120,155" fill="none" stroke="url(#chart-gradient)" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Botones de control -->
+    <rect x="20" y="220" width="60" height="25" rx="12.5" ry="12.5" fill="#033866"/>
+    <text x="35" y="237" font-family="Arial" font-size="12" font-weight="bold" fill="white">Aplicar</text>
+    <rect x="90" y="220" width="60" height="25" rx="12.5" ry="12.5" fill="#f0f0f0" stroke="#033866" stroke-width="1"/>
+    <text x="105" y="237" font-family="Arial" font-size="12" fill="#033866">Editar</text>
+    
+    <rect x="10" y="220" width="150" height="30" rx="0" ry="0" fill="#f1f3f5"/>
+    <rect x="55" y="225" width="60" height="20" rx="10" ry="10" fill="#033866"/>
+    <circle cx="85" cy="235" r="8" fill="#f1f3f5"/>
+  </g>
+  
+  <!-- Implementación rápida (reloj/calendario con progreso) -->
+  <g transform="translate(650, 430)">
+    <rect x="0" y="0" width="200" height="200" rx="15" ry="15" fill="#f1f3f5" stroke="#033866" stroke-width="2"/>
+    
+    <!-- Título -->
+    <text x="25" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Implementación Rápida</text>
+    
+    <!-- Círculo del reloj -->
+    <circle cx="100" cy="110" r="70" fill="#ffffff" stroke="#e0e0e0" stroke-width="2"/>
+    
+    <!-- Marcas de tiempo -->
+    <line x1="100" y1="50" x2="100" y2="60" stroke="#033866" stroke-width="2"/>
+    <line x1="160" y1="110" x2="150" y2="110" stroke="#033866" stroke-width="2"/>
+    <line x1="100" y1="170" x2="100" y2="160" stroke="#033866" stroke-width="2"/>
+    <line x1="40" y1="110" x2="50" y2="110" stroke="#033866" stroke-width="2"/>
+    
+    <!-- Marcas de progreso -->
+    <path d="M100,110 L100,60" stroke="#033866" stroke-width="3" stroke-linecap="round"/>
+    <path d="M100,110 L150,110" stroke="#008309" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Punto central -->
+    <circle cx="100" cy="110" r="8" fill="#033866"/>
+    
+    <!-- Indicador de progreso -->
+    <path d="M100,40 A70,70 0 0,1 160,110" fill="none" stroke="#008309" stroke-width="8" stroke-linecap="round"/>
+    
+    <!-- Texto -->
+    <text x="70" y="190" font-family="Arial" font-size="12" font-weight="bold" fill="#008309">75% más rápido</text>
+  </g>
+  
+  <!-- Soporte técnico 24/7 -->
+  <g transform="translate(900, 430)">
+    <rect x="0" y="0" width="200" height="200" rx="15" ry="15" fill="#f1f3f5" stroke="#033866" stroke-width="2"/>
+    
+    <!-- Título -->
+    <text x="35" y="30" font-family="Arial" font-size="14" font-weight="bold" fill="#033866">Soporte Técnico 24/7</text>
+    
+    <!-- Círculo exterior (24 horas) -->
+    <circle cx="100" cy="110" r="70" fill="none" stroke="#e0e0e0" stroke-width="8"/>
+    
+    <!-- Arcos de disponibilidad -->
+    <path d="M100,40 A70,70 0 1,1 99.9,40" fill="none" stroke="#033866" stroke-width="8"/>
+    
+    <!-- Indicador de disponibilidad -->
+    <text x="75" y="115" font-family="Arial" font-size="24" font-weight="bold" fill="#033866">24/7</text>
+    
+    <!-- Iconos de soporte -->
+    <circle cx="60" cy="160" r="15" fill="#008309"/>
+    <text x="55" y="165" font-family="Arial" font-size="14" font-weight="bold" fill="white">✓</text>
+    
+    <circle cx="100" cy="160" r="15" fill="#008309"/>
+    <text x="95" y="165" font-family="Arial" font-size="14" font-weight="bold" fill="white">✓</text>
+    
+    <circle cx="140" cy="160" r="15" fill="#008309"/>
+    <text x="135" y="165" font-family="Arial" font-size="14" font-weight="bold" fill="white">✓</text>
+    
+    <!-- Etiquetas de soporte -->
+    <text x="40" y="190" font-family="Arial" font-size="10" fill="#404040">Chat</text>
+    <text x="85" y="190" font-family="Arial" font-size="10" fill="#404040">Teléfono</text>
+    <text x="125" y="190" font-family="Arial" font-size="10" fill="#404040">Email</text>
+  </g>
+  
+  <!-- Camión 2 -->
+  <g transform="translate(450, 710) scale(1)">
+    <rect x="0" y="0" width="60" height="35" fill="#008309" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#008309"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Camión 3 -->
+  <g transform="translate(700, 710) scale(1)">
+    <rect x="0" y="0" width="60" height="35" fill="#033866" rx="8" ry="8"/>
+    <rect x="60" y="10" width="90" height="25" fill="#033866"/>
+    <rect x="5" y="15" width="20" height="10" fill="#a0d8ef" rx="2" ry="2"/>
+    <rect x="15" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="45" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="75" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <rect x="120" y="35" width="15" height="15" rx="7.5" ry="7.5" fill="#333333"/>
+    <text x="95" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="white">QNexus</text>
+  </g>
+  
+  <!-- Carretera base -->
+  <rect x="50" y="750" width="1100" height="30" fill="#333333" rx="2" ry="2"/>
+  <rect x="50" y="763" width="1100" height="4" fill="#ffffff" fill-opacity="0.3"/>
+</svg>

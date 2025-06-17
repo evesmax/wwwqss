@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con gradiente moderno -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f9fa" />
+      <stop offset="100%" stop-color="#e9ecef" />
+    </linearGradient>
+    <linearGradient id="panel-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#033866" />
+      <stop offset="100%" stop-color="#012545" />
+    </linearGradient>
+    <linearGradient id="route-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#033866" />
+      <stop offset="100%" stop-color="#008309" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="800" height="600" fill="url(#bg-gradient)" rx="0" ry="0"/>
+  
+  <!-- Panel de control principal -->
+  <rect x="100" y="100" width="600" height="400" rx="15" ry="15" fill="white" stroke="#e0e0e0" stroke-width="1" filter="drop-shadow(0px 10px 20px rgba(0,0,0,0.1))"/>
+  
+  <!-- Barra superior del panel (header) -->
+  <rect x="100" y="100" width="600" height="60" rx="15" ry="15" fill="url(#panel-gradient)"/>
+  <rect x="100" y="140" width="600" height="20" rx="0" ry="0" fill="url(#panel-gradient)"/>
+  
+  <!-- Título del panel -->
+  <text x="130" y="140" font-family="Arial" font-size="18" font-weight="bold" fill="white">QNexus Control • Sistema de Administración de Logística</text>
+  
+  <!-- Mapa de ruta logística con nodos -->
+  <rect x="130" y="180" width="540" height="240" rx="8" ry="8" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+  
+  <!-- Ruta de transporte con gradiente de la marca -->
+  <path d="M180,300 C250,250 350,350 420,280 C490,210 520,320 620,290" fill="none" stroke="url(#route-gradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0"/>
+  
+  <!-- Nodos de la ruta (ciudades/puntos) -->
+  <circle cx="180" cy="300" r="12" fill="#033866" stroke="white" stroke-width="3"/>
+  <circle cx="420" cy="280" r="12" fill="#033866" stroke="white" stroke-width="3"/>
+  <circle cx="620" cy="290" r="12" fill="#008309" stroke="white" stroke-width="3"/>
+  
+  <!-- Iconos de transporte en la ruta -->
+  <!-- Camión 1 -->
+  <g transform="translate(300, 290) scale(0.4)">
+    <rect x="0" y="0" width="70" height="40" rx="10" ry="10" fill="#033866"/>
+    <rect x="70" y="10" width="100" height="30" rx="2" ry="2" fill="#033866"/>
+    <rect x="5" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="50" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="85" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="140" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+  </g>
+  
+  <!-- Camión 2 -->
+  <g transform="translate(520, 260) scale(0.4)">
+    <rect x="0" y="0" width="70" height="40" rx="10" ry="10" fill="#008309"/>
+    <rect x="70" y="10" width="100" height="30" rx="2" ry="2" fill="#008309"/>
+    <rect x="5" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="50" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="85" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+    <rect x="140" y="25" width="15" height="15" rx="7.5" ry="7.5" fill="#333"/>
+  </g>
+  
+  <!-- Elementos de la interfaz de control -->
+  <!-- Panel lateral -->
+  <rect x="130" y="440" width="200" height="40" rx="5" ry="5" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="150" y="465" font-family="Arial" font-size="12" fill="#404040">Estado: Optimización en proceso</text>
+  <circle cx="310" cy="460" r="8" fill="#008309"/>
+  
+  <!-- Panel de métricas -->
+  <rect x="350" y="440" width="320" height="40" rx="5" ry="5" fill="#f1f3f5" stroke="#e0e0e0" stroke-width="1"/>
+  
+  <!-- Barras de métricas -->
+  <rect x="370" y="450" width="80" height="10" rx="5" ry="5" fill="#033866" opacity="0.7"/>
+  <rect x="370" y="450" width="60" height="10" rx="5" ry="5" fill="#033866"/>
+  
+  <rect x="470" y="450" width="80" height="10" rx="5" ry="5" fill="#033866" opacity="0.7"/>
+  <rect x="470" y="450" width="70" height="10" rx="5" ry="5" fill="#033866"/>
+  
+  <rect x="570" y="450" width="80" height="10" rx="5" ry="5" fill="#008309" opacity="0.7"/>
+  <rect x="570" y="450" width="50" height="10" rx="5" ry="5" fill="#008309"/>
+  
+  <!-- Iconos de control flotantes -->
+  <!-- Filtros -->
+  <rect x="130" y="180" width="30" height="30" rx="5" ry="5" fill="#033866" opacity="0.9"/>
+  <rect x="170" y="180" width="30" height="30" rx="5" ry="5" fill="#033866" opacity="0.7"/>
+  <rect x="210" y="180" width="30" height="30" rx="5" ry="5" fill="#033866" opacity="0.5"/>
+  
+  <!-- Controles de gestión -->
+  <rect x="640" y="180" width="30" height="30" rx="5" ry="5" fill="#008309"/>
+  <circle cx="655" cy="195" r="9" fill="white" opacity="0.8"/>
+  <rect x="640" y="220" width="30" height="30" rx="5" ry="5" fill="#008309" opacity="0.8"/>
+  <rect x="640" y="260" width="30" height="30" rx="5" ry="5" fill="#008309" opacity="0.6"/>
+  
+  <!-- Popup de detalles -->
+  <g transform="translate(400, 200)">
+    <rect x="0" y="0" width="150" height="80" rx="5" ry="5" fill="white" stroke="#e0e0e0" stroke-width="1" filter="drop-shadow(0px 5px 10px rgba(0,0,0,0.1))"/>
+    <text x="10" y="20" font-family="Arial" font-size="10" font-weight="bold" fill="#033866">Centro de Distribución</text>
+    <line x1="10" y1="30" x2="140" y2="30" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="10" y="45" font-family="Arial" font-size="9" fill="#404040">Estado: Activo</text>
+    <text x="10" y="60" font-family="Arial" font-size="9" fill="#404040">Vehículos: 8/10</text>
+    <text x="10" y="75" font-family="Arial" font-size="9" fill="#404040">Eficiencia: 92%</text>
+    <rect x="110" y="40" width="30" height="30" rx="15" ry="15" fill="#008309" opacity="0.2"/>
+    <text x="116" y="61" font-family="Arial" font-size="16" font-weight="bold" fill="#008309">+</text>
+  </g>
+  
+  <!-- Visualización 3D de localizaciones (simplificado) -->
+  <g transform="translate(150, 220)">
+    <!-- Edificio 1 -->
+    <rect x="10" y="30" width="30" height="60" fill="#033866" opacity="0.8"/>
+    <polygon points="10,30 25,10 40,30" fill="#033866"/>
+    <!-- Edificio 2 -->
+    <rect x="50" y="40" width="20" height="50" fill="#033866" opacity="0.6"/>
+    <polygon points="50,40 60,25 70,40" fill="#033866" opacity="0.6"/>
+    <!-- Edificio 3 (Centro de distribución principal) -->
+    <rect x="80" y="20" width="40" height="70" fill="#008309" opacity="0.8"/>
+    <polygon points="80,20 100,0 120,20" fill="#008309"/>
+  </g>
+  
+  <!-- Elementos de datos en tiempo real -->
+  <g transform="translate(500, 220)">
+    <!-- Gráfico de rendimiento -->
+    <polyline points="0,50 20,30 40,35 60,20 80,25 100,15" fill="none" stroke="#033866" stroke-width="2"/>
+    <circle cx="0" cy="50" r="3" fill="#033866"/>
+    <circle cx="20" cy="30" r="3" fill="#033866"/>
+    <circle cx="40" cy="35" r="3" fill="#033866"/>
+    <circle cx="60" cy="20" r="3" fill="#033866"/>
+    <circle cx="80" cy="25" r="3" fill="#033866"/>
+    <circle cx="100" cy="15" r="3" fill="#008309"/>
+  </g>
+  
+  <!-- Logo QNexus Control (simplificado) -->
+  <g transform="translate(140, 120)">
+    <rect x="0" y="0" width="24" height="24" rx="12" ry="12" fill="#008309"/>
+    <text x="7" y="17" font-family="Arial" font-size="16" font-weight="bold" fill="white">Q</text>
+  </g>
+</svg>

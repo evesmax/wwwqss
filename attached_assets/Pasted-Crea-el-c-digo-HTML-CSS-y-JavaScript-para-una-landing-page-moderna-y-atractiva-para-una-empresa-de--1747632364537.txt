@@ -1,0 +1,42 @@
+Crea el código HTML, CSS y JavaScript para una landing page moderna y atractiva para una empresa de software y consultoría de tecnología llamada [Nombre de tu Empresa].
+
+La página debe tener las siguientes secciones principales:
+
+1.  **Hero Section:**
+    * Un titular impactante que comunique claramente la propuesta de valor de la empresa.
+    * Un subtítulo conciso que amplíe el titular.
+    * Una imagen o video de alta calidad y relevante para la empresa o sus soluciones.
+    * Un botón de llamada a la acción (CTA) principal (ej. "Contáctanos", "Solicita una Demo").
+
+2.  **Sección de Productos/Servicios:**
+    * Presentar los siguientes productos/servicios: [Lista de tus Productos/Servicios con sus nombres].
+    * Para cada producto/servicio, incluir un breve título descriptivo y una explicación concisa de sus beneficios y características principales.
+    * Considera usar iconos atractivos y un diseño limpio y fácil de leer para esta sección.
+
+3.  **Sección de Beneficios/Por Qué Elegirnos:**
+    * Resaltar los principales beneficios de trabajar con tu empresa y qué te diferencia de la competencia.
+    * Utiliza viñetas o bloques de texto cortos y visualmente atractivos.
+
+4.  **Sección de Testimonios (Opcional):**
+    * Incluir citas de clientes satisfechos para generar confianza.
+
+5.  **Formulario de Contacto/CTA Secundaria:**
+    * Un formulario sencillo para que los visitantes puedan contactarte o solicitar más información.
+    * Un botón de llamada a la acción secundaria (ej. "Descarga un Brochure", "Ver Casos de Éxito").
+
+6.  **Footer:**
+    * Información de contacto (dirección, teléfono, email).
+    * Enlaces a políticas de privacidad y términos de servicio (si aplica).
+    * Iconos de redes sociales.
+    * Copyright.
+
+**Consideraciones de Diseño (inspiradas en páginas web de tecnología premiadas):**
+
+* **Estilo:** Moderno, minimalista y profesional.
+* **Paleta de Colores:** Utiliza una paleta de colores coherente con la identidad de marca de [Nombre de tu Empresa]. Sugiere una combinación de un color primario, un color secundario y tonos neutros (blanco, gris claro).
+* **Tipografía:** Elige dos fuentes legibles y atractivas: una para los títulos y otra para el cuerpo del texto. Asegúrate de una buena jerarquía tipográfica.
+* **Espacio en Blanco:** Utiliza generosamente el espacio en blanco para crear una sensación de limpieza y enfocar la atención.
+* **Imágenes/Videos:** Utiliza imágenes y videos de alta calidad que sean relevantes para tu empresa y sus soluciones. Considera ilustraciones o gráficos abstractos para representar conceptos tecnológicos.
+* **Microinteracciones:** Incorpora sutiles animaciones o efectos hover para mejorar la interacción y proporcionar retroalimentación visual (ej. al pasar el ratón sobre botones o elementos).
+* **Diseño Adaptable:** Asegúrate de que el diseño sea completamente responsive y se vea bien en dispositivos de escritorio, tablets y móviles. Utiliza media queries en CSS para lograr esto.
+* **Navegación:** El menú de navegación debe ser claro y fácil de usar, permitiendo a los usuarios moverse fácilmente entre las secciones (posiblemente utilizando enlaces de anclaje).
