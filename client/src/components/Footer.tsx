@@ -64,7 +64,7 @@ export default function Footer() {
 
               <li className="flex items-start">
                 <Mail className="h-5 w-5 mt-1 mr-3 text-primary-400" />
-                <span className="text-gray-400">contacto@qsoftwaresolutions.net</span>
+                <span className="text-gray-400">contacto@qsoftwaresolutions.com</span>
               </li>
               <li className="flex items-start">
                 <svg className="h-5 w-5 mt-1 mr-3 text-primary-400" fill="currentColor" viewBox="0 0 24 24">
