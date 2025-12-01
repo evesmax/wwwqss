@@ -141,14 +141,18 @@ export default function ContactSection() {
                   <Twitter className="h-5 w-5" />
                 </a>
                 <a 
-                  href="#" 
+                  href="https://www.facebook.com/share/1D7H1nme2k/?mibextid=wwXIfr" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-primary hover:text-white transition-colors"
                   aria-label="Facebook"
                 >
                   <Facebook className="h-5 w-5" />
                 </a>
                 <a 
-                  href="#" 
+                  href="https://www.instagram.com/qsoftware_solutions?igsh=MW1lMzZxcHZpaWxicg==" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-primary hover:text-white transition-colors"
                   aria-label="Instagram"
                 >

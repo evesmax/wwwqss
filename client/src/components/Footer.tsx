@@ -23,10 +23,10 @@ export default function Footer() {
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
                 <i className="fab fa-twitter"></i>
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <a href="https://www.facebook.com/share/1D7H1nme2k/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <i className="fab fa-facebook-f"></i>
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <a href="https://www.instagram.com/qsoftware_solutions?igsh=MW1lMzZxcHZpaWxicg==" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <i className="fab fa-instagram"></i>
               </a>
             </div>
