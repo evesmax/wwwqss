@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QSS — Estrategia Comercial 2025</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1B2A4A;
+    --paper: #f0f7fc;
+    --gold: #00AEEF;
+    --gold-light: #33C4F5;
+    --red: #0074C2;
+    --blue: #1B2A4A;
+    --blue-mid: #1e4080;
+    --green: #007BB5;
+    --green-light: #00AEEF;
+    --muted: #5a7090;
+    --border: rgba(27,42,74,0.12);
+    --card-bg: rgba(255,255,255,0.75);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 20%, rgba(0,174,239,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(27,42,74,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 48px;
+    background: rgba(245,240,232,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: var(--ink);
+  }
+
+  .nav-logo span { color: #00AEEF; }
+
+  .nav-sub {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-left: 2px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--ink); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 120px 48px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg-number {
+    position: absolute;
+    right: -40px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 480px;
+    color: rgba(0,174,239,0.06);
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .hero-content {
+    max-width: 900px;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #00AEEF;
+    margin-bottom: 24px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: #00AEEF;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(72px, 10vw, 140px);
+    line-height: 0.9;
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+  }
+
+  .hero-title .accent { color: #00AEEF; }
+  .hero-title .red { color: #0074C2; }
+
+  .hero-desc {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  .hero-metrics {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+
+  .hero-metric {
+    border-left: 2px solid #00AEEF;
+    padding-left: 16px;
+  }
+
+  .hero-metric-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .hero-metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* SECTIONS */
+  section {
+    padding: 100px 48px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 64px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #00AEEF;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 5vw, 72px);
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+
+  .section-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+    max-width: 360px;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  /* TIER CARDS */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .tier-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+    backdrop-filter: blur(8px);
+  }
+
+  .tier-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.08);
+  }
+
+  .tier-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .tier-card.enterprise::before { background: linear-gradient(90deg, #1B2A4A, #1e4080); }
+  .tier-card.transac::before { background: linear-gradient(90deg, #007BB5, #00AEEF); }
+
+  .tier-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }
+
+  .enterprise .tier-badge { background: rgba(26,58,92,0.1); color: var(--blue); }
+  .transac .tier-badge { background: rgba(30,102,69,0.1); color: var(--green); }
+
+  .tier-card-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .tier-card-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .product-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .product-name {
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .product-price {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: #00AEEF;
+    font-weight: 500;
+  }
+
+  /* FUNNEL */
+  .funnel-container {
+    display: flex;
+    gap: 48px;
+    align-items: flex-start;
+  }
+
+  .funnel-visual {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .funnel-step {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    animation: fadeInLeft 0.5s ease both;
+  }
+
+  .funnel-step:nth-child(1) { animation-delay: 0.1s; }
+  .funnel-step:nth-child(2) { animation-delay: 0.2s; }
+  .funnel-step:nth-child(3) { animation-delay: 0.3s; }
+  .funnel-step:nth-child(4) { animation-delay: 0.4s; }
+  .funnel-step:nth-child(5) { animation-delay: 0.5s; }
+  .funnel-step:nth-child(6) { animation-delay: 0.6s; }
+
+  @keyframes fadeInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .funnel-bar-wrap {
+    flex: 1;
+    height: 52px;
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+    transition: filter 0.2s;
+  }
+
+  .funnel-step:hover .funnel-bar-wrap { filter: brightness(1.05); }
+
+  .funnel-bar {
+    height: 100%;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .funnel-bar-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .funnel-bar-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: white;
+    min-width: 48px;
+    text-align: right;
+    margin-left: auto;
+  }
+
+  .funnel-conversion {
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .funnel-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .funnel-pct-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    color: var(--ink);
+  }
+
+  /* CHARTS */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+  }
+
+  .chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-card.wide {
+    grid-column: 1 / -1;
+  }
+
+  .chart-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 260px;
+  }
+
+  .chart-wrap.tall { height: 320px; }
+
+  /* PROFILES */
+  .profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .profile-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 36px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+    backdrop-filter: blur(8px);
+  }
+
+  .profile-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.1);
+  }
+
+  .profile-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 24px;
+  }
+
+  .profile-role {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .profile-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 30px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+
+  .profile-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+
+  .profile-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .profile-stat {
+    padding: 12px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+
+  .profile-stat-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .profile-stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .skills-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .skill-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .skill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* COMPENSATION TABLE */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .comp-table th {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.02);
+  }
+
+  .comp-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+
+  .comp-table tr:last-child td { border-bottom: none; }
+
+  .comp-table tr:hover td { background: rgba(200,168,75,0.04); }
+
+  .comp-role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .badge-bdr { background: rgba(27,42,74,0.1); color: #1B2A4A; }
+  .badge-ae { background: rgba(0,123,181,0.1); color: #007BB5; }
+  .badge-presales { background: rgba(0,174,239,0.1); color: #00AEEF; }
+
+  .mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .gold { color: var(--gold); }
+  .bold { font-weight: 600; }
+
+  /* FORECAST */
+  .forecast-timeline {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  .month-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    transition: transform 0.3s;
+  }
+
+  .month-card:hover { transform: translateY(-4px); }
+
+  .month-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .month-card:nth-child(1)::after { background: #5a7090; }
+  .month-card:nth-child(2)::after { background: #00AEEF; }
+  .month-card:nth-child(3)::after { background: #007BB5; }
+
+  .month-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .month-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+    line-height: 1;
+  }
+
+  .month-revenue {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .month-mrr {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--green-light);
+    margin-bottom: 24px;
+  }
+
+  .month-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .month-item {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+
+  .month-item::before {
+    content: '→';
+    color: #00AEEF;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+
+  /* KPI TABLE */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .kpi-group {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px;
+    backdrop-filter: blur(8px);
+  }
+
+  .kpi-group-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .kpi-group-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .kpi-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .kpi-item:last-child { border-bottom: none; }
+
+  .kpi-name { font-size: 13px; color: var(--ink); }
+  .kpi-target {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* PLAYBOOK */
+  .rules-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .rule-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+    display: flex;
+    gap: 20px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.2s;
+  }
+
+  .rule-card:hover { transform: translateX(4px); }
+
+  .rule-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: rgba(0,174,239,0.2);
+    line-height: 1;
+    flex-shrink: 0;
+    width: 48px;
+    text-align: center;
+  }
+
+  .rule-content {}
+
+  .rule-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+
+  .rule-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* FOOTER */
+  footer {
+    background: #1B2A4A;
+    color: #f0f7fc;
+    padding: 64px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 40px;
+    letter-spacing: 6px;
+  }
+
+  .footer-logo span { color: #00AEEF; }
+
+  .footer-text {
+    font-size: 12px;
+    color: rgba(245,240,232,0.4);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* SCROLL-IN ANIMATION */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* DIVIDER */
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .nav-links { display: none; }
+    section { padding: 60px 24px; }
+    .hero { padding: 100px 24px 60px; }
+    .tier-grid, .charts-grid, .profiles-grid, .forecast-timeline,
+    .kpi-grid, .rules-grid { grid-template-columns: 1fr; }
+    .section-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .section-subtitle { text-align: left; }
+  }
+
+  /* Process Flow */
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .flow-node {
+    flex: 1;
+    text-align: center;
+    padding: 20px 16px;
+    border-radius: 4px;
+    position: relative;
+    cursor: default;
+    transition: transform 0.2s;
+  }
+
+  .flow-node:hover { transform: scale(1.03); }
+
+  .flow-arrow {
+    font-size: 20px;
+    color: #00AEEF;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  .flow-node-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .flow-node-title {
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .flow-node-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .flow-node.bdr-node { background: rgba(26,58,92,0.08); border: 1px solid rgba(26,58,92,0.2); }
+  .flow-node.ae-node { background: rgba(194,59,42,0.08); border: 1px solid rgba(194,59,42,0.2); }
+  .flow-node.ps-node { background: rgba(30,102,69,0.08); border: 1px solid rgba(30,102,69,0.2); }
+  .flow-node.close-node { background: rgba(200,168,75,0.12); border: 1px solid rgba(200,168,75,0.3); }
+
+  .flow-label-row {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    padding: 0 0;
+  }
+
+  .flow-owner-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 12px;
+  }
+
+  .fb-bdr { background: rgba(26,58,92,0.1); color: var(--blue); }
+  .fb-ae { background: rgba(194,59,42,0.1); color: var(--red); }
+  .fb-ps { background: rgba(30,102,69,0.1); color: var(--green); }
+  .fb-all { background: rgba(200,168,75,0.15); color: #8a6b20; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo"><span style="color:#00AEEF;">Q</span> <span style="font-size:13px; font-family:'DM Sans',sans-serif; font-weight:600; letter-spacing:1px; color:#1B2A4A;">Software Solutions</span></div>
+  <ul class="nav-links">
+    <li><a href="#productos">Productos</a></li>
+    <li><a href="#proceso">Proceso</a></li>
+    <li><a href="#perfiles">Equipo</a></li>
+    <li><a href="#compensacion">Compensación</a></li>
+    <li><a href="#forecast">Forecast</a></li>
+    <li><a href="#kpis">KPIs</a></li>
+    <li><a href="#playbook">Playbook</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="inicio">
+  <div class="hero-bg-number">2025</div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">Estrategia Comercial</div>
+    <h1 class="hero-title">
+      MODELO<br>
+      <span class="accent">COMERCIAL</span><br>
+      <span class="red">COMPLETO</span>
+    </h1>
+    <p class="hero-desc">
+      Arquitectura de ventas B2B para productos SaaS de alto valor. Estructura de equipo, procesos, forecast y comisiones para escalar de $0 a $250K MXN en 90 días.
+    </p>
+    <div class="hero-metrics">
+      <div class="hero-metric">
+        <div class="hero-metric-value">5</div>
+        <div class="hero-metric-label">Productos</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-metric-value">2</div>
+        <div class="hero-metric-label">Flujos de Venta</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-metric-value">$250K</div>
+        <div class="hero-metric-label">Meta Trimestral</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-metric-value">90</div>
+        <div class="hero-metric-label">Días de Arranque</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRODUCTOS -->
+<section id="productos">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">01 / Portafolio</div>
+      <h2 class="section-title">ANÁLISIS<br>DE PRODUCTOS</h2>
+    </div>
+    <p class="section-subtitle">Dos tiers distintos requieren dos estrategias de ventas completamente diferentes.</p>
+  </div>
+
+  <div class="tier-grid fade-in">
+    <div class="tier-card enterprise">
+      <span class="tier-badge">Tier 1 — Enterprise / High Ticket</span>
+      <h3 class="tier-card-title">Venta Consultiva</h3>
+      <p class="tier-card-desc">Ciclo largo. Involucra múltiples tomadores de decisión. Requiere demo personalizada, presales y propuesta a medida. Proceso BDR → AE → PreSales.</p>
+      <div class="product-list">
+        <div class="product-item">
+          <span class="product-name">QCampusOne</span>
+          <span class="product-price">$150K Impl. + $8K/mes</span>
+        </div>
+        <div class="product-item">
+          <span class="product-name">QNexusControl</span>
+          <span class="product-price">$150K Impl. + $8K/mes</span>
+        </div>
+        <div class="product-item">
+          <span class="product-name">Appministra <em style="font-size:11px; color:var(--muted)">Mid-Market</em></span>
+          <span class="product-price">$50K Impl. + $5K/mes</span>
+        </div>
+      </div>
+    </div>
+    <div class="tier-card transac">
+      <span class="tier-badge">Tier 2 — Transaccional / PLG</span>
+      <h3 class="tier-card-title">Venta Automatizada</h3>
+      <p class="tier-card-desc">Ticket bajo. El CAC de un BDR+AE+PreSales destruye el margen. Modelo Self-Service con pauta digital + free trial. Marketing genera la demanda.</p>
+      <div class="product-list">
+        <div class="product-item">
+          <span class="product-name">Auranuba</span>
+          <span class="product-price">$600 / evento</span>
+        </div>
+        <div class="product-item">
+          <span class="product-name">HolaKura</span>
+          <span class="product-price">$2,000 / año</span>
+        </div>
+      </div>
+      <p style="font-size:12px; color:var(--red); margin-top:16px; font-weight:500;">⚠ Aplicar el proceso consultivo aquí genera pérdidas netas por CAC.</p>
+    </div>
+  </div>
+
+  <!-- Gráfica comparativa -->
+  <div class="charts-grid fade-in">
+    <div class="chart-card">
+      <div class="chart-title">LTV por Producto</div>
+      <div class="chart-subtitle">Valor de vida del cliente a 12 meses (Implementación + MRR)</div>
+      <div class="chart-wrap">
+        <canvas id="ltvChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Margen vs CAC</div>
+      <div class="chart-subtitle">Por qué el Tier 2 no puede usar el mismo proceso que el Tier 1</div>
+      <div class="chart-wrap">
+        <canvas id="cacChart"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROCESO -->
+<section id="proceso">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">02 / Proceso</div>
+      <h2 class="section-title">FLUJO<br>COMERCIAL</h2>
+    </div>
+    <p class="section-subtitle">Flujo A para Enterprise. Flujo B para Transaccional. Nunca mezclarlos.</p>
+  </div>
+
+  <!-- FLUJO A -->
+  <div class="fade-in" style="margin-bottom: 48px;">
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">
+      <span style="background: var(--blue); color:white; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:6px 14px; border-radius:2px;">Flujo A — Venta Consultiva</span>
+      <span style="font-size:12px; color:var(--muted);">QCampusOne · QNexusControl · Appministra</span>
+    </div>
+    <div class="flow-container">
+      <div class="flow-row">
+        <div class="flow-node bdr-node">
+          <div class="flow-node-icon">🎯</div>
+          <div class="flow-node-title">Generación de Leads</div>
+          <div class="flow-node-desc">Cold calling / emailing. Meta: 1 cita de 15 min</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node bdr-node">
+          <div class="flow-node-icon">📋</div>
+          <div class="flow-node-title">Calificación BANT</div>
+          <div class="flow-node-desc">Budget · Authority · Need · Timeline</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node ae-node">
+          <div class="flow-node-icon">🎬</div>
+          <div class="flow-node-title">Demo Genérica</div>
+          <div class="flow-node-desc">AE presenta visión general. Valida fit de procesos</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node ae-node">
+          <div class="flow-node-icon">🔍</div>
+          <div class="flow-node-title">Discovery Técnico</div>
+          <div class="flow-node-desc">Levantamiento de req. exactos + integraciones</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node ps-node">
+          <div class="flow-node-icon">⚙️</div>
+          <div class="flow-node-title">Demo Personalizada</div>
+          <div class="flow-node-desc">PreSales construye con datos reales del cliente</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node close-node">
+          <div class="flow-node-icon">✍️</div>
+          <div class="flow-node-title">Negociación y Cierre</div>
+          <div class="flow-node-desc">Propuesta + manejo de objeciones + firma</div>
+        </div>
+      </div>
+      <div class="flow-label-row">
+        <span class="flow-owner-badge fb-bdr">BDR</span>
+        <span class="flow-owner-badge fb-bdr">BDR</span>
+        <span class="flow-owner-badge fb-ae">AE</span>
+        <span class="flow-owner-badge fb-ae">AE</span>
+        <span class="flow-owner-badge fb-ps">PreSales</span>
+        <span class="flow-owner-badge fb-ae">AE</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLUJO B -->
+  <div class="fade-in" style="margin-bottom: 48px;">
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">
+      <span style="background: var(--green); color:white; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:6px 14px; border-radius:2px;">Flujo B — Self-Service PLG</span>
+      <span style="font-size:12px; color:var(--muted);">Auranuba · HolaKura</span>
+    </div>
+    <div class="flow-container">
+      <div class="flow-row">
+        <div class="flow-node" style="background:rgba(30,102,69,0.08); border:1px solid rgba(30,102,69,0.2);">
+          <div class="flow-node-icon">📣</div>
+          <div class="flow-node-title">Atracción</div>
+          <div class="flow-node-desc">Pauta digital, SEO, contenido → tráfico a web</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="background:rgba(30,102,69,0.08); border:1px solid rgba(30,102,69,0.2);">
+          <div class="flow-node-icon">▶️</div>
+          <div class="flow-node-title">Demo Asíncrona</div>
+          <div class="flow-node-desc">Video grabado en la web. Sin intervención humana</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="background:rgba(30,102,69,0.08); border:1px solid rgba(30,102,69,0.2);">
+          <div class="flow-node-icon">🆓</div>
+          <div class="flow-node-title">Free Trial / Activación</div>
+          <div class="flow-node-desc">El cliente se registra y prueba solo. Pago con tarjeta</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="background:rgba(30,102,69,0.08); border:1px solid rgba(30,102,69,0.2);">
+          <div class="flow-node-icon">💬</div>
+          <div class="flow-node-title">Soporte Automatizado</div>
+          <div class="flow-node-desc">Chat bot o soporte no comisionado por ventas</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node close-node">
+          <div class="flow-node-icon">💳</div>
+          <div class="flow-node-title">Conversión</div>
+          <div class="flow-node-desc">Pago directo. Upsell vía email automation</div>
+        </div>
+      </div>
+      <div class="flow-label-row">
+        <span class="flow-owner-badge" style="background:rgba(30,102,69,0.1); color:var(--green);">Marketing</span>
+        <span class="flow-owner-badge" style="background:rgba(30,102,69,0.1); color:var(--green);">Marketing</span>
+        <span class="flow-owner-badge" style="background:rgba(30,102,69,0.1); color:var(--green);">Producto</span>
+        <span class="flow-owner-badge" style="background:rgba(30,102,69,0.1); color:var(--green);">CS Auto</span>
+        <span class="flow-owner-badge fb-all">Sistema</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMBUDO DE CONVERSIÓN -->
+  <div class="fade-in">
+    <h3 style="font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:2px; margin-bottom:8px;">EMBUDO DE CONVERSIÓN — FLUJO A</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:32px;">Tasas de conversión estándar para 1 BDR + 1 AE trabajando a tiempo completo, por mes.</p>
+
+    <div class="funnel-container">
+      <div class="funnel-visual">
+        <!-- Steps will be JS-rendered for dynamic bars -->
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:100%; background:linear-gradient(135deg,#1B2A4A,#1e4080);">
+              <span class="funnel-bar-label">Prospectos Contactados (BDR)</span>
+              <span class="funnel-bar-num">400</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">—</div><div class="funnel-pct">base</div></div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:80%; background:linear-gradient(135deg,#1e4080,#2a5da8);">
+              <span class="funnel-bar-label">Citas Agendadas</span>
+              <span class="funnel-bar-num">20</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">5%</div><div class="funnel-pct">conv.</div></div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:62%; background:linear-gradient(135deg,#007BB5,#0095d5);">
+              <span class="funnel-bar-label">Oportunidades Calificadas</span>
+              <span class="funnel-bar-num">10</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">50%</div><div class="funnel-pct">conv.</div></div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:44%; background:linear-gradient(135deg,#00AEEF,#33C4F5);">
+              <span class="funnel-bar-label">Demos Personalizadas</span>
+              <span class="funnel-bar-num">4</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">40%</div><div class="funnel-pct">conv.</div></div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:26%; background:linear-gradient(135deg,#0090c8,#00AEEF);">
+              <span class="funnel-bar-label">Propuestas Enviadas</span>
+              <span class="funnel-bar-num">3</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">75%</div><div class="funnel-pct">conv.</div></div>
+        </div>
+        <div class="funnel-step">
+          <div class="funnel-bar-wrap" style="height:52px;">
+            <div class="funnel-bar" style="width:12%; background:linear-gradient(135deg,#1B2A4A,#007BB5);">
+              <span class="funnel-bar-label">Cierres</span>
+              <span class="funnel-bar-num">1–2</span>
+            </div>
+          </div>
+          <div class="funnel-conversion"><div class="funnel-pct-val">25-50%</div><div class="funnel-pct">win-rate</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PERFILES -->
+<section id="perfiles">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">03 / Equipo</div>
+      <h2 class="section-title">PERFILES<br>DEL EQUIPO</h2>
+    </div>
+    <p class="section-subtitle">Cada rol tiene responsabilidades claras y no se pueden mezclar. La confusión de roles destruye la eficiencia.</p>
+  </div>
+
+  <div class="profiles-grid fade-in">
+    <!-- BDR -->
+    <div class="profile-card">
+      <div class="profile-icon" style="background:rgba(26,58,92,0.1);">🎯</div>
+      <div class="profile-role">Rol 01 — Prospección</div>
+      <div class="profile-title" style="color:#1B2A4A;">BDR</div>
+      <p class="profile-desc">Motor de búsqueda. Abre puertas, califica con BANT y agenda citas. <strong>No cierra ventas.</strong> Su éxito es medido en SQLs (citas calificadas), no en ingresos.</p>
+      <div class="profile-stats">
+        <div class="profile-stat">
+          <div class="profile-stat-label">Experiencia</div>
+          <div class="profile-stat-value">1–3 años</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Tipo de venta</div>
+          <div class="profile-stat-value">B2B Tech</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Sueldo Base</div>
+          <div class="profile-stat-value">$15–20K MXN</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">OTE Total</div>
+          <div class="profile-stat-value">$21–30K MXN</div>
+        </div>
+      </div>
+      <div class="skills-list">
+        <div class="skill-item"><span class="skill-dot" style="background:#1B2A4A"></span>Resiliencia extrema al rechazo</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#1B2A4A"></span>Comunicación escrita y verbal de alto impacto</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#1B2A4A"></span>Dominio de CRM (HubSpot / Salesforce)</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#1B2A4A"></span>Cold calling / emailing estructurado</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#1B2A4A"></span>Manejo de objeción inicial de puerta</div>
+      </div>
+    </div>
+
+    <!-- AE -->
+    <div class="profile-card">
+      <div class="profile-icon" style="background:rgba(194,59,42,0.1);">💼</div>
+      <div class="profile-role">Rol 02 — Cierre</div>
+      <div class="profile-title" style="color:#007BB5;">Account Executive</div>
+      <p class="profile-desc">Procesador de negocios. Toma citas calificadas, hace discovery profundo, maneja demos y negocia el cierre. Habla con C-Level y Directores con autoridad.</p>
+      <div class="profile-stats">
+        <div class="profile-stat">
+          <div class="profile-stat-label">Experiencia</div>
+          <div class="profile-stat-value">3–5+ años</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Metodología</div>
+          <div class="profile-stat-value">SPIN/MEDDIC</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Sueldo Base</div>
+          <div class="profile-stat-value">$30–45K MXN</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">OTE Total</div>
+          <div class="profile-stat-value">$60–90K MXN</div>
+        </div>
+      </div>
+      <div class="skills-list">
+        <div class="skill-item"><span class="skill-dot" style="background:#007BB5"></span>Venta consultiva de alto ticket (B2B SaaS)</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#007BB5"></span>Manejo de objeciones financieras y técnicas</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#007BB5"></span>Negociación con tomadores de decisión</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#007BB5"></span>Discovery profundo de necesidades</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#007BB5"></span>Construcción de propuestas de valor personalizadas</div>
+      </div>
+    </div>
+
+    <!-- PRESALES -->
+    <div class="profile-card">
+      <div class="profile-icon" style="background:rgba(30,102,69,0.1);">⚙️</div>
+      <div class="profile-role">Rol 03 — Técnico</div>
+      <div class="profile-title" style="color:#00AEEF;">PreSales</div>
+      <p class="profile-desc">Traductor técnico. Adapta la plataforma al descubrimiento del AE. <strong>Recurso escaso y caro</strong> — solo entra cuando la oportunidad tiene alta probabilidad de cierre.</p>
+      <div class="profile-stats">
+        <div class="profile-stat">
+          <div class="profile-stat-label">Experiencia</div>
+          <div class="profile-stat-value">3–5 años</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Perfil</div>
+          <div class="profile-stat-value">Ing. Técnico</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Sueldo Base</div>
+          <div class="profile-stat-value">$35–50K MXN</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-label">Etapa inicial</div>
+          <div class="profile-stat-value">Founder / Prod.</div>
+        </div>
+      </div>
+      <div class="skills-list">
+        <div class="skill-item"><span class="skill-dot" style="background:#00AEEF"></span>Arquitectura de soluciones y demos técnicas</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#00AEEF"></span>Configuración de instancias de producto</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#00AEEF"></span>Comunicación técnica con equipos de TI</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#00AEEF"></span>Mapeo de procesos cliente → funcionalidad</div>
+        <div class="skill-item"><span class="skill-dot" style="background:#00AEEF"></span>Construcción de POC y prototipos rápidos</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- COMPENSACIÓN -->
+<section id="compensacion">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">04 / Compensación</div>
+      <h2 class="section-title">ESQUEMA<br>DE COMISIONES</h2>
+    </div>
+    <p class="section-subtitle">Modelo OTE (On-Target Earnings). El variable está atado a lo que cada rol puede controlar.</p>
+  </div>
+
+  <div class="charts-grid fade-in">
+    <div class="chart-card">
+      <div class="chart-title">Estructura OTE por Rol</div>
+      <div class="chart-subtitle">Base vs Variable (comisiones) al 100% de cuota mensual</div>
+      <div class="chart-wrap">
+        <canvas id="oteChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Comisión por Cierre — AE</div>
+      <div class="chart-subtitle">Ingreso por comisión en un solo cierre de cada producto</div>
+      <div class="chart-wrap">
+        <canvas id="commChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="fade-in" style="background:var(--card-bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; backdrop-filter:blur(8px);">
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Rol</th>
+          <th>Split Base/Variable</th>
+          <th>Sueldo Base</th>
+          <th>Variable Esperado</th>
+          <th>OTE Total</th>
+          <th>Mecanismo de Comisión</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="comp-role-badge badge-bdr">BDR</span></td>
+          <td><span class="mono">70% / 30%</span></td>
+          <td class="mono">$15,000–$20,000 MXN</td>
+          <td class="mono">$6,000–$10,000 MXN</td>
+          <td class="mono bold gold">$21,000–$30,000 MXN</td>
+          <td style="font-size:12px; color:var(--muted);">$500 por SQL generado + 1% del valor si el AE cierra</td>
+        </tr>
+        <tr>
+          <td><span class="comp-role-badge badge-ae">AE</span></td>
+          <td><span class="mono">50% / 50%</span></td>
+          <td class="mono">$30,000–$45,000 MXN</td>
+          <td class="mono">$30,000–$45,000 MXN</td>
+          <td class="mono bold gold">$60,000–$90,000 MXN</td>
+          <td style="font-size:12px; color:var(--muted);">10–12% sobre Impl. + 100% de 1 mes de MRR al primer pago</td>
+        </tr>
+        <tr>
+          <td><span class="comp-role-badge badge-presales">PreSales</span></td>
+          <td><span class="mono">85% / 15%</span></td>
+          <td class="mono">$35,000–$50,000 MXN</td>
+          <td class="mono">$5,000–$8,000 MXN</td>
+          <td class="mono bold gold">$40,000–$58,000 MXN</td>
+          <td style="font-size:12px; color:var(--muted);">Bono fijo por demo cerrada + % de implementación si participa</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fade-in" style="margin-top:24px; padding:24px; background:rgba(0,174,239,0.06); border:1px solid rgba(0,174,239,0.3); border-radius:4px;">
+    <p style="font-size:13px; color:var(--ink); line-height:1.7;">
+      <strong>Ejemplo de cierre AE — QCampusOne:</strong> Implementación $150K × 11% = <span style="color:#00AEEF; font-weight:700;">$16,500 MXN</span> + MRR $8,000 × 1 = <span style="color:#00AEEF; font-weight:700;">$8,000 MXN</span> = <span style="font-family:'Bebas Neue',sans-serif; font-size:20px; color:#007BB5;">$24,500 MXN</span> por un solo cierre. El BDR recibe adicionalmente $1,500 MXN (1% del 150K) como bono de calidad.
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FORECAST -->
+<section id="forecast">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">05 / Proyección</div>
+      <h2 class="section-title">FORECAST<br>90 DÍAS</h2>
+    </div>
+    <p class="section-subtitle">Proyección realista asumiendo 1 BDR + 1 AE arrancando el Día 1.</p>
+  </div>
+
+  <div class="forecast-timeline fade-in">
+    <div class="month-card">
+      <div class="month-label">Mes 01</div>
+      <div class="month-title">CALIBRACIÓN<br>& PIPELINE</div>
+      <div class="month-revenue" style="color:#5a7090;">$0</div>
+      <div class="month-mrr">MRR agregado: $0</div>
+      <div class="month-items">
+        <div class="month-item">BDR limpia bases de datos y afina pitch de valor</div>
+        <div class="month-item">AE domina la demo genérica de los 3 productos</div>
+        <div class="month-item">5–8 citas calificadas agendadas</div>
+        <div class="month-item">1–2 propuestas de Appministra enviadas</div>
+        <div class="month-item">CRM configurado y proceso de handoff establecido</div>
+      </div>
+    </div>
+    <div class="month-card">
+      <div class="month-label">Mes 02</div>
+      <div class="month-title">PRIMERAS<br>DEMOS & CIERRE</div>
+      <div class="month-revenue" style="color:#00AEEF;">$50,000</div>
+      <div class="month-mrr">+ $5,000 MRR/mes</div>
+      <div class="month-items">
+        <div class="month-item">Citas del Mes 1 solicitan demos personalizadas</div>
+        <div class="month-item">PreSales construye primera instancia personalizada</div>
+        <div class="month-item">Primer cierre: Appministra (Early Adopter)</div>
+        <div class="month-item">BDR sigue inyectando citas nuevas al pipeline</div>
+        <div class="month-item">Tier 2: Pauta digital activa para HolaKura / Auranuba</div>
+      </div>
+    </div>
+    <div class="month-card">
+      <div class="month-label">Mes 03</div>
+      <div class="month-title">TRACCIÓN<br>DEL SISTEMA</div>
+      <div class="month-revenue" style="color:#007BB5;">$200,000</div>
+      <div class="month-mrr">+ $13,000 MRR/mes</div>
+      <div class="month-items">
+        <div class="month-item">Oportunidades pesadas del Mes 1 aprueban presupuesto</div>
+        <div class="month-item">Cierre: 1× QCampusOne ($150K Impl.)</div>
+        <div class="month-item">Cierre: 1× Appministra ($50K Impl.)</div>
+        <div class="month-item">$18K MRR acumulado corriendo</div>
+        <div class="month-item">Este mes se vuelve el estándar mínimo del Mes 4 en adelante</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid fade-in">
+    <div class="chart-card wide">
+      <div class="chart-title">Forecast Trimestral — Ingresos Acumulados</div>
+      <div class="chart-subtitle">Implementaciones + MRR acumulado por mes (Conservador vs Optimista)</div>
+      <div class="chart-wrap tall">
+        <canvas id="forecastChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Proyección MRR Acumulado</div>
+      <div class="chart-subtitle">Ingreso recurrente mensual construido mes a mes</div>
+      <div class="chart-wrap">
+        <canvas id="mrrChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Mix de Ingresos — Mes 3</div>
+      <div class="chart-subtitle">Composición del ingreso al alcanzar régimen estable</div>
+      <div class="chart-wrap">
+        <canvas id="mixChart"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- KPIs -->
+<section id="kpis">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">06 / Métricas</div>
+      <h2 class="section-title">KPIs &<br>MÉTRICAS</h2>
+    </div>
+    <p class="section-subtitle">Lo que no se mide no se puede optimizar. Revisión semanal obligatoria.</p>
+  </div>
+
+  <div class="kpi-grid fade-in">
+    <div class="kpi-group">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <span style="font-size:24px;">🎯</span>
+        <div class="kpi-group-title">KPIs — BDR</div>
+      </div>
+      <div class="kpi-group-sub">Actividad de prospección y conversión de citas</div>
+      <div class="kpi-item">
+        <span class="kpi-name">Touchpoints diarios (llamadas + emails + LinkedIn)</span>
+        <span class="kpi-target" style="color:#1B2A4A;">40–50 / día</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Citas agendadas por mes</span>
+        <span class="kpi-target" style="color:#1B2A4A;">≥ 10 / mes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">SQLs calificados (pasan la matriz BANT)</span>
+        <span class="kpi-target" style="color:#1B2A4A;">≥ 6 / mes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tasa de calificación de citas</span>
+        <span class="kpi-target" style="color:#1B2A4A;">> 60%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tasa de respuesta a cold emails</span>
+        <span class="kpi-target" style="color:#1B2A4A;">> 8%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Oportunidades No-Fit descartadas antes del AE</span>
+        <span class="kpi-target" style="color:#1B2A4A;">Registro completo</span>
+      </div>
+    </div>
+
+    <div class="kpi-group">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <span style="font-size:24px;">💼</span>
+        <div class="kpi-group-title">KPIs — AE</div>
+      </div>
+      <div class="kpi-group-sub">Pipeline, demos y tasa de cierre</div>
+      <div class="kpi-item">
+        <span class="kpi-name">Demos genéricas ejecutadas por mes</span>
+        <span class="kpi-target" style="color:#007BB5;">6–8 / mes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tasa de avance a Demo Personalizada</span>
+        <span class="kpi-target" style="color:#007BB5;">≥ 50%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Win-Rate (propuestas → firma)</span>
+        <span class="kpi-target" style="color:#007BB5;">25–30%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Ciclo de venta (cita 1 → firma)</span>
+        <span class="kpi-target" style="color:#007BB5;">30–60 días</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Pipeline activo en CRM (valor total)</span>
+        <span class="kpi-target" style="color:#007BB5;">> $600K MXN</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Cuota mensual de ingresos (Impl.)</span>
+        <span class="kpi-target" style="color:#007BB5;">$200K MXN</span>
+      </div>
+    </div>
+
+    <div class="kpi-group">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <span style="font-size:24px;">⚙️</span>
+        <div class="kpi-group-title">KPIs — PreSales</div>
+      </div>
+      <div class="kpi-group-sub">Calidad técnica y eficiencia de demos</div>
+      <div class="kpi-item">
+        <span class="kpi-name">Demos personalizadas construidas por mes</span>
+        <span class="kpi-target" style="color:#00AEEF;">3–5 / mes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tiempo de construcción por demo</span>
+        <span class="kpi-target" style="color:#00AEEF;">≤ 3 días hábiles</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tasa de avance post-Demo Personalizada</span>
+        <span class="kpi-target" style="color:#00AEEF;">≥ 70%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">CSAT de demo (calificación del prospecto)</span>
+        <span class="kpi-target" style="color:#00AEEF;">> 8.5/10</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">% demos sin Discovery completo (rechazar)</span>
+        <span class="kpi-target" style="color:#00AEEF;">0%</span>
+      </div>
+    </div>
+
+    <div class="kpi-group">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <span style="font-size:24px;">📊</span>
+        <div class="kpi-group-title">KPIs — Sistema</div>
+      </div>
+      <div class="kpi-group-sub">Indicadores de salud del modelo comercial completo</div>
+      <div class="kpi-item">
+        <span class="kpi-name">MRR nuevo agregado por mes (Mes 3+)</span>
+        <span class="kpi-target" style="color:#00AEEF;">≥ $13K MXN</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Churn de clientes (primeros 6 meses)</span>
+        <span class="kpi-target" style="color:#00AEEF;">< 5%</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">CAC promedio por cliente Tier 1</span>
+        <span class="kpi-target" style="color:#00AEEF;">< $20K MXN</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Tiempo de ramp-up BDR nuevo</span>
+        <span class="kpi-target" style="color:#00AEEF;">≤ 30 días</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-name">Ingresos Tier 2 (PLG self-service)</span>
+        <span class="kpi-target" style="color:#00AEEF;">$49K / mes</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PLAYBOOK -->
+<section id="playbook">
+  <div class="section-header fade-in">
+    <div>
+      <div class="section-number">07 / Reglas</div>
+      <h2 class="section-title">PLAYBOOK<br>COMERCIAL</h2>
+    </div>
+    <p class="section-subtitle">Reglas no negociables que se implementan desde el Día 1.</p>
+  </div>
+
+  <div class="rules-grid fade-in">
+    <div class="rule-card">
+      <div class="rule-number">1</div>
+      <div class="rule-content">
+        <div class="rule-title">Regla del "No Fit" Inmediato</div>
+        <div class="rule-desc">Si el BDR detecta que el cliente no puede pagar $50K o $150K de implementación en la llamada de calificación, la oportunidad se cierra automáticamente. No se pasa al AE "por si acaso". El tiempo del AE vale demasiado.</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-number">2</div>
+      <div class="rule-content">
+        <div class="rule-title">Protección del Tiempo de PreSales</div>
+        <div class="rule-desc">El AE tiene prohibido solicitar una Demo Personalizada sin presupuesto confirmado y tomadores de decisión identificados. PreSales solo entra en negocios con probabilidad de cierre > 60%. No es un recurso de exploración.</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-number">3</div>
+      <div class="rule-content">
+        <div class="rule-title">Estandarización de Propuestas</div>
+        <div class="rule-desc">Las propuestas no se inventan desde cero. El AE solo puede modificar dentro de un rango pre-aprobado: máximo 10% de descuento en implementación, 0% en MRR mensual. Descuentos mayores requieren aprobación del director.</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-number">4</div>
+      <div class="rule-content">
+        <div class="rule-title">CRM = Existencia del Negocio</div>
+        <div class="rule-desc">Si no está en el CRM, el negocio no existe y no se pagan comisiones. Desde el primer contacto del BDR hasta la firma del AE, cada actividad debe estar documentada. Sin excepción.</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-number">5</div>
+      <div class="rule-content">
+        <div class="rule-title">Separación Total de Flujos</div>
+        <div class="rule-desc">El BDR y el AE no venden Auranuba ni HolaKura. Si un prospecto es pequeño, el BDR envía el link de self-service y continúa. El cross-sell de Tier 2 es pasivo, nunca el foco de su tiempo productivo.</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-number">6</div>
+      <div class="rule-content">
+        <div class="rule-title">Validación de Interés Antes de la Demo</div>
+        <div class="rule-desc">Nueva regla agregada: Antes de la Demo Genérica, el BDR valida que el prospecto haya confirmado la asistencia y tenga un presupuesto inicial definido. Esto evita que el AE haga demos a "curiosos" sin capacidad real de compra.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-logo"><span>Q</span> Software Solutions</div>
+    <p style="font-size:12px; color:rgba(240,247,252,0.4); margin-top:8px;">Estrategia Comercial 2025</p>
+  </div>
+  <div class="footer-text">
+    Modelo Comercial Completo v1.0<br>
+    Generado para uso interno del equipo directivo<br>
+    Actualizar forecast trimestralmente
+  </div>
+</footer>
+
+<script>
+  // ============================================================
+  //  CHART.JS SETUP
+  // ============================================================
+  Chart.defaults.font.family = "'DM Sans', sans-serif";
+  Chart.defaults.color = '#6b6860';
+
+  const COLORS = {
+    blue: '#1B2A4A',
+    blueMid: '#1e4080',
+    blueLight: '#2a5da8',
+    red: '#0074C2',
+    redLight: '#007BB5',
+    gold: '#00AEEF',
+    goldLight: '#33C4F5',
+    green: '#007BB5',
+    greenLight: '#00AEEF',
+    muted: '#5a7090',
+    paper: '#f0f7fc',
+    ink: '#1B2A4A'
+  };
+
+  // 1. LTV Chart
+  new Chart(document.getElementById('ltvChart'), {
+    type: 'bar',
+    data: {
+      labels: ['QCampusOne', 'QNexusControl', 'Appministra', 'HolaKura', 'Auranuba'],
+      datasets: [{
+        label: 'LTV 12 meses (MXN)',
+        data: [246000, 246000, 110000, 2000, 7200],
+        backgroundColor: ['#1B2A4A', '#1e4080', '#007BB5', '#00AEEF', '#33C4F5'],
+        borderRadius: 2,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // 2. CAC Chart
+  new Chart(document.getElementById('cacChart'), {
+    type: 'bar',
+    data: {
+      labels: ['QCampusOne', 'Appministra', 'HolaKura', 'Auranuba'],
+      datasets: [
+        {
+          label: 'LTV Anual ($)',
+          data: [246000, 110000, 2000, 7200],
+          backgroundColor: ['#1B2A4A', '#007BB5', '#00AEEF', '#33C4F5'],
+          borderRadius: 2,
+          borderSkipped: false,
+          order: 2
+        },
+        {
+          label: 'CAC Estimado ($)',
+          data: [18000, 12000, 15000, 8000],
+          backgroundColor: ['#007BB533', '#007BB533', '#007BB5bb', '#007BB5bb'],
+          borderColor: ['#007BB500', '#007BB500', '#007BB5', '#007BB5'],
+          borderWidth: 2,
+          borderRadius: 2,
+          borderSkipped: false,
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // 3. OTE Chart
+  new Chart(document.getElementById('oteChart'), {
+    type: 'bar',
+    data: {
+      labels: ['BDR', 'AE', 'PreSales'],
+      datasets: [
+        {
+          label: 'Base',
+          data: [17500, 37500, 42500],
+          backgroundColor: '#1B2A4A',
+          borderRadius: [0, 0, 2, 2],
+          borderSkipped: 'bottom',
+          stack: 'ote'
+        },
+        {
+          label: 'Variable (comisiones)',
+          data: [8000, 37500, 6500],
+          backgroundColor: '#00AEEF',
+          borderRadius: [2, 2, 0, 0],
+          borderSkipped: 'top',
+          stack: 'ote'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          stacked: true
+        },
+        x: { grid: { display: false }, stacked: true }
+      }
+    }
+  });
+
+  // 4. Commission Chart
+  new Chart(document.getElementById('commChart'), {
+    type: 'bar',
+    data: {
+      labels: ['QCampusOne', 'QNexusControl', 'Appministra'],
+      datasets: [
+        {
+          label: 'Comisión Impl. (11%)',
+          data: [16500, 16500, 5500],
+          backgroundColor: '#1B2A4A',
+          borderRadius: [0, 0, 2, 2],
+          borderSkipped: 'bottom',
+          stack: 'comm'
+        },
+        {
+          label: '1× MRR (primer mes)',
+          data: [8000, 8000, 5000],
+          backgroundColor: '#00AEEF',
+          borderRadius: [2, 2, 0, 0],
+          borderSkipped: 'top',
+          stack: 'comm'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(1) + 'K' },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          stacked: true
+        },
+        x: { grid: { display: false }, stacked: true }
+      }
+    }
+  });
+
+  // 5. Forecast Chart
+  new Chart(document.getElementById('forecastChart'), {
+    type: 'line',
+    data: {
+      labels: ['Día 0', 'Mes 1', 'Mes 2', 'Mes 3', 'Mes 4 (proj)', 'Mes 5 (proj)', 'Mes 6 (proj)'],
+      datasets: [
+        {
+          label: 'Conservador',
+          data: [0, 0, 50000, 250000, 450000, 650000, 850000],
+          borderColor: '#1B2A4A',
+          backgroundColor: '#1B2A4A' + '18',
+          fill: true,
+          tension: 0.4,
+          borderWidth: 2.5,
+          pointRadius: 5,
+          pointBackgroundColor: '#1B2A4A'
+        },
+        {
+          label: 'Optimista',
+          data: [0, 0, 80000, 380000, 660000, 940000, 1220000],
+          borderColor: '#00AEEF',
+          backgroundColor: '#00AEEF12',
+          fill: true,
+          tension: 0.4,
+          borderWidth: 2.5,
+          pointRadius: 5,
+          pointBackgroundColor: '#00AEEF',
+          borderDash: [6, 3]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K' },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // 6. MRR Chart
+  new Chart(document.getElementById('mrrChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Mes 1', 'Mes 2', 'Mes 3', 'Mes 4', 'Mes 5', 'Mes 6'],
+      datasets: [{
+        label: 'MRR Acumulado',
+        data: [0, 5000, 18000, 31000, 44000, 62000],
+        backgroundColor: '#00AEEF',
+        borderRadius: 2,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K MXN' },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // 7. Mix Chart
+  new Chart(document.getElementById('mixChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Impl. QCampusOne', 'Impl. Appministra', 'MRR Enterprise', 'PLG Tier 2'],
+      datasets: [{
+        data: [150000, 50000, 13000, 49000],
+        backgroundColor: ['#1B2A4A', '#007BB5', '#00AEEF', '#33C4F5'],
+        borderColor: '#f0f7fc',
+        borderWidth: 3,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + ctx.parsed.toLocaleString('es-MX') + ' MXN'
+          }
+        }
+      }
+    }
+  });
+
+  // ============================================================
+  //  SCROLL ANIMATIONS
+  // ============================================================
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
