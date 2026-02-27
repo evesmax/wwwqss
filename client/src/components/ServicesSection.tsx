@@ -68,7 +68,7 @@ function ProductCard({ product, index }: ProductCardProps) {
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
-      <Link href={product.route}>
+      <a href={product.route}>
         <div className="bg-white rounded-xl shadow-md p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer h-full">
           <div className={`h-12 w-12 ${product.iconBg} ${product.iconColor} rounded-lg flex items-center justify-center mb-6`}>
             <i className={`fas ${product.icon} text-xl`}></i>
@@ -81,7 +81,7 @@ function ProductCard({ product, index }: ProductCardProps) {
             Ver Producto <ArrowRight className="ml-2 h-4 w-4" />
           </span>
         </div>
-      </Link>
+      </a>
     </motion.div>
   );
 }
