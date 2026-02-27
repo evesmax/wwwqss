@@ -14,27 +14,9 @@ const navLinks = [
 
 const solutionsProducts = [
   { 
-    name: "Q Nexus Control", 
-    href: "https://qnexuscontrol.com/", 
-    external: true,
-    description: "Software especializado para el control de flotillas de transporte"
-  },
-  { 
-    name: "Q Inventia Control", 
-    href: "/qinventia", 
-    external: true,
-    description: "Software de administración de inventarios"
-  },
-  { 
-    name: "Q Food Control", 
-    href: "/qfood", 
-    external: true,
-    description: "Software para administración de restaurantes"
-  },
-  { 
     name: "Q Professional Services", 
-    href: "/qprofessional", 
-    external: true,
+    href: "/productos/qprofessional.html", 
+    external: false,
     description: "Servicios de diseño y personalización de software a la medida"
   },
 ];
