@@ -8,7 +8,7 @@ import logoImage from "../assets/QwLogo.jpg";
 
 const navLinks = [
   { href: "#home", label: "Inicio" },
-  { href: "#services", label: "Servicios" },
+  { href: "#services", label: "Productos" },
   { href: "#why-us", label: "Por Qué Elegirnos" },
 ];
 

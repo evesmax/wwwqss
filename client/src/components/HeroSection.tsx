@@ -51,7 +51,7 @@ export default function HeroSection() {
                 </a>
               </Button>
               <Button variant="outline" size="lg" asChild className="hover:bg-[#474747] hover:text-white">
-                <a href="#services">Nuestros Servicios</a>
+                <a href="#services">Nuestros Productos</a>
               </Button>
             </div>
           </motion.div>

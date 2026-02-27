@@ -1,51 +1,56 @@
-export const services = [
+export const products = [
   {
-    id: "fleet-management",
-    icon: "fa-truck",
+    id: "qnexus-control",
+    icon: "fa-network-wired",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "Gestión de Flotas Vehiculares",
-    description: "Sistemas avanzados de monitoreo y control de flotas que optimizan rutas, reducen costos de combustible y mejoran la eficiencia operativa en tiempo real."
+    title: "QNexus Control",
+    description: "Plataforma integral de control logístico y gestión de flotas vehiculares en tiempo real.",
+    route: "/productos/qnexus-control",
   },
   {
-    id: "logistics-control",
-    icon: "fa-route",
+    id: "qcampus-one",
+    icon: "fa-graduation-cap",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "Control Logístico Integral",
-    description: "Plataformas de gestión logística que centralizan el control de inventarios, rutas de distribución y cadena de suministro para maximizar la productividad."
+    title: "QCampusOne",
+    description: "Sistema completo de gestión académica y administrativa para instituciones educativas.",
+    route: "/productos/qcampus-one",
   },
-
   {
-    id: "mobile-tracking",
+    id: "qnexus-app",
     icon: "fa-mobile-alt",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "Rastreo Móvil en Tiempo Real",
-    description: "Aplicaciones móviles que permiten el seguimiento en vivo de la operacion de tu empresa, desde cualquier dispositivo y parte del mundo, garantizando control total."
+    title: "QNexus App",
+    description: "Aplicación móvil para monitoreo y control operativo desde cualquier lugar.",
+    route: "/productos/qnexus-app",
   },
   {
-    id: "analytics-reports",
-    icon: "fa-chart-line",
+    id: "holakura",
+    icon: "fa-comments",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "Análisis y Reportes Avanzados",
-    description: "Herramientas de inteligencia de negocios especializadas en transporte que generan reportes detallados y métricas de rendimiento operacional."
+    title: "HolaKura",
+    description: "Plataforma de atención al cliente con inteligencia artificial conversacional.",
+    route: "/productos/holakura",
   },
   {
-    id: "security-compliance",
-    icon: "fa-shield-alt",
+    id: "auranuba",
+    icon: "fa-calendar-check",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "Seguridad y Cumplimiento",
-    description: "Sistemas de informáticos especializados que garantizan el cumplimiento y funcionalidad de los procesos durante la operacion de la empresa."
+    title: "Auranuba",
+    description: "Sistema inteligente de gestión de eventos y experiencias personalizadas.",
+    route: "/productos/auranuba",
   },
-  {
-    id: "custom-software",
-    icon: "fa-code",
-    iconColor: "text-[#575757]",
-    iconBg: "bg-[#575757]/10",
-    title: "Software a la Medida",
-    description: "Desarrollo de soluciones personalizadas que se adaptan exactamente a los procesos únicos de tu empresa, integrando tecnologías modernas para maximizar la eficiencia operativa."
-  }
 ];
+
+export const customSoftware = {
+  id: "custom-software",
+  icon: "fa-code",
+  iconColor: "text-[#575757]",
+  iconBg: "bg-[#575757]/10",
+  title: "Software a la Medida",
+  description: "Desarrollo de soluciones personalizadas que se adaptan exactamente a los procesos únicos de tu empresa, integrando tecnologías modernas para maximizar la eficiencia operativa.",
+};

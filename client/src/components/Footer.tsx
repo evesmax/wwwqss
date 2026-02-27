@@ -36,7 +36,7 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-6 text-white">Enlaces Rápidos</h3>
             <ul className="space-y-3">
               <li><a href="#home" className="text-gray-400 hover:text-white transition-colors">Inicio</a></li>
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Servicios</a></li>
+              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Productos</a></li>
               <li><a href="#why-us" className="text-gray-400 hover:text-white transition-colors">Por Qué Elegirnos</a></li>
               <li><a href="#testimonials" className="text-gray-400 hover:text-white transition-colors">Testimonios</a></li>
               <li><a href="#contact" className="text-gray-400 hover:text-white transition-colors">Contacto</a></li>
@@ -44,13 +44,13 @@ export default function Footer() {
           </div>
           
           <div>
-            <h3 className="text-lg font-semibold mb-6 text-white">Servicios</h3>
+            <h3 className="text-lg font-semibold mb-6 text-white">Productos</h3>
             <ul className="space-y-3">
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Gestión de Flotas</a></li>
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Control Logístico</a></li>
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Automatización de Transporte</a></li>
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Rastreo GPS</a></li>
-              <li><a href="#services" className="text-gray-400 hover:text-white transition-colors">Análisis de Rutas</a></li>
+              <li><Link href="/productos/qnexus-control" className="text-gray-400 hover:text-white transition-colors">QNexus Control</Link></li>
+              <li><Link href="/productos/qcampus-one" className="text-gray-400 hover:text-white transition-colors">QCampusOne</Link></li>
+              <li><Link href="/productos/qnexus-app" className="text-gray-400 hover:text-white transition-colors">QNexus App</Link></li>
+              <li><Link href="/productos/holakura" className="text-gray-400 hover:text-white transition-colors">HolaKura</Link></li>
+              <li><Link href="/productos/auranuba" className="text-gray-400 hover:text-white transition-colors">Auranuba</Link></li>
             </ul>
           </div>
           
