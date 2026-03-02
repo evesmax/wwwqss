@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoOS — Propuesta para tu Lote</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+:root{--blue:#1B6FEB;--blue-dark:#1452B8;--blue-light:#4F94FF;--blue-pale:#EBF2FF;--bg:#FFFFFF;--bg2:#F8FAFF;--bg3:#F0F4FF;--border:#E2E8F0;--text:#0F172A;--text-mid:#475569;--text-dim:#94A3B8;--red:#EF4444;--red-pale:#FEF2F2;--green:#10B981;--green-pale:#ECFDF5;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);overflow:hidden;height:100vh;width:100vw}
+
+/* ── ONBOARDING MODAL ── */
+#onboarding{position:fixed;inset:0;background:#fff;z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.ob-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:24px;padding:52px 56px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(27,111,235,.1)}
+.ob-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;justify-content:center}
+.ob-dot{width:10px;height:10px;border-radius:50%;background:var(--blue)}
+.ob-logo-txt{font-size:16px;font-weight:800;letter-spacing:.3px}
+.ob-card h2{font-size:26px;font-weight:900;color:var(--text);text-align:center;margin-bottom:8px}
+.ob-card p{font-size:14px;color:var(--text-mid);text-align:center;margin-bottom:36px;line-height:1.6}
+.ob-field{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.ob-field label{font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--text-mid);text-transform:uppercase}
+.ob-field input{padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'Inter';font-size:15px;color:var(--text);outline:none;transition:border-color .2s;background:#fff}
+.ob-field input:focus{border-color:var(--blue)}
+.ob-field input::placeholder{color:var(--text-dim)}
+.ob-btn{width:100%;padding:16px;background:var(--blue);color:#fff;font-family:'Inter';font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;transition:background .2s,transform .15s;margin-top:6px;letter-spacing:.3px}
+.ob-btn:hover{background:var(--blue-dark);transform:translateY(-1px)}
+.ob-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.ob-error{font-size:12px;color:var(--red);text-align:center;margin-top:-10px;margin-bottom:8px;min-height:16px}
+
+/* ── DECK ── */
+.deck{width:100%;height:100vh;position:relative}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:64px 88px;opacity:0;pointer-events:none;transition:opacity .5s ease;overflow:hidden}
+.slide.center{align-items:center;text-align:center}
+.slide.active{opacity:1;pointer-events:all}
+.progress{position:fixed;top:0;left:0;height:3px;background:var(--blue);transition:width .5s ease;z-index:200;border-radius:0 2px 2px 0}
+.nav{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:20px;z-index:100;background:rgba(255,255,255,.96);padding:12px 24px;border-radius:60px;border:1px solid var(--border);box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.nav button{background:none;border:none;color:var(--blue);cursor:pointer;font-size:18px;padding:4px 10px;transition:all .2s;border-radius:6px}
+.nav button:hover{background:var(--blue-pale)}
+.nav button:disabled{opacity:.25;cursor:default;background:none}
+.dots{display:flex;gap:7px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .3s}
+.dot.active{background:var(--blue);transform:scale(1.25)}
+.slide-num{font-size:11px;color:var(--text-dim);letter-spacing:1px;min-width:36px;text-align:center;font-weight:500}
+.key-hint{position:fixed;top:20px;right:28px;font-size:11px;color:var(--text-dim);z-index:100}
+.key-hint kbd{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-family:'Inter';font-size:11px}
+
+/* ── TYPOGRAPHY ── */
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--blue-pale);color:var(--blue);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:6px 14px;border-radius:100px;margin-bottom:24px}
+.slide-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--blue);margin-bottom:18px;font-weight:600}
+h1.hero{font-size:clamp(40px,6.5vw,82px);font-weight:900;line-height:.97;color:#0F172A}
+h1.hero .blue{color:var(--blue)}
+.hero-sub{font-size:clamp(15px,1.8vw,19px);color:var(--text-mid);max-width:520px;line-height:1.65;margin-top:4px}
+h2.title{font-size:clamp(26px,3.2vw,44px);font-weight:800;line-height:1.12;color:#0F172A;margin-bottom:12px}
+h2.title .blue{color:var(--blue)}
+h2.title .red{color:var(--red)}
+.desc{font-size:15px;color:var(--text-mid);max-width:680px;line-height:1.7;margin-bottom:36px}
+.divider-line{width:44px;height:3px;background:var(--blue);border-radius:2px;margin:20px auto}
+.cover-bg{position:absolute;right:-80px;top:-80px;width:460px;height:460px;border-radius:50%;background:var(--blue-pale);opacity:.65;pointer-events:none}
+.cover-bg2{position:absolute;right:90px;top:110px;width:260px;height:260px;border-radius:50%;background:var(--blue);opacity:.06;pointer-events:none}
+.brand-tag{position:absolute;top:30px;left:88px;display:flex;align-items:center;gap:9px}
+.brand-dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.brand-name{font-size:13px;font-weight:700;letter-spacing:.5px}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:880px}
+.stat-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:24px 20px;position:relative;overflow:hidden;transition:border-color .2s}
+.stat-card:hover{border-color:var(--blue-light)}
+.accent-top{position:absolute;top:0;left:0;right:0;height:3px}
+.stat-num{font-size:clamp(36px,5vw,56px);font-weight:900;line-height:1;margin-bottom:8px}
+.stat-num.blue{color:var(--blue)}.stat-num.red{color:var(--red)}.stat-num.gray{color:var(--text-mid)}
+.stat-label{font-size:13px;color:var(--text-mid);line-height:1.5}
+
+/* ── TWO COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:920px}
+.card{background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;padding:24px}
+.card-title{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue);font-weight:700;margin-bottom:18px}
+.vs-row{display:flex;flex-direction:column}
+.vs-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:9px 0;border-bottom:1px solid var(--border)}
+.vs-item:last-child{border-bottom:none}
+.vs-label{color:var(--text-mid)}
+.vs-bad{color:var(--red);font-weight:700}
+.vs-good{color:var(--green);font-weight:700}
+.bar-list{display:flex;flex-direction:column;gap:13px}
+.bar-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--text-mid)}
+.bar-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+
+/* ── FUGA ── */
+.fuga-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;width:100%;max-width:860px}
+.fuga-card{background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;padding:20px 22px}
+.fuga-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:700;margin-bottom:8px}
+.fuga-amount{font-size:34px;font-weight:900;color:var(--red);line-height:1;margin-bottom:4px}
+.fuga-desc{font-size:12px;color:#B91C1C;line-height:1.5}
+.fuga-total{grid-column:1/-1;background:var(--red);border-radius:14px;padding:20px 28px;display:flex;justify-content:space-between;align-items:center}
+.fuga-total-label{font-size:15px;color:rgba(255,255,255,.85)}
+.fuga-total-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:3px}
+.fuga-total-amount{font-size:40px;font-weight:900;color:#fff}
+
+/* ── MODULES ── */
+.modules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:920px}
+.module-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:18px;padding:26px 22px;position:relative;overflow:hidden;transition:border-color .3s,transform .25s,box-shadow .25s}
+.module-card:hover{border-color:var(--blue-light);transform:translateY(-3px);box-shadow:0 8px 32px rgba(27,111,235,.1)}
+.mod-num{position:absolute;top:16px;right:18px;font-size:48px;font-weight:900;color:rgba(27,111,235,.05);line-height:1}
+.mod-icon{font-size:28px;margin-bottom:14px;display:block}
+.mod-title{font-size:15px;font-weight:800;margin-bottom:7px}
+.mod-pain{font-size:11px;color:var(--red);margin-bottom:10px;font-weight:600}
+.mod-fix{font-size:12px;color:var(--text-mid);line-height:1.65}
+.mod-kpi{margin-top:14px;padding-top:14px;border-top:1.5px solid var(--border);font-size:12px;color:var(--blue);font-weight:700}
+
+/* ── ROI ── */
+.roi-layout{display:grid;grid-template-columns:1fr 1.1fr;gap:24px;width:100%;max-width:920px}
+.roi-table{background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;overflow:hidden}
+.roi-row{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--border);font-size:13px}
+.roi-row:last-child{border-bottom:none}
+.roi-row.head{background:var(--blue);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.85);font-weight:600}
+.roi-row.total{background:var(--green-pale)}
+.roi-lbl{color:var(--text-mid)}
+.roi-val{font-weight:700}
+.roi-val.red{color:var(--red)}
+.roi-val.green{color:var(--green)}
+.roi-box{background:var(--green-pale);border:1.5px solid #6EE7B7;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:16px}
+.roi-big-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+.roi-big-tag.blue{color:var(--blue)}.roi-big-tag.green{color:var(--green)}
+.roi-big-num{font-size:clamp(30px,4vw,50px);font-weight:900;line-height:1}
+.roi-big-num.green{color:var(--green)}.roi-big-num.blue{color:var(--blue);font-size:32px}
+.roi-big-desc{font-size:13px;color:var(--text-mid);line-height:1.6;margin-top:3px}
+.payback-box{background:#fff;border:1.5px solid #A7F3D0;border-radius:12px;padding:14px 18px}
+.payback-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:3px}
+.payback-val{font-size:26px;font-weight:900;color:var(--green)}
+.payback-sub{font-size:11px;color:var(--text-dim)}
+
+/* ── OFERTA ── */
+#s6{background:var(--bg2)}
+.offer-pill{display:inline-block;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--blue);border:1.5px solid var(--blue-light);background:var(--blue-pale);padding:7px 16px;border-radius:100px;margin-bottom:20px;font-weight:700}
+.price-hero{font-size:clamp(52px,8vw,88px);font-weight:900;color:var(--blue);line-height:1;margin-bottom:5px}
+.price-note{font-size:15px;color:var(--text-mid);margin-bottom:28px}
+.includes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:820px;width:100%}
+.inc-item{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;gap:10px;align-items:flex-start;transition:border-color .2s;text-align:left}
+.inc-item:hover{border-color:var(--blue-light)}
+.inc-icon{font-size:17px;flex-shrink:0;margin-top:1px}
+.inc-txt{font-size:12px;color:var(--text-mid);line-height:1.5}
+.inc-txt strong{display:block;color:#0F172A;font-size:13px;font-weight:700;margin-bottom:2px}
+
+/* ── CIERRE ── */
+#s7{background:var(--blue)}
+.close-headline{font-size:clamp(24px,3.6vw,46px);font-weight:900;max-width:780px;line-height:1.2;margin-bottom:18px;color:#fff}
+.close-sub{font-size:16px;color:rgba(255,255,255,.72);max-width:560px;line-height:1.7;margin-bottom:40px}
+.cta-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:var(--blue);font-weight:800;font-size:15px;padding:16px 36px;border-radius:100px;border:none;cursor:pointer;transition:transform .2s,box-shadow .2s;text-decoration:none}
+.cta-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.footnotes{display:flex;gap:24px;margin-top:30px;font-size:12px;color:rgba(255,255,255,.45);align-items:center;flex-wrap:wrap}
+.fn{display:flex;align-items:center;gap:7px}
+.fn-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);flex-shrink:0}
+#s7 .chip{background:rgba(255,255,255,.12);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ─── ONBOARDING MODAL ─── -->
+<div id="onboarding">
+  <div class="ob-card">
+    <div class="ob-logo">
+      <div class="ob-dot"></div>
+      <span class="ob-logo-txt">AutoOS</span>
+    </div>
+    <h2>Personaliza tu propuesta</h2>
+    <p>Ingresa los datos del lote para generar<br>una presentación 100% personalizada.</p>
+    <div class="ob-field">
+      <label>Nombre del Lote</label>
+      <input type="text" id="inputLote" placeholder="Ej. Automotriz Visionario" maxlength="60" />
+    </div>
+    <div class="ob-field">
+      <label>Nombre del Responsable</label>
+      <input type="text" id="inputResponsable" placeholder="Ej. Carlos Ramírez" maxlength="60" />
+    </div>
+    <div class="ob-error" id="obError"></div>
+    <button class="ob-btn" id="obBtn" onclick="startPresentation()">Ver mi propuesta →</button>
+  </div>
+</div>
+
+<!-- ─── DECK ─── -->
+<div class="deck" id="deck" style="display:none">
+<div class="progress" id="progress"></div>
+<div class="key-hint"><kbd>←</kbd> <kbd>→</kbd> navegar</div>
+
+<!-- S0: PORTADA -->
+<div class="slide center active" id="s0">
+  <div class="cover-bg"></div><div class="cover-bg2"></div>
+  <div class="brand-tag"><div class="brand-dot"></div><span class="brand-name">AutoOS</span></div>
+  <div class="chip">🚗 Propuesta Exclusiva · Socio Fundador</div>
+  <h1 class="hero">La tecnología que<br><span class="blue lote-name">tu lote</span> necesita<br>para dominar el mercado.</h1>
+  <div class="divider-line"></div>
+  <p class="hero-sub">Lo que Kavak tardó $8,700 millones en construir, nosotros lo instalamos en <strong class="responsable-name">tu operación</strong> en <strong>30 días</strong>.</p>
+</div>
+
+<!-- S1: MERCADO -->
+<div class="slide" id="s1">
+  <span class="slide-label">01 · El Contexto</span>
+  <h2 class="title">El mercado crece.<br>Los que no se digitalizan <span class="red">se quedan atrás.</span></h2>
+  <p class="desc">El mercado de autos usados en México crece al 6.1% anual. Ese crecimiento va a las plataformas digitales — no a los lotes que operan igual que en 2010.</p>
+  <div class="stats-row">
+    <div class="stat-card"><div class="accent-top" style="background:var(--blue)"></div><div class="stat-num blue">6.1%</div><div class="stat-label">Crecimiento anual proyectado del mercado de autos usados en México hasta 2034</div></div>
+    <div class="stat-card"><div class="accent-top" style="background:var(--red)"></div><div class="stat-num red">40%</div><div class="stat-label">Tasa de fraude percibida por el comprador — razón #1 que aleja al cliente del lote tradicional</div></div>
+    <div class="stat-card"><div class="accent-top" style="background:var(--text-dim)"></div><div class="stat-num gray">80%</div><div class="stat-label">De las decisiones de compra inician en el celular antes de visitar físicamente un lote</div></div>
+  </div>
+</div>
+
+<!-- S2: BRECHA -->
+<div class="slide" id="s2">
+  <span class="slide-label">02 · La Brecha Competitiva</span>
+  <h2 class="title"><span class="lote-name">Tu lote</span> vs. Kavak.<br>No es pelea de autos — es pelea de <span class="blue">velocidad.</span></h2>
+  <div class="two-col">
+    <div class="card">
+      <p class="card-title">⚡ Comparativo Operativo</p>
+      <div class="vs-row">
+        <div class="vs-item"><span class="vs-label">Kavak responde un lead</span><span class="vs-good">&lt; 2 minutos</span></div>
+        <div class="vs-item"><span class="vs-label">Lote tradicional (promedio)</span><span class="vs-bad">4 – 12 horas</span></div>
+        <div class="vs-item"><span class="vs-label">Crédito Kavak</span><span class="vs-good">15 minutos</span></div>
+        <div class="vs-item"><span class="vs-label">Crédito bancario</span><span class="vs-bad">3 – 5 días</span></div>
+        <div class="vs-item"><span class="vs-label">Garantía mecánica Kavak</span><span class="vs-good">3 meses incluidos</span></div>
+        <div class="vs-item"><span class="vs-label">Garantía lote tradicional</span><span class="vs-bad">Sin garantía</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">📊 ¿Dónde se pierden las ventas?</p>
+      <div class="bar-list">
+        <div><div class="bar-head"><span>Crédito no aprobado en el momento</span><span style="font-weight:700;color:var(--red)">38%</span></div><div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--red)"></div></div></div>
+        <div><div class="bar-head"><span>Lead no atendido a tiempo</span><span style="font-weight:700;color:#F97316">28%</span></div><div class="bar-track"><div class="bar-fill" style="width:28%;background:#F97316"></div></div></div>
+        <div><div class="bar-head"><span>Desconfianza / sin garantía</span><span style="font-weight:700;color:#EAB308">22%</span></div><div class="bar-track"><div class="bar-fill" style="width:22%;background:#EAB308"></div></div></div>
+        <div><div class="bar-head"><span>Inventario no visible en digital</span><span style="font-weight:700;color:var(--text-dim)">12%</span></div><div class="bar-track"><div class="bar-fill" style="width:12%;background:var(--text-dim)"></div></div></div>
+      </div>
+      <p style="margin-top:14px;font-size:11px;color:var(--text-dim)">Estimación operación promedio lotes GDL · López Mateos / Patria</p>
+    </div>
+  </div>
+</div>
+
+<!-- S3: FUGA -->
+<div class="slide" id="s3">
+  <span class="slide-label">03 · Diagnóstico Financiero</span>
+  <h2 class="title">Lo que <span class="lote-name">tu lote</span> pierde <span class="red">cada mes</span> sin saberlo.</h2>
+  <p class="desc" style="margin-bottom:22px">Lote promedio GDL · Ticket ~$350K MXN · Utilidad bruta $30K por auto vendido</p>
+  <div class="fuga-grid">
+    <div class="fuga-card"><div class="fuga-tag">🔴 Venta · Crédito Caído</div><div class="fuga-amount">$60,000</div><div class="fuga-desc">2 ventas/mes perdidas porque el cliente busca crédito rápido y termina en Kavak</div></div>
+    <div class="fuga-card"><div class="fuga-tag">🔴 Venta · Lead Quemado</div><div class="fuga-amount">$30,000</div><div class="fuga-desc">1 venta/mes perdida por respuesta tarde o leads guardados en WhatsApps personales</div></div>
+    <div class="fuga-card"><div class="fuga-tag">🔴 Compra · Auto Problema</div><div class="fuga-amount">$12,500</div><div class="fuga-desc">1 auto/2 meses con vicio oculto mecánico o problema legal no detectado en la compra</div></div>
+    <div class="fuga-card"><div class="fuga-tag">🔴 Compra · Sobreprecio</div><div class="fuga-amount">$10,000</div><div class="fuga-desc">1 auto/mes comprado $10K arriba del mercado real por no tener valuador digital</div></div>
+    <div class="fuga-total">
+      <div><div class="fuga-total-label">Fuga total mensual estimada</div><div class="fuga-total-sub">= $1,350,000 MXN anuales en oportunidad perdida</div></div>
+      <div class="fuga-total-amount">$112,500 / mes</div>
+    </div>
+  </div>
+</div>
+
+<!-- S4: SOLUCIÓN -->
+<div class="slide" id="s4">
+  <span class="slide-label">04 · La Solución</span>
+  <h2 class="title"><span class="blue">AutoOS</span> — 3 módulos.<br>Un sistema: vender más, comprar mejor.</h2>
+  <div class="modules-grid">
+    <div class="module-card"><span class="mod-num">01</span><span class="mod-icon">💳</span><div class="mod-title">Motor de Crédito Instantáneo</div><div class="mod-pain">Kavak aprueba en 15 min. <span class="lote-name">Tu lote</span> hoy tarda días.</div><div class="mod-fix">Conectamos el lote con 5+ financieras tech. El cliente recibe pre-aprobaciones en minutos desde una tablet en piso, sin salir del lote.</div><div class="mod-kpi">↑ Recupera el 38% de ventas perdidas por crédito</div></div>
+    <div class="module-card"><span class="mod-num">02</span><span class="mod-icon">💬</span><div class="mod-title">CRM WhatsApp Centralizado</div><div class="mod-pain">Leads en celulares personales = cartera que se va con el vendedor.</div><div class="mod-fix">Un número oficial de WhatsApp Business para todo el lote. Bot 24/7 que pre-califica y agenda citas. La cartera siempre es del dueño.</div><div class="mod-kpi">↑ Cero leads perdidos · 100% propiedad de <span class="lote-name">tu lote</span></div></div>
+    <div class="module-card"><span class="mod-num">03</span><span class="mod-icon">🛡️</span><div class="mod-title">Blindaje de Compra + Inventario</div><div class="mod-pain">Autos comprados "a ojo" que destruyen el margen.</div><div class="mod-fix">Checklist digital de 100 puntos antes de liberar el cheque. REPUVE + CARFAX automático por VIN. Valuador cruzado con Mercado Libre en tiempo real.</div><div class="mod-kpi">↑ Cero autos problema · Margen de compra garantizado</div></div>
+  </div>
+</div>
+
+<!-- S5: ROI -->
+<div class="slide" id="s5">
+  <span class="slide-label">05 · Retorno de Inversión</span>
+  <h2 class="title">La inversión se recupera<br>en <span class="blue">menos de 3 meses.</span></h2>
+  <div class="roi-layout">
+    <div>
+      <div class="roi-table">
+        <div class="roi-row head"><span>Fuente de recuperación</span><span>MXN / mes</span></div>
+        <div class="roi-row"><span class="roi-lbl">Créditos rescatados (2 autos)</span><span class="roi-val red">+$60,000</span></div>
+        <div class="roi-row"><span class="roi-lbl">Leads recuperados (1 auto)</span><span class="roi-val red">+$30,000</span></div>
+        <div class="roi-row"><span class="roi-lbl">Autos problema evitados</span><span class="roi-val red">+$12,500</span></div>
+        <div class="roi-row"><span class="roi-lbl">Sobreprecio en compra evitado</span><span class="roi-val red">+$10,000</span></div>
+        <div class="roi-row total"><span class="roi-lbl" style="color:#0F172A;font-weight:600">Recuperación mensual total</span><span class="roi-val green">$112,500</span></div>
+        <div class="roi-row"><span class="roi-lbl" style="font-size:11px">Escenario conservador (50%)</span><span class="roi-val" style="color:var(--text-dim);font-size:12px">$56,250 / mes</span></div>
+      </div>
+      <p style="margin-top:9px;font-size:11px;color:var(--text-dim);padding-left:2px">* Lote gama media GDL · Ticket $350K · Utilidad $30K por auto</p>
+    </div>
+    <div class="roi-box">
+      <div><div class="roi-big-tag blue">Inversión total (Setup)</div><div class="roi-big-num blue">$150,000 MXN</div></div>
+      <div class="payback-box"><div class="payback-tag">⏱ Payback Period</div><div class="payback-val">2.6 Meses</div><div class="payback-sub">Con escenario conservador al 50%</div></div>
+      <div><div class="roi-big-tag green">Ganancia neta recuperada · Año 1</div><div class="roi-big-num green">+$1.2M</div><div class="roi-big-desc">Después del payback, <span class="lote-name">tu lote</span> genera entre $56K y $112K de utilidad recuperada por mes directo a la operación.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- S6: OFERTA -->
+<div class="slide center" id="s6">
+  <span class="slide-label">06 · La Oferta · Socio Fundador</span>
+  <div class="offer-pill">🔒 Exclusividad territorial · 12 meses</div>
+  <div class="price-hero">$150,000</div>
+  <p class="price-note">MXN · Pago único de implementación · Tu marca, tu operación, tu código</p>
+  <div class="includes">
+    <div class="inc-item"><span class="inc-icon">💳</span><div class="inc-txt"><strong>Motor de Crédito</strong>5+ financieras integradas. Aprobaciones en 15 min en piso</div></div>
+    <div class="inc-item"><span class="inc-icon">💬</span><div class="inc-txt"><strong>CRM WhatsApp Business</strong>Bandeja centralizada + bot 24/7 + gestión de leads</div></div>
+    <div class="inc-item"><span class="inc-icon">🛡️</span><div class="inc-txt"><strong>Blindaje de Compra</strong>Checklist digital + REPUVE + CARFAX automático por VIN</div></div>
+    <div class="inc-item"><span class="inc-icon">📡</span><div class="inc-txt"><strong>Sindicador de Inventario</strong>Publica en Mercado Libre y SoloAutos con 1 clic</div></div>
+    <div class="inc-item"><span class="inc-icon">🎓</span><div class="inc-txt"><strong>Onboarding Presencial</strong>Capacitación del equipo + acompañamiento 30 días</div></div>
+    <div class="inc-item"><span class="inc-icon">🔐</span><div class="inc-txt"><strong>Exclusividad Territorial</strong>Único lote con esta tecnología en tu zona durante 12 meses</div></div>
+  </div>
+  <p style="margin-top:16px;font-size:12px;color:var(--text-dim)">+ $5,000 MXN/mes de mantenimiento · Inicia a partir del mes 7</p>
+</div>
+
+<!-- S7: CIERRE -->
+<div class="slide center" id="s7">
+  <div style="position:absolute;width:500px;height:500px;border-radius:50%;background:rgba(255,255,255,.06);right:-120px;top:-120px;pointer-events:none"></div>
+  <div class="chip">Propuesta de Transformación Digital</div>
+  <p class="close-headline"><span class="lote-name" style="color:#93C5FD">Tu lote</span> pierde <span style="color:#FCA5A5">+$100K</span> cada mes.<br>En 90 días puede estar <span style="color:#6EE7B7">recuperándolos.</span></p>
+  <p class="close-sub">La tecnología que usas hoy determina qué tan grande será <span class="lote-name" style="color:rgba(255,255,255,.9)">tu lote</span> en 3 años. Kavak invirtió miles de millones para construir esto. Tú puedes tenerlo el próximo mes.</p>
+  <a id="waBtn" href="#" target="_blank" class="cta-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    Quiero arrancar esta semana
+  </a>
+  <div class="footnotes">
+    <div class="fn"><span class="fn-dot"></span><span>Propiedad intelectual 100% del desarrollador</span></div>
+    <div class="fn"><span class="fn-dot"></span><span>Sin compromisos de exclusividad de datos</span></div>
+    <div class="fn"><span class="fn-dot"></span><span>Implementación garantizada en 30 días</span></div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- NAV -->
+<nav class="nav" id="navBar" style="display:none">
+  <button id="prev" onclick="go(-1)" disabled>&#8592;</button>
+  <div class="dots" id="dots"></div>
+  <span class="slide-num" id="num">1 / 8</span>
+  <button id="next" onclick="go(1)">&#8594;</button>
+</nav>
+
+<script>
+// ── ONBOARDING ──
+function startPresentation(){
+  const lote = document.getElementById('inputLote').value.trim();
+  const resp = document.getElementById('inputResponsable').value.trim();
+  const err  = document.getElementById('obError');
+  if(!lote){ err.textContent='Por favor ingresa el nombre del lote.'; return; }
+  if(!resp){ err.textContent='Por favor ingresa el nombre del responsable.'; return; }
+  err.textContent='';
+
+  // Inject names everywhere
+  document.querySelectorAll('.lote-name').forEach(el => el.textContent = lote);
+  document.querySelectorAll('.responsable-name').forEach(el => el.textContent = resp);
+
+  // Build WhatsApp URL
+  const msg = encodeURIComponent(
+    `Hola! Acabo de ver la propuesta de AutoOS para ${lote}.\n` +
+    `Mi nombre es ${resp} y me interesa arrancar.\n` +
+    `¿Podemos agendar una llamada esta semana?`
+  );
+  document.getElementById('waBtn').href = `https://wa.me/523319408310?text=${msg}`;
+
+  // Show deck
+  document.getElementById('onboarding').style.display='none';
+  document.getElementById('deck').style.display='block';
+  document.getElementById('navBar').style.display='flex';
+  initDeck();
+}
+
+// Allow Enter key in inputs
+document.addEventListener('keydown', function(e){
+  if(document.getElementById('onboarding').style.display !== 'none' && e.key === 'Enter'){
+    startPresentation();
+  }
+});
+
+// ── DECK ──
+const N=8; let cur=0;
+function initDeck(){
+  const dotsEl=document.getElementById('dots');
+  for(let i=0;i<N;i++){
+    const d=document.createElement('div');
+    d.className='dot'+(i===0?' active':'');
+    d.onclick=()=>goTo(i);
+    dotsEl.appendChild(d);
+  }
+  document.getElementById('progress').style.width=`${(1/N)*100}%`;
+  document.addEventListener('keydown', e=>{
+    if(e.key==='ArrowRight'||e.key===' ')go(1);
+    if(e.key==='ArrowLeft')go(-1);
+  });
+}
+function goTo(n){
+  const slides=document.querySelectorAll('.slide');
+  slides[cur].classList.remove('active');
+  document.querySelectorAll('.dot')[cur].classList.remove('active');
+  cur=Math.max(0,Math.min(n,N-1));
+  slides[cur].classList.add('active');
+  document.querySelectorAll('.dot')[cur].classList.add('active');
+  document.getElementById('num').textContent=`${cur+1} / ${N}`;
+  document.getElementById('prev').disabled=cur===0;
+  document.getElementById('next').disabled=cur===N-1;
+  document.getElementById('progress').style.width=`${((cur+1)/N)*100}%`;
+}
+function go(d){goTo(cur+d)}
+</script>
+</body>
+</html>
