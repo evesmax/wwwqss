@@ -291,7 +291,7 @@ export default function QProfessionalServicesPage() {
               </a>
             </Button>
             <Button variant="outline" size="lg" asChild className="border-white text-white hover:bg-white hover:text-gray-900">
-              <a href="mailto:contacto@qsoftwaresolutions.net">
+              <a href="mailto:contacto@qsoftwaresolutions.com">
                 Enviar Email
               </a>
             </Button>

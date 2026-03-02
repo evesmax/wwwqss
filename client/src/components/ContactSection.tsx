@@ -101,7 +101,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Correo Electrónico</h3>
-                  <p className="text-gray-600">contacto@qsoftwaresolutions.net</p>
+                  <p className="text-gray-600">contacto@qsoftwaresolutions.com</p>
                 </div>
               </div>
               
