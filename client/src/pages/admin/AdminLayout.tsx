@@ -96,9 +96,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {mainMenuItems.map(renderMenuItem)}
-
-          <div className="pt-2">
+          <div>
             {collapsed ? (
               <button
                 onClick={() => {
@@ -156,6 +154,10 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
                 )}
               </>
             )}
+          </div>
+
+          <div className="pt-2">
+            {mainMenuItems.map(renderMenuItem)}
           </div>
         </nav>
 
