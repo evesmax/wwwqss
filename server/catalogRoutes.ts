@@ -241,8 +241,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
 
   app.post("/api/catalog/kpis", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { codigoKpi, kpi, descripcion, valor } = req.body;
-      const [item] = await db.insert(kpis).values({ codigoKpi, kpi, descripcion, valor }).returning();
+      const { codigoKpi, kpi, descripcion, valor, periodoEvaluacion } = req.body;
+      const [item] = await db.insert(kpis).values({ codigoKpi, kpi, descripcion, valor, periodoEvaluacion: periodoEvaluacion || "Mensual" }).returning();
       res.status(201).json(item);
     } catch (error: any) {
       if (error?.message?.includes("unique") || error?.constraint) {
@@ -255,8 +255,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
   app.put("/api/catalog/kpis/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const { codigoKpi, kpi, descripcion, valor } = req.body;
-      const [updated] = await db.update(kpis).set({ codigoKpi, kpi, descripcion, valor }).where(eq(kpis.id, id)).returning();
+      const { codigoKpi, kpi, descripcion, valor, periodoEvaluacion } = req.body;
+      const [updated] = await db.update(kpis).set({ codigoKpi, kpi, descripcion, valor, periodoEvaluacion: periodoEvaluacion || "Mensual" }).where(eq(kpis.id, id)).returning();
       if (!updated) return res.status(404).json({ message: "No encontrado" });
       res.json(updated);
     } catch (error) {

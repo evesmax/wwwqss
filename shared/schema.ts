@@ -94,6 +94,7 @@ export const kpis = pgTable("kpis", {
   kpi: text("kpi").notNull(),
   descripcion: text("descripcion").notNull().default(""),
   valor: text("valor").notNull().default(""),
+  periodoEvaluacion: text("periodo_evaluacion").notNull().default("Mensual"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

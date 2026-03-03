@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, X, BarChart3 } from "lucide-react";
+import { Plus, Edit2, Trash2, X, BarChart3, Clock } from "lucide-react";
+
+const PERIODOS = ["Mensual", "Trimestral", "Semestral", "Anual"];
+
+const periodoBadgeColor: Record<string, string> = {
+  Mensual: "bg-blue-100 text-blue-700",
+  Trimestral: "bg-green-100 text-green-700",
+  Semestral: "bg-amber-100 text-amber-700",
+  Anual: "bg-purple-100 text-purple-700",
+};
 
 interface Kpi {
   id: number;
@@ -8,13 +17,14 @@ interface Kpi {
   kpi: string;
   descripcion: string | null;
   valor: string | null;
+  periodoEvaluacion: string;
 }
 
 export default function KpisPage() {
   const [items, setItems] = useState<Kpi[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Kpi | null>(null);
-  const [form, setForm] = useState({ codigoKpi: "", kpi: "", descripcion: "", valor: "" });
+  const [form, setForm] = useState({ codigoKpi: "", kpi: "", descripcion: "", valor: "", periodoEvaluacion: "Mensual" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -35,7 +45,7 @@ export default function KpisPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ codigoKpi: "", kpi: "", descripcion: "", valor: "" });
+    setForm({ codigoKpi: "", kpi: "", descripcion: "", valor: "", periodoEvaluacion: "Mensual" });
     setShowModal(true);
     setError("");
   };
@@ -47,6 +57,7 @@ export default function KpisPage() {
       kpi: item.kpi,
       descripcion: item.descripcion || "",
       valor: item.valor || "",
+      periodoEvaluacion: item.periodoEvaluacion || "Mensual",
     });
     setShowModal(true);
     setError("");
@@ -111,6 +122,7 @@ export default function KpisPage() {
               <th className="text-left px-5 py-3 font-semibold text-gray-600">KPI</th>
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Descripción</th>
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Valor</th>
+              <th className="text-center px-5 py-3 font-semibold text-gray-600">Periodo de Evaluación</th>
               <th className="text-right px-5 py-3 font-semibold text-gray-600">Acciones</th>
             </tr>
           </thead>
@@ -128,6 +140,12 @@ export default function KpisPage() {
                 <td className="px-5 py-3 text-gray-700">{item.kpi}</td>
                 <td className="px-5 py-3 text-gray-500">{item.descripcion || "—"}</td>
                 <td className="px-5 py-3 text-gray-700 font-medium">{item.valor || "—"}</td>
+                <td className="px-5 py-3 text-center">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg font-medium ${periodoBadgeColor[item.periodoEvaluacion] || "bg-gray-100 text-gray-700"}`}>
+                    <Clock className="w-3 h-3" />
+                    {item.periodoEvaluacion}
+                  </span>
+                </td>
                 <td className="px-5 py-3">
                   <div className="flex gap-1 justify-end">
                     <button onClick={() => openEdit(item)} className="p-2 hover:bg-gray-100 rounded-lg transition">
@@ -142,7 +160,7 @@ export default function KpisPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-gray-400">
+                <td colSpan={6} className="text-center py-12 text-gray-400">
                   No hay KPIs registrados. Crea el primero.
                 </td>
               </tr>
@@ -201,6 +219,25 @@ export default function KpisPage() {
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]"
                   placeholder="Valor del KPI"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Periodo de Evaluación</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {PERIODOS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setForm({ ...form, periodoEvaluacion: p })}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition ${
+                        form.periodoEvaluacion === p
+                          ? "bg-[#00aeef] text-white border-[#00aeef]"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">{error}</div>}
