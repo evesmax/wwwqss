@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import {
   BarChart3,
@@ -9,12 +9,14 @@ import {
   ChevronRight,
   Clock,
   DollarSign,
-  Users,
   AlertTriangle,
   CheckCircle2,
   ArrowUpRight,
   Layers,
   X,
+  Filter,
+  Calendar,
+  Check,
 } from "lucide-react";
 
 interface OportunidadKpi {
@@ -60,12 +62,27 @@ interface Resumen {
   oportunidadesTotales: number;
 }
 
+interface KpiOption {
+  id: number;
+  codigoKpi: string;
+  kpi: string;
+  periodoEvaluacion: string;
+}
+
 const periodoBadge: Record<string, string> = {
   Mensual: "bg-blue-100 text-blue-700",
   Trimestral: "bg-green-100 text-green-700",
   Semestral: "bg-amber-100 text-amber-700",
   Anual: "bg-purple-100 text-purple-700",
 };
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+const TRIMESTRES = ["Q1 (Ene-Mar)", "Q2 (Abr-Jun)", "Q3 (Jul-Sep)", "Q4 (Oct-Dic)"];
+const SEMESTRES = ["S1 (Ene-Jun)", "S2 (Jul-Dic)"];
 
 function formatMoney(val: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 0 }).format(val);
@@ -74,10 +91,7 @@ function formatMoney(val: number) {
 function ProgressBar({ value, color }: { value: number; color: string }) {
   return (
     <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all duration-700 ${color}`}
-        style={{ width: `${Math.min(100, value)}%` }}
-      />
+      <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
     </div>
   );
 }
@@ -100,6 +114,67 @@ function getCumplimientoLabel(val: number) {
   return "Bajo Meta";
 }
 
+function getDateRange(periodo: string, year: number, subIndex: number): { desde: string; hasta: string } {
+  switch (periodo) {
+    case "Mensual": {
+      const desde = new Date(year, subIndex, 1);
+      const hasta = new Date(year, subIndex + 1, 0);
+      return { desde: desde.toISOString().split("T")[0], hasta: hasta.toISOString().split("T")[0] };
+    }
+    case "Trimestral": {
+      const startMonth = subIndex * 3;
+      const desde = new Date(year, startMonth, 1);
+      const hasta = new Date(year, startMonth + 3, 0);
+      return { desde: desde.toISOString().split("T")[0], hasta: hasta.toISOString().split("T")[0] };
+    }
+    case "Semestral": {
+      const startMonth = subIndex * 6;
+      const desde = new Date(year, startMonth, 1);
+      const hasta = new Date(year, startMonth + 6, 0);
+      return { desde: desde.toISOString().split("T")[0], hasta: hasta.toISOString().split("T")[0] };
+    }
+    case "Anual": {
+      const desde = new Date(year, 0, 1);
+      const hasta = new Date(year, 11, 31);
+      return { desde: desde.toISOString().split("T")[0], hasta: hasta.toISOString().split("T")[0] };
+    }
+    default:
+      return { desde: "", hasta: "" };
+  }
+}
+
+function getCurrentSubIndex(periodo: string): number {
+  const now = new Date();
+  const month = now.getMonth();
+  switch (periodo) {
+    case "Mensual": return month;
+    case "Trimestral": return Math.floor(month / 3);
+    case "Semestral": return Math.floor(month / 6);
+    case "Anual": return 0;
+    default: return 0;
+  }
+}
+
+function getSubOptions(periodo: string): string[] {
+  switch (periodo) {
+    case "Mensual": return MESES;
+    case "Trimestral": return TRIMESTRES;
+    case "Semestral": return SEMESTRES;
+    case "Anual": return [];
+    default: return [];
+  }
+}
+
+function getPeriodoLabel(periodo: string, subIndex: number, year: number): string {
+  switch (periodo) {
+    case "Mensual": return `${MESES[subIndex]} ${year}`;
+    case "Trimestral": return `${TRIMESTRES[subIndex]} ${year}`;
+    case "Semestral": return `${SEMESTRES[subIndex]} ${year}`;
+    case "Anual": return `${year}`;
+    default: return "";
+  }
+}
+
 export default function KpiTrackingPage() {
   const [data, setData] = useState<{ kpis: KpiTracking[]; resumen: Resumen } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,40 +182,274 @@ export default function KpiTrackingPage() {
   const [expandedKpi, setExpandedKpi] = useState<number | null>(null);
   const [selectedKpi, setSelectedKpi] = useState<KpiTracking | null>(null);
 
-  const fetchData = async () => {
+  const [allKpiOptions, setAllKpiOptions] = useState<KpiOption[]>([]);
+  const [selectedKpiIds, setSelectedKpiIds] = useState<Set<number>>(new Set());
+  const [showKpiFilter, setShowKpiFilter] = useState(false);
+
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterPeriodo, setFilterPeriodo] = useState("Mensual");
+  const [filterSubIndex, setFilterSubIndex] = useState(getCurrentSubIndex("Mensual"));
+  const [useCustomRange, setUseCustomRange] = useState(false);
+  const [customDesde, setCustomDesde] = useState("");
+  const [customHasta, setCustomHasta] = useState("");
+
+  const fetchKpiOptions = async () => {
     try {
-      const res = await apiRequest("GET", "/api/pipeline/kpi-tracking");
+      const res = await apiRequest("GET", "/api/catalog/kpis");
+      const kpis: KpiOption[] = await res.json();
+      setAllKpiOptions(kpis);
+    } catch {}
+  };
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      let params = "";
+      if (useCustomRange) {
+        if (customDesde) params += `desde=${customDesde}`;
+        if (customHasta) params += `${params ? "&" : ""}hasta=${customHasta}`;
+      } else {
+        const range = getDateRange(filterPeriodo, filterYear, filterSubIndex);
+        params = `desde=${range.desde}&hasta=${range.hasta}`;
+      }
+      const res = await apiRequest("GET", `/api/pipeline/kpi-tracking${params ? "?" + params : ""}`);
       setData(await res.json());
     } catch {
       setError("Error al cargar datos de seguimiento");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterPeriodo, filterYear, filterSubIndex, useCustomRange, customDesde, customHasta]);
+
+  useEffect(() => {
+    fetchKpiOptions();
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-[#00aeef] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const toggleKpiFilter = (id: number) => {
+    setSelectedKpiIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  if (error || !data) {
-    return <div className="text-red-500 text-sm bg-red-50 p-4 rounded-lg">{error}</div>;
-  }
+  const clearKpiFilter = () => {
+    setSelectedKpiIds(new Set());
+  };
 
-  const { kpis: kpiList, resumen } = data;
+  const filteredKpis = data?.kpis.filter(k => selectedKpiIds.size === 0 || selectedKpiIds.has(k.id)) ?? [];
+
+  const filteredResumen: Resumen = selectedKpiIds.size === 0 || !data
+    ? (data?.resumen ?? { totalKpis: 0, totalMeta: 0, totalPonderado: 0, totalGanado: 0, cumplimientoGeneral: 0, oportunidadesTotales: 0 })
+    : {
+        totalKpis: filteredKpis.length,
+        totalMeta: filteredKpis.reduce((s, k) => s + k.metaValor, 0),
+        totalPonderado: filteredKpis.reduce((s, k) => s + k.valorPonderado, 0),
+        totalGanado: filteredKpis.reduce((s, k) => s + k.valorGanado, 0),
+        cumplimientoGeneral: (() => {
+          const m = filteredKpis.reduce((s, k) => s + k.metaValor, 0);
+          const p = filteredKpis.reduce((s, k) => s + k.valorPonderado, 0);
+          return m > 0 ? Math.min(100, Math.round((p / m) * 100)) : 0;
+        })(),
+        oportunidadesTotales: filteredKpis.reduce((s, k) => s + k.oportunidadesActivas, 0),
+      };
+
+  const subOptions = getSubOptions(filterPeriodo);
+  const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+
+  const currentPeriodoLabel = useCustomRange
+    ? `${customDesde || "..."} — ${customHasta || "..."}`
+    : getPeriodoLabel(filterPeriodo, filterSubIndex, filterYear);
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Seguimiento de KPIs</h1>
-        <p className="text-gray-500 text-sm mt-1">Monitorea el cumplimiento de indicadores clave de rendimiento</p>
+      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Seguimiento de KPIs</h1>
+          <p className="text-gray-500 text-sm mt-1">Monitorea el cumplimiento de indicadores clave de rendimiento</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="w-4 h-4 text-gray-400" />
+          <span className="font-medium text-gray-700">{currentPeriodoLabel}</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-semibold text-gray-700">Filtros</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative">
+            <label className="block text-xs font-medium text-gray-500 mb-1">KPIs</label>
+            <button
+              onClick={() => setShowKpiFilter(!showKpiFilter)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm text-left bg-white hover:bg-gray-50 transition flex items-center justify-between"
+            >
+              <span className="truncate text-gray-700">
+                {selectedKpiIds.size === 0
+                  ? "Todos los KPIs"
+                  : `${selectedKpiIds.size} seleccionado${selectedKpiIds.size > 1 ? "s" : ""}`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+            {showKpiFilter && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-64 overflow-y-auto">
+                <button
+                  onClick={clearKpiFilter}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 ${selectedKpiIds.size === 0 ? "text-[#00aeef] font-medium" : "text-gray-600"}`}
+                >
+                  {selectedKpiIds.size === 0 && <Check className="w-3.5 h-3.5" />}
+                  <span className={selectedKpiIds.size === 0 ? "" : "ml-5"}>Todos los KPIs</span>
+                </button>
+                {allKpiOptions.map((kpi) => {
+                  const isSelected = selectedKpiIds.has(kpi.id);
+                  return (
+                    <button
+                      key={kpi.id}
+                      onClick={() => toggleKpiFilter(kpi.id)}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${isSelected ? "text-[#00aeef] font-medium" : "text-gray-700"}`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-[#00aeef] border-[#00aeef]" : "border-gray-300"}`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="truncate">{kpi.codigoKpi} - {kpi.kpi}</span>
+                      <span className={`ml-auto text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${periodoBadge[kpi.periodoEvaluacion] || "bg-gray-100 text-gray-600"}`}>
+                        {kpi.periodoEvaluacion}
+                      </span>
+                    </button>
+                  );
+                })}
+                <div className="p-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowKpiFilter(false)}
+                    className="w-full py-1.5 text-xs font-medium text-[#00aeef] hover:bg-[#00aeef]/5 rounded-lg transition"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Periodo</label>
+            <div className="flex rounded-xl border border-gray-300 overflow-hidden">
+              {["Mensual", "Trimestral", "Semestral", "Anual"].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setFilterPeriodo(p);
+                    setFilterSubIndex(getCurrentSubIndex(p));
+                    setUseCustomRange(false);
+                  }}
+                  className={`flex-1 py-2 text-xs font-medium transition ${
+                    !useCustomRange && filterPeriodo === p
+                      ? "bg-[#00aeef] text-white"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {p.slice(0, 4)}.
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!useCustomRange && subOptions.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {filterPeriodo === "Mensual" ? "Mes" : filterPeriodo === "Trimestral" ? "Trimestre" : "Semestre"}
+              </label>
+              <select
+                value={filterSubIndex}
+                onChange={(e) => setFilterSubIndex(parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00aeef] bg-white"
+              >
+                {subOptions.map((label, i) => (
+                  <option key={i} value={i}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Año</label>
+            {!useCustomRange ? (
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00aeef] bg-white"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            ) : (
+              <button
+                onClick={() => setUseCustomRange(false)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50"
+              >
+                Volver a periodo
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setUseCustomRange(!useCustomRange)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition font-medium ${
+              useCustomRange ? "bg-[#00aeef] text-white border-[#00aeef]" : "text-gray-600 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Rango personalizado
+          </button>
+
+          {useCustomRange && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customDesde}
+                onChange={(e) => setCustomDesde(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#00aeef]"
+              />
+              <span className="text-xs text-gray-400">a</span>
+              <input
+                type="date"
+                value={customHasta}
+                onChange={(e) => setCustomHasta(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#00aeef]"
+              />
+            </div>
+          )}
+
+          {selectedKpiIds.size > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {Array.from(selectedKpiIds).map(id => {
+                const kpi = allKpiOptions.find(k => k.id === id);
+                return kpi ? (
+                  <span key={id} className="inline-flex items-center gap-1 text-xs bg-[#00aeef]/10 text-[#00aeef] px-2 py-1 rounded-lg font-medium">
+                    {kpi.codigoKpi}
+                    <button onClick={() => toggleKpiFilter(id)} className="hover:text-red-500 transition">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ) : null;
+              })}
+              <button onClick={clearKpiFilter} className="text-xs text-gray-400 hover:text-gray-600 ml-1">
+                Limpiar
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -149,10 +458,10 @@ export default function KpiTrackingPage() {
             <div className="w-10 h-10 bg-[#00aeef]/10 rounded-xl flex items-center justify-center">
               <Target className="w-5 h-5 text-[#00aeef]" />
             </div>
-            <span className="text-xs font-medium text-gray-400">KPIs Activos</span>
+            <span className="text-xs font-medium text-gray-400">KPIs</span>
           </div>
-          <div className="text-2xl font-bold text-gray-900">{resumen.totalKpis}</div>
-          <p className="text-xs text-gray-500 mt-1">Indicadores registrados</p>
+          <div className="text-2xl font-bold text-gray-900">{filteredResumen.totalKpis}</div>
+          <p className="text-xs text-gray-500 mt-1">{selectedKpiIds.size > 0 ? "Filtrados" : "Registrados"}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -160,12 +469,12 @@ export default function KpiTrackingPage() {
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-green-600" />
             </div>
-            <span className={`text-xs font-semibold ${getCumplimientoColor(resumen.cumplimientoGeneral)}`}>
-              {resumen.cumplimientoGeneral}%
+            <span className={`text-xs font-semibold ${getCumplimientoColor(filteredResumen.cumplimientoGeneral)}`}>
+              {filteredResumen.cumplimientoGeneral}%
             </span>
           </div>
           <div className="text-2xl font-bold text-gray-900">Cumplimiento</div>
-          <ProgressBar value={resumen.cumplimientoGeneral} color={getCumplimientoBg(resumen.cumplimientoGeneral)} />
+          <ProgressBar value={filteredResumen.cumplimientoGeneral} color={getCumplimientoBg(filteredResumen.cumplimientoGeneral)} />
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -175,8 +484,8 @@ export default function KpiTrackingPage() {
             </div>
             <span className="text-xs font-medium text-gray-400">Meta Total</span>
           </div>
-          <div className="text-2xl font-bold text-gray-900">{formatMoney(resumen.totalMeta)}</div>
-          <p className="text-xs text-gray-500 mt-1">Ponderado: {formatMoney(resumen.totalPonderado)}</p>
+          <div className="text-2xl font-bold text-gray-900">{formatMoney(filteredResumen.totalMeta)}</div>
+          <p className="text-xs text-gray-500 mt-1">Ponderado: {formatMoney(filteredResumen.totalPonderado)}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -186,19 +495,29 @@ export default function KpiTrackingPage() {
             </div>
             <span className="text-xs font-medium text-gray-400">Oportunidades</span>
           </div>
-          <div className="text-2xl font-bold text-gray-900">{resumen.oportunidadesTotales}</div>
-          <p className="text-xs text-gray-500 mt-1">Activas en pipeline</p>
+          <div className="text-2xl font-bold text-gray-900">{filteredResumen.oportunidadesTotales}</div>
+          <p className="text-xs text-gray-500 mt-1">En el periodo</p>
         </div>
       </div>
 
-      {kpiList.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin w-8 h-8 border-4 border-[#00aeef] border-t-transparent rounded-full" />
+        </div>
+      ) : error ? (
+        <div className="text-red-500 text-sm bg-red-50 p-4 rounded-lg">{error}</div>
+      ) : filteredKpis.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No hay KPIs registrados. Crea uno desde el catálogo de KPIs.</p>
+          <p className="text-gray-500">
+            {selectedKpiIds.size > 0
+              ? "No hay datos para los KPIs seleccionados en este periodo."
+              : "No hay KPIs registrados. Crea uno desde el catálogo de KPIs."}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {kpiList.map((kpi) => {
+          {filteredKpis.map((kpi) => {
             const isExpanded = expandedKpi === kpi.id;
             return (
               <div key={kpi.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -264,15 +583,9 @@ export default function KpiTrackingPage() {
                     <ProgressBar value={kpi.cumplimiento} color={getCumplimientoBg(kpi.cumplimiento)} />
                   </div>
                   <div className="flex gap-4 mt-3 text-sm">
-                    <span className="text-gray-500">
-                      <span className="font-medium text-gray-700">{kpi.oportunidadesActivas}</span> oportunidades activas
-                    </span>
-                    <span className="text-gray-500">
-                      <span className="font-medium text-green-600">{kpi.oportunidadesGanadas}</span> ganadas
-                    </span>
-                    <span className="text-gray-500">
-                      <span className="font-medium text-gray-700">{kpi.etapasVinculadas.length}</span> etapas vinculadas
-                    </span>
+                    <span className="text-gray-500"><span className="font-medium text-gray-700">{kpi.oportunidadesActivas}</span> oportunidades activas</span>
+                    <span className="text-gray-500"><span className="font-medium text-green-600">{kpi.oportunidadesGanadas}</span> ganadas</span>
+                    <span className="text-gray-500"><span className="font-medium text-gray-700">{kpi.etapasVinculadas.length}</span> etapas vinculadas</span>
                   </div>
                 </div>
 
@@ -363,6 +676,7 @@ export default function KpiTrackingPage() {
                     <Clock className="w-3 h-3" />
                     {selectedKpi.periodoEvaluacion}
                   </span>
+                  <span className="text-xs text-gray-400">{currentPeriodoLabel}</span>
                 </div>
                 <h2 className="text-lg font-bold text-gray-900">{selectedKpi.nombre}</h2>
               </div>

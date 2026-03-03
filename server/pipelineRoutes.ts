@@ -293,11 +293,22 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
     }
   });
 
-  app.get("/api/pipeline/kpi-tracking", requireAuth, async (_req: Request, res: Response) => {
+  app.get("/api/pipeline/kpi-tracking", requireAuth, async (req: Request, res: Response) => {
     try {
+      const { desde, hasta } = req.query as { desde?: string; hasta?: string };
       const allKpis = await db.select().from(kpis);
       const allEtapas = await db.select().from(etapasVenta);
-      const allOps = await db.select().from(oportunidades);
+      let allOps = await db.select().from(oportunidades);
+
+      if (desde) {
+        const desdeDate = new Date(desde);
+        allOps = allOps.filter(op => new Date(op.createdAt) >= desdeDate);
+      }
+      if (hasta) {
+        const hastaDate = new Date(hasta);
+        hastaDate.setHours(23, 59, 59, 999);
+        allOps = allOps.filter(op => new Date(op.createdAt) <= hastaDate);
+      }
 
       const result = allKpis.map(kpi => {
         const etapasLinked = allEtapas.filter(e => e.kpiId === kpi.id);
