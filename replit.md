@@ -57,6 +57,7 @@ shared/
 - `/admin/catalogs/productos` - Productos catalog (multi tipos de negocio)
 - `/admin/catalogs/kpis` - KPIs catalog
 - `/admin/pipeline` - CRM Pipeline de Ventas (Kanban board + list view)
+- `/admin/kpi-tracking` - Seguimiento de KPIs (dashboard interactivo + análisis cruzado)
 
 ### API
 - `POST /api/auth/login` - Login
@@ -77,6 +78,7 @@ shared/
 - `PUT /api/pipeline/oportunidades/:id/cerrar` - Close opportunity (ganada/perdida)
 - `GET/POST/DELETE /api/pipeline/oportunidades/:id/cotizaciones` - Quotes per opportunity
 - `GET/POST /api/pipeline/oportunidades/:id/actividades` - Activity timeline per opportunity
+- `GET /api/pipeline/kpi-tracking` - KPI tracking dashboard (cumplimiento, cruce con oportunidades)
 - `GET /api/pipeline/stats` - Pipeline KPI stats (value, active count, win rate, at-risk)
 
 ## Database Tables
@@ -108,6 +110,7 @@ shared/
 - **Password Change**: Modal accessible from sidebar
 - **Catálogos Module**: Full CRUD for Tipos de Negocio, Clientes (with metadata key-value pairs), Etapas de Venta (with probabilidad slider & orden), Productos (with multi tipos de negocio), KPIs
 - **Pipeline de Ventas**: CRM module with Kanban board (drag & drop between stages), list view toggle, KPI dashboard cards (pipeline value, active count, win rate, at-risk), opportunity CRUD, detail modal with activity timeline (llamada/correo/reunion/nota) and cotizaciones management, auto-generated codes (OP-NNN, COT-NNN), stage-based close modal (ganada/perdida with motivo)
+- **Seguimiento de KPIs**: Interactive dashboard showing KPI cumplimiento with progress bars, summary cards (KPIs activos, cumplimiento general, meta total, oportunidades), expandable KPI cards with linked stages and opportunities, detail analysis modal with cross-reference between KPIs and oportunidades per etapa
 
 ## Key Features
 - Products section with 5 product cards + Software a la Medida

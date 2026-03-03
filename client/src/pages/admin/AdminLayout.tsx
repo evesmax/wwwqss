@@ -98,6 +98,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {renderMenuItem({ path: "/pipeline", label: "Pipeline de Ventas", icon: Kanban })}
+          {renderMenuItem({ path: "/kpi-tracking", label: "Seguimiento de KPIs", icon: BarChart3 })}
 
           <div className="pt-2">
             {collapsed ? (

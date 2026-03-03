@@ -10,6 +10,7 @@ import EtapasVentaPage from "./EtapasVentaPage";
 import ProductosPage from "./ProductosPage";
 import KpisPage from "./KpisPage";
 import PipelinePage from "./PipelinePage";
+import KpiTrackingPage from "./KpiTrackingPage";
 
 export default function AdminApp() {
   const [user, setUser] = useState<any>(null);
@@ -53,6 +54,7 @@ export default function AdminApp() {
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
         <Route path="/pipeline" component={PipelinePage} />
+        <Route path="/kpi-tracking" component={KpiTrackingPage} />
         <Route path="/roles" component={RolesPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/catalogs/tipos-negocio" component={TiposNegocioPage} />

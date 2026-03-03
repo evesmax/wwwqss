@@ -9,6 +9,7 @@ import {
   productos,
   tiposNegocio,
   users,
+  kpis,
 } from "@shared/schema";
 import { eq, and, sql, count, sum } from "drizzle-orm";
 
@@ -288,6 +289,95 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
 
       res.status(201).json(item);
     } catch (error) {
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  });
+
+  app.get("/api/pipeline/kpi-tracking", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const allKpis = await db.select().from(kpis);
+      const allEtapas = await db.select().from(etapasVenta);
+      const allOps = await db.select().from(oportunidades);
+
+      const result = allKpis.map(kpi => {
+        const etapasLinked = allEtapas.filter(e => e.kpiId === kpi.id);
+        const etapaIds = etapasLinked.map(e => e.id);
+
+        const opsInKpi = allOps.filter(op => etapaIds.includes(op.etapaVentaId));
+        const opsActivas = opsInKpi.filter(op => op.estado === "activa");
+        const opsGanadas = allOps.filter(op => op.estado === "ganada" && etapaIds.length > 0 &&
+          etapasLinked.some(e => e.final));
+        const opsPerdidas = allOps.filter(op => op.estado === "perdida" && etapaIds.length > 0 &&
+          etapasLinked.some(e => e.final));
+
+        const allOpsForKpiStages = allOps.filter(op =>
+          etapaIds.includes(op.etapaVentaId) ||
+          (op.estado === "ganada" && etapasLinked.some(e => e.final)) ||
+          (op.estado === "perdida" && etapasLinked.some(e => e.final))
+        );
+
+        const valorTotal = opsActivas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
+        const valorPonderado = opsActivas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0") * (op.probabilidad / 100), 0);
+
+        const metaValor = parseFloat(kpi.valor) || 0;
+        const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorPonderado / metaValor) * 100)) : 0;
+
+        const opsGanadasTotal = allOps.filter(op => op.estado === "ganada");
+        const opsGanadasKpi = opsGanadasTotal.filter(op => {
+          const etapaOrig = allEtapas.find(e => e.id === op.etapaVentaId);
+          return etapaOrig && etapaOrig.kpiId === kpi.id;
+        });
+        const valorGanado = opsGanadasKpi.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
+
+        return {
+          id: kpi.id,
+          codigoKpi: kpi.codigoKpi,
+          nombre: kpi.kpi,
+          descripcion: kpi.descripcion,
+          metaValor,
+          periodoEvaluacion: kpi.periodoEvaluacion,
+          cumplimiento,
+          valorTotal: Math.round(valorTotal),
+          valorPonderado: Math.round(valorPonderado),
+          valorGanado: Math.round(valorGanado),
+          oportunidadesActivas: opsActivas.length,
+          oportunidadesGanadas: opsGanadasKpi.length,
+          etapasVinculadas: etapasLinked.map(e => ({
+            id: e.id,
+            etapa: e.etapa,
+            orden: e.orden,
+            probabilidad: e.probabilidad,
+            oportunidades: allOps.filter(op => op.etapaVentaId === e.id && op.estado === "activa").map(op => ({
+              id: op.id,
+              codigo: op.codigo,
+              nombre: op.nombre,
+              valorEstimado: parseFloat(op.valorEstimado || "0"),
+              probabilidad: op.probabilidad,
+              estado: op.estado,
+              diasInactividad: Math.floor((Date.now() - new Date(op.updatedAt).getTime()) / (1000 * 60 * 60 * 24)),
+            })),
+          })),
+        };
+      });
+
+      const totalMeta = result.reduce((s, k) => s + k.metaValor, 0);
+      const totalPonderado = result.reduce((s, k) => s + k.valorPonderado, 0);
+      const totalGanado = result.reduce((s, k) => s + k.valorGanado, 0);
+      const cumplimientoGeneral = totalMeta > 0 ? Math.min(100, Math.round((totalPonderado / totalMeta) * 100)) : 0;
+
+      res.json({
+        kpis: result,
+        resumen: {
+          totalKpis: allKpis.length,
+          totalMeta,
+          totalPonderado: Math.round(totalPonderado),
+          totalGanado: Math.round(totalGanado),
+          cumplimientoGeneral,
+          oportunidadesTotales: allOps.filter(op => op.estado === "activa").length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching KPI tracking:", error);
       res.status(500).json({ message: "Error del servidor" });
     }
   });
