@@ -114,8 +114,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
 
   app.post("/api/catalog/etapas-venta", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal } = req.body;
-      const [item] = await db.insert(etapasVenta).values({ codigoEtapa, etapa, descripcion, inicial, final: esFinal }).returning();
+      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden } = req.body;
+      const [item] = await db.insert(etapasVenta).values({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0 }).returning();
       res.status(201).json(item);
     } catch (error: any) {
       if (error?.message?.includes("unique") || error?.constraint) {
@@ -128,8 +128,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
   app.put("/api/catalog/etapas-venta/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal } = req.body;
-      const [updated] = await db.update(etapasVenta).set({ codigoEtapa, etapa, descripcion, inicial, final: esFinal }).where(eq(etapasVenta.id, id)).returning();
+      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden } = req.body;
+      const [updated] = await db.update(etapasVenta).set({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0 }).where(eq(etapasVenta.id, id)).returning();
       if (!updated) return res.status(404).json({ message: "No encontrado" });
       res.json(updated);
     } catch (error) {

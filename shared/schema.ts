@@ -67,6 +67,8 @@ export const etapasVenta = pgTable("etapas_venta", {
   descripcion: text("descripcion").notNull().default(""),
   inicial: boolean("inicial").notNull().default(false),
   final: boolean("final").notNull().default(false),
+  probabilidad: integer("probabilidad").notNull().default(0),
+  orden: integer("orden").notNull().default(0),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -91,6 +93,43 @@ export const kpis = pgTable("kpis", {
   kpi: text("kpi").notNull(),
   descripcion: text("descripcion").notNull().default(""),
   valor: text("valor").notNull().default(""),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const oportunidades = pgTable("oportunidades", {
+  id: serial("id").primaryKey(),
+  codigo: text("codigo").notNull().unique(),
+  nombre: text("nombre").notNull(),
+  clienteId: integer("cliente_id").references(() => clientes.id),
+  tipoNegocioId: integer("tipo_negocio_id").references(() => tiposNegocio.id),
+  productoId: integer("producto_id").references(() => productos.id),
+  etapaVentaId: integer("etapa_venta_id").notNull().references(() => etapasVenta.id),
+  valorEstimado: numeric("valor_estimado", { precision: 14, scale: 2 }).notNull().default("0"),
+  probabilidad: integer("probabilidad").notNull().default(0),
+  responsableId: integer("responsable_id").references(() => users.id),
+  estado: text("estado").notNull().default("activa"),
+  motivoCierre: text("motivo_cierre"),
+  fechaCierre: timestamp("fecha_cierre"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const cotizaciones = pgTable("cotizaciones", {
+  id: serial("id").primaryKey(),
+  codigo: text("codigo").notNull(),
+  oportunidadId: integer("oportunidad_id").notNull().references(() => oportunidades.id, { onDelete: "cascade" }),
+  descripcion: text("descripcion").notNull().default(""),
+  monto: numeric("monto", { precision: 14, scale: 2 }).notNull().default("0"),
+  estado: text("estado").notNull().default("borrador"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const actividades = pgTable("actividades", {
+  id: serial("id").primaryKey(),
+  oportunidadId: integer("oportunidad_id").notNull().references(() => oportunidades.id, { onDelete: "cascade" }),
+  tipo: text("tipo").notNull().default("nota"),
+  descripcion: text("descripcion").notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -125,5 +164,8 @@ export type Cliente = typeof clientes.$inferSelect;
 export type EtapaVenta = typeof etapasVenta.$inferSelect;
 export type Producto = typeof productos.$inferSelect;
 export type Kpi = typeof kpis.$inferSelect;
+export type Oportunidad = typeof oportunidades.$inferSelect;
+export type Cotizacion = typeof cotizaciones.$inferSelect;
+export type Actividad = typeof actividades.$inferSelect;
 
 export * from "./models/chat";

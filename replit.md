@@ -1,7 +1,7 @@
 # QSoftware Solutions - Company Website
 
 ## Overview
-Corporate website for QSoftware Solutions, a software consulting company based in Guadalajara, Mexico. Built with React (Vite) frontend and Express backend. Includes an admin panel with RBAC access control, Gemini AI assistant, and catalog management module.
+Corporate website for QSoftware Solutions, a software consulting company based in Guadalajara, Mexico. Built with React (Vite) frontend and Express backend. Includes an admin panel with RBAC access control, Gemini AI assistant, catalog management module (Catálogos), and CRM Pipeline de Ventas module.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript, Vite, Tailwind CSS, Framer Motion, Wouter v3 (routing with nesting)
@@ -26,11 +26,12 @@ server/
   vite.ts           - Vite dev server + static file serving
   routes.ts         - API routes (auth, admin CRUD, chat)
   catalogRoutes.ts  - Catalog module API routes (tipos negocio, clientes, etapas, productos, kpis)
+  pipelineRoutes.ts - CRM Pipeline API routes (oportunidades, cotizaciones, actividades, stats)
   auth.ts           - Authentication helpers (password hashing, RBAC, seed)
   db.ts             - Database connection (Neon + Drizzle)
   replit_integrations/ - Gemini AI integration modules
 shared/
-  schema.ts         - Drizzle ORM schema (users, roles, permissions, catalogs)
+  schema.ts         - Drizzle ORM schema (users, roles, permissions, catalogs, pipeline)
   models/chat.ts    - Chat-related Drizzle schema
 ```
 
@@ -55,6 +56,7 @@ shared/
 - `/admin/catalogs/etapas-venta` - Etapas de Venta catalog
 - `/admin/catalogs/productos` - Productos catalog (multi tipos de negocio)
 - `/admin/catalogs/kpis` - KPIs catalog
+- `/admin/pipeline` - CRM Pipeline de Ventas (Kanban board + list view)
 
 ### API
 - `POST /api/auth/login` - Login
@@ -70,6 +72,12 @@ shared/
 - `GET/POST/PUT/DELETE /api/catalog/etapas-venta` - Etapas de Venta
 - `GET/POST/PUT/DELETE /api/catalog/productos` - Productos (includes tiposNegocio relation)
 - `GET/POST/PUT/DELETE /api/catalog/kpis` - KPIs
+- `GET/POST/PUT/DELETE /api/pipeline/oportunidades` - Sales opportunities
+- `PUT /api/pipeline/oportunidades/:id/etapa` - Move opportunity to different stage (drag & drop)
+- `PUT /api/pipeline/oportunidades/:id/cerrar` - Close opportunity (ganada/perdida)
+- `GET/POST/DELETE /api/pipeline/oportunidades/:id/cotizaciones` - Quotes per opportunity
+- `GET/POST /api/pipeline/oportunidades/:id/actividades` - Activity timeline per opportunity
+- `GET /api/pipeline/stats` - Pipeline KPI stats (value, active count, win rate, at-risk)
 
 ## Database Tables
 ### Auth/RBAC
@@ -87,13 +95,19 @@ shared/
 - `producto_tipos_negocio` - Product-TipoNegocio M:N
 - `kpis` - KPIs (id, codigo_kpi, kpi, descripcion, valor)
 
+### CRM Pipeline
+- `oportunidades` - Sales opportunities (id, codigo auto OP-NNN, nombre, clienteId FK, tipoNegocioId FK, productoId FK, etapaVentaId FK, valorEstimado, probabilidad, responsableId FK, estado[activa/ganada/perdida], motivoCierre, fechaCierre)
+- `cotizaciones` - Quotes (id, codigo auto COT-NNN, oportunidadId FK, descripcion, monto, estado)
+- `actividades` - Activity timeline (id, oportunidadId FK, tipo[llamada/correo/reunion/nota], descripcion, usuarioId FK)
+
 ## Admin Panel
 - **Default credentials**: admin / admin123
 - **RBAC**: Users, Roles, Permissions with many-to-many relationships
 - **Sidebar**: Collapsible, shows user profile and role at bottom, "Catálogos" submenu with expandable items
 - **Gemini Chat**: Draggable AI assistant window, context-aware about admin features
 - **Password Change**: Modal accessible from sidebar
-- **Catálogos Module**: Full CRUD for Tipos de Negocio, Clientes (with metadata key-value pairs), Etapas de Venta, Productos (with multi tipos de negocio), KPIs
+- **Catálogos Module**: Full CRUD for Tipos de Negocio, Clientes (with metadata key-value pairs), Etapas de Venta (with probabilidad slider & orden), Productos (with multi tipos de negocio), KPIs
+- **Pipeline de Ventas**: CRM module with Kanban board (drag & drop between stages), list view toggle, KPI dashboard cards (pipeline value, active count, win rate, at-risk), opportunity CRUD, detail modal with activity timeline (llamada/correo/reunion/nota) and cotizaciones management, auto-generated codes (OP-NNN, COT-NNN), stage-based close modal (ganada/perdida with motivo)
 
 ## Key Features
 - Products section with 5 product cards + Software a la Medida

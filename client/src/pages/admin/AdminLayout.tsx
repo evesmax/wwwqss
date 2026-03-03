@@ -17,6 +17,7 @@ import {
   Package,
   BarChart3,
   Briefcase,
+  Kanban,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -96,7 +97,9 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          <div>
+          {renderMenuItem({ path: "/pipeline", label: "Pipeline de Ventas", icon: Kanban })}
+
+          <div className="pt-2">
             {collapsed ? (
               <button
                 onClick={() => {

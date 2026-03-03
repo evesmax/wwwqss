@@ -9,9 +9,11 @@ interface EtapaVenta {
   descripcion: string;
   inicial: boolean;
   final: boolean;
+  probabilidad: number;
+  orden: number;
 }
 
-const emptyForm = { codigoEtapa: "", etapa: "", descripcion: "", inicial: false, final: false };
+const emptyForm = { codigoEtapa: "", etapa: "", descripcion: "", inicial: false, final: false, probabilidad: 0, orden: 0 };
 
 export default function EtapasVentaPage() {
   const [items, setItems] = useState<EtapaVenta[]>([]);
@@ -51,6 +53,8 @@ export default function EtapasVentaPage() {
       descripcion: item.descripcion,
       inicial: item.inicial,
       final: item.final,
+      probabilidad: item.probabilidad ?? 0,
+      orden: item.orden ?? 0,
     });
     setShowModal(true);
     setError("");
@@ -113,6 +117,8 @@ export default function EtapasVentaPage() {
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Código</th>
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Etapa</th>
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Descripción</th>
+              <th className="text-center px-5 py-3 font-semibold text-gray-600">Orden</th>
+              <th className="text-center px-5 py-3 font-semibold text-gray-600">Probabilidad</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Inicial</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Final</th>
               <th className="text-right px-5 py-3 font-semibold text-gray-600">Acciones</th>
@@ -131,6 +137,12 @@ export default function EtapasVentaPage() {
                   </div>
                 </td>
                 <td className="px-5 py-3 text-gray-500">{item.descripcion}</td>
+                <td className="px-5 py-3 text-center">
+                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-medium">{item.orden}</span>
+                </td>
+                <td className="px-5 py-3 text-center">
+                  <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">{item.probabilidad}%</span>
+                </td>
                 <td className="px-5 py-3 text-center">
                   {item.inicial ? (
                     <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-lg font-medium">Sí</span>
@@ -159,7 +171,7 @@ export default function EtapasVentaPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-gray-400">
+                <td colSpan={8} className="text-center py-12 text-gray-400">
                   No hay etapas registradas. Crea la primera.
                 </td>
               </tr>
@@ -212,6 +224,46 @@ export default function EtapasVentaPage() {
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]"
                   placeholder="Descripción de la etapa"
                 />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Orden</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.orden}
+                    onChange={(e) => setForm({ ...form, orden: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Probabilidad (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.probabilidad}
+                    onChange={(e) => setForm({ ...form, probabilidad: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]"
+                    placeholder="0"
+                  />
+                  <div className="mt-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={form.probabilidad}
+                      onChange={(e) => setForm({ ...form, probabilidad: parseInt(e.target.value) })}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#00aeef]"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>0%</span>
+                      <span>50%</span>
+                      <span>100%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-6">
                 <label className="flex items-center gap-3 cursor-pointer">

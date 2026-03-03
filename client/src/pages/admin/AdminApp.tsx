@@ -9,6 +9,7 @@ import ClientesPage from "./ClientesPage";
 import EtapasVentaPage from "./EtapasVentaPage";
 import ProductosPage from "./ProductosPage";
 import KpisPage from "./KpisPage";
+import PipelinePage from "./PipelinePage";
 
 export default function AdminApp() {
   const [user, setUser] = useState<any>(null);
@@ -51,6 +52,7 @@ export default function AdminApp() {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
+        <Route path="/pipeline" component={PipelinePage} />
         <Route path="/roles" component={RolesPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/catalogs/tipos-negocio" component={TiposNegocioPage} />

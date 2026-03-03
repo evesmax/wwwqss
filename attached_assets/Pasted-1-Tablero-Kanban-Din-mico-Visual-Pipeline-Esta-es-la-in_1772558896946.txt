@@ -1,0 +1,38 @@
+1. Tablero Kanban Dinámico (Visual Pipeline)
+Esta es la interfaz principal donde se gestiona el flujo comercial.
+
+Columnas Basadas en Catálogo: El componente debe renderizar automáticamente las columnas leyendo tu tabla de "Etapas de Venta". Si un administrador añade la etapa "Post-venta" en el catálogo, el Kanban debe actualizarse solo.
+
+Tarjetas de Oportunidad: Cada tarjeta debe mostrar de un vistazo: Nombre de la oportunidad, Cliente (relacionado a tu catálogo), Valor estimado, Responsable y Días de inactividad.
+
+Drag & Drop con Lógica de Negocio: No es solo mover tarjetas; al arrastrar una oportunidad a una etapa marcada como "Final" (según tu catálogo), el sistema debe disparar un modal para definir si fue Ganada o Perdida y obligar a registrar el motivo.
+
+2. Gestión de Oportunidades (El Nexo)
+Es el documento que vive entre el Cliente y la Cotización.
+
+Vinculación con Catálogos Actuales: Al crear una oportunidad, el componente debe permitir seleccionar el "Tipo de Negocio" y el "Producto" (usando los catálogos que ya tienes en la barra lateral).
+
+Cálculo de Probabilidad por Etapa: Puedes asignar un porcentaje de éxito sugerido a cada "Etapa de Venta". Al mover la tarjeta, la probabilidad de cierre se actualiza automáticamente.
+
+Múltiples Cotizaciones por Oportunidad: Un cliente puede pedir varias opciones (ej. una ruta sencilla vs. una multi-ruta). El CRM debe permitir asociar N cotizaciones de QNexusControl a una sola oportunidad para comparar cuál es la que finalmente se aprueba.
+
+3. Registro de Actividades (Timeline)
+Un CRM sin historial es solo una hoja de cálculo.
+
+Bitácora de Interacciones: Dentro de cada oportunidad, debe haber un componente de "Timeline" donde el vendedor registre llamadas, correos o reuniones.
+
+Tareas y Recordatorios: Integración con un sistema de tareas que notifique si una oportunidad ha pasado más de X días en la etapa "Presentación de Propuesta" sin cambios.
+
+4. Capa de Inteligencia y KPIs (Integración con tu catálogo de KPIs)
+Como ya tienes un catálogo de KPIs, el CRM debe alimentar esos indicadores:
+
+Tasa de Conversión (Win Rate): Porcentaje de oportunidades que pasan de la etapa "Inicial" a la "Final - Ganada".
+
+Velocidad de Venta: Tiempo promedio que tarda una oportunidad en recorrer todas las etapas desde la Prospección hasta el Cierre.
+
+Valor del Pipeline: Suma total de los "Valores Estimados" de todas las oportunidades activas, ponderado por su probabilidad según la etapa.
+
+5. Automatización de Flujos (Workflows)
+Aprovechando tus etapas:
+
+Disparadores por Etapa: Si una oportunidad entra en la etapa "Cierre (Ganada)", el sistema debería poder generar automáticamente una tarea para el equipo de Operaciones de Transporte o enviar un correo de bienvenida al cliente.
