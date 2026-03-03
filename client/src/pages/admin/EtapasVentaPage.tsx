@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, X, ListOrdered } from "lucide-react";
+import { Plus, Edit2, Trash2, X, ListOrdered, BarChart3 } from "lucide-react";
+
+interface Kpi {
+  id: number;
+  codigoKpi: string;
+  kpi: string;
+}
 
 interface EtapaVenta {
   id: number;
@@ -11,12 +17,15 @@ interface EtapaVenta {
   final: boolean;
   probabilidad: number;
   orden: number;
+  kpiId: number | null;
+  kpiNombre: string | null;
 }
 
-const emptyForm = { codigoEtapa: "", etapa: "", descripcion: "", inicial: false, final: false, probabilidad: 0, orden: 0 };
+const emptyForm = { codigoEtapa: "", etapa: "", descripcion: "", inicial: false, final: false, probabilidad: 0, orden: 0, kpiId: null as number | null };
 
 export default function EtapasVentaPage() {
   const [items, setItems] = useState<EtapaVenta[]>([]);
+  const [kpisList, setKpisList] = useState<Kpi[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<EtapaVenta | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -25,8 +34,12 @@ export default function EtapasVentaPage() {
 
   const fetchData = async () => {
     try {
-      const res = await apiRequest("GET", "/api/catalog/etapas-venta");
-      setItems(await res.json());
+      const [resEtapas, resKpis] = await Promise.all([
+        apiRequest("GET", "/api/catalog/etapas-venta"),
+        apiRequest("GET", "/api/catalog/kpis"),
+      ]);
+      setItems(await resEtapas.json());
+      setKpisList(await resKpis.json());
     } catch {
       setError("Error al cargar datos");
     } finally {
@@ -55,6 +68,7 @@ export default function EtapasVentaPage() {
       final: item.final,
       probabilidad: item.probabilidad ?? 0,
       orden: item.orden ?? 0,
+      kpiId: item.kpiId ?? null,
     });
     setShowModal(true);
     setError("");
@@ -119,6 +133,7 @@ export default function EtapasVentaPage() {
               <th className="text-left px-5 py-3 font-semibold text-gray-600">Descripción</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Orden</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Probabilidad</th>
+              <th className="text-left px-5 py-3 font-semibold text-gray-600">KPI Vinculado</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Inicial</th>
               <th className="text-center px-5 py-3 font-semibold text-gray-600">Final</th>
               <th className="text-right px-5 py-3 font-semibold text-gray-600">Acciones</th>
@@ -142,6 +157,18 @@ export default function EtapasVentaPage() {
                 </td>
                 <td className="px-5 py-3 text-center">
                   <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">{item.probabilidad}%</span>
+                </td>
+                <td className="px-5 py-3">
+                  {item.kpiNombre ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-amber-100 rounded-md flex items-center justify-center">
+                        <BarChart3 className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <span className="text-gray-700 text-sm">{item.kpiNombre}</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-300 text-sm italic">Sin KPI</span>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-center">
                   {item.inicial ? (
@@ -171,7 +198,7 @@ export default function EtapasVentaPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-gray-400">
+                <td colSpan={9} className="text-center py-12 text-gray-400">
                   No hay etapas registradas. Crea la primera.
                 </td>
               </tr>
@@ -264,6 +291,24 @@ export default function EtapasVentaPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">KPI Vinculado</label>
+                <select
+                  value={form.kpiId ?? ""}
+                  onChange={(e) => setForm({ ...form, kpiId: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef] bg-white"
+                >
+                  <option value="">Sin KPI vinculado</option>
+                  {kpisList.map((kpi) => (
+                    <option key={kpi.id} value={kpi.id}>
+                      {kpi.codigoKpi} - {kpi.kpi}
+                    </option>
+                  ))}
+                </select>
+                {kpisList.length === 0 && (
+                  <p className="text-xs text-gray-400 mt-1">No hay KPIs registrados. Crea uno en el catálogo de KPIs primero.</p>
+                )}
               </div>
               <div className="flex gap-6">
                 <label className="flex items-center gap-3 cursor-pointer">

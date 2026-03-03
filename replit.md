@@ -90,7 +90,7 @@ shared/
 ### Catalogs
 - `tipos_negocio` - Business type catalog (id, codigo, nombre, descripcion)
 - `clientes` - Clients (id, codigo, tipo[Prospecto/Cliente], nombre_negocio, tipo_negocio_id FK, nombre_contacto, telefono_contacto, metadata JSONB)
-- `etapas_venta` - Sales stages (id, codigo_etapa, etapa, descripcion, inicial, final)
+- `etapas_venta` - Sales stages (id, codigo_etapa, etapa, descripcion, inicial, final, probabilidad, orden, kpi_id FK→kpis)
 - `productos` - Products (id, codigo_producto, nombre, descripcion, precio)
 - `producto_tipos_negocio` - Product-TipoNegocio M:N
 - `kpis` - KPIs (id, codigo_kpi, kpi, descripcion, valor)

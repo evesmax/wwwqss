@@ -105,7 +105,22 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
 
   app.get("/api/catalog/etapas-venta", requireAuth, async (_req: Request, res: Response) => {
     try {
-      const data = await db.select().from(etapasVenta);
+      const data = await db
+        .select({
+          id: etapasVenta.id,
+          codigoEtapa: etapasVenta.codigoEtapa,
+          etapa: etapasVenta.etapa,
+          descripcion: etapasVenta.descripcion,
+          inicial: etapasVenta.inicial,
+          final: etapasVenta.final,
+          probabilidad: etapasVenta.probabilidad,
+          orden: etapasVenta.orden,
+          kpiId: etapasVenta.kpiId,
+          kpiNombre: kpis.kpi,
+          createdAt: etapasVenta.createdAt,
+        })
+        .from(etapasVenta)
+        .leftJoin(kpis, eq(etapasVenta.kpiId, kpis.id));
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Error del servidor" });
@@ -114,8 +129,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
 
   app.post("/api/catalog/etapas-venta", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden } = req.body;
-      const [item] = await db.insert(etapasVenta).values({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0 }).returning();
+      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden, kpiId } = req.body;
+      const [item] = await db.insert(etapasVenta).values({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0, kpiId: kpiId || null }).returning();
       res.status(201).json(item);
     } catch (error: any) {
       if (error?.message?.includes("unique") || error?.constraint) {
@@ -128,8 +143,8 @@ export function registerCatalogRoutes(app: Express, requireAuth: any) {
   app.put("/api/catalog/etapas-venta/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden } = req.body;
-      const [updated] = await db.update(etapasVenta).set({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0 }).where(eq(etapasVenta.id, id)).returning();
+      const { codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad, orden, kpiId } = req.body;
+      const [updated] = await db.update(etapasVenta).set({ codigoEtapa, etapa, descripcion, inicial, final: esFinal, probabilidad: probabilidad ?? 0, orden: orden ?? 0, kpiId: kpiId || null }).where(eq(etapasVenta.id, id)).returning();
       if (!updated) return res.status(404).json({ message: "No encontrado" });
       res.json(updated);
     } catch (error) {

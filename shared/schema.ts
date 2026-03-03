@@ -69,6 +69,7 @@ export const etapasVenta = pgTable("etapas_venta", {
   final: boolean("final").notNull().default(false),
   probabilidad: integer("probabilidad").notNull().default(0),
   orden: integer("orden").notNull().default(0),
+  kpiId: integer("kpi_id").references(() => kpis.id),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
