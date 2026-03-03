@@ -13,6 +13,7 @@ import QCampusOnePage from "@/pages/QCampusOnePage";
 import QNexusAppPage from "@/pages/QNexusAppPage";
 import HolaKuraPage from "@/pages/HolaKuraPage";
 import AuranubaPage from "@/pages/AuranubaPage";
+import AdminApp from "@/pages/admin/AdminApp";
 
 function Router() {
   return (
@@ -26,6 +27,8 @@ function Router() {
       <Route path="/productos/qnexus-app" component={QNexusAppPage} />
       <Route path="/productos/holakura" component={HolaKuraPage} />
       <Route path="/productos/auranuba" component={AuranubaPage} />
+      <Route path="/admin/:rest*" component={AdminApp} />
+      <Route path="/admin" component={AdminApp} />
       <Route component={NotFound} />
     </Switch>
   );
