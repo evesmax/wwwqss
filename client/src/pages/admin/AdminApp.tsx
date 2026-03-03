@@ -4,6 +4,11 @@ import AdminLogin from "./AdminLogin";
 import AdminLayout from "./AdminLayout";
 import RolesPage from "./RolesPage";
 import UsersPage from "./UsersPage";
+import TiposNegocioPage from "./TiposNegocioPage";
+import ClientesPage from "./ClientesPage";
+import EtapasVentaPage from "./EtapasVentaPage";
+import ProductosPage from "./ProductosPage";
+import KpisPage from "./KpisPage";
 
 export default function AdminApp() {
   const [user, setUser] = useState<any>(null);
@@ -23,7 +28,7 @@ export default function AdminApp() {
 
   const handleLogin = (userData: any) => {
     setUser(userData);
-    navigate("/admin/roles");
+    navigate("/roles");
   };
 
   const handleLogout = async () => {
@@ -46,10 +51,15 @@ export default function AdminApp() {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
-        <Route path="/admin/roles" component={RolesPage} />
-        <Route path="/admin/users" component={UsersPage} />
-        <Route path="/admin">
-          <Redirect to="/admin/roles" />
+        <Route path="/roles" component={RolesPage} />
+        <Route path="/users" component={UsersPage} />
+        <Route path="/catalogs/tipos-negocio" component={TiposNegocioPage} />
+        <Route path="/catalogs/clientes" component={ClientesPage} />
+        <Route path="/catalogs/etapas-venta" component={EtapasVentaPage} />
+        <Route path="/catalogs/productos" component={ProductosPage} />
+        <Route path="/catalogs/kpis" component={KpisPage} />
+        <Route path="/">
+          <Redirect to="/roles" />
         </Route>
       </Switch>
     </AdminLayout>

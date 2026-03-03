@@ -6,6 +6,7 @@ import { users, roles, permissions, rolePermissions, userRoles } from "@shared/s
 import { eq, and } from "drizzle-orm";
 import { hashPassword, verifyPassword, getUserPermissions, getUserRoles, seedAdminUser } from "./auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
+import { registerCatalogRoutes } from "./catalogRoutes";
 
 declare module "express-session" {
   interface SessionData {
@@ -37,6 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await seedAdminUser();
 
   registerChatRoutes(app);
+  registerCatalogRoutes(app, requireAuth);
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {

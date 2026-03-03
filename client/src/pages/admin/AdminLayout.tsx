@@ -5,11 +5,18 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Key,
   Menu,
   X,
   MessageCircle,
+  BookOpen,
+  Building2,
+  GitBranch,
+  Package,
+  BarChart3,
+  Briefcase,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -21,9 +28,17 @@ interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const menuItems = [
-  { path: "/admin/roles", label: "Roles y Permisos", icon: Shield },
-  { path: "/admin/users", label: "Alta de Usuarios", icon: Users },
+const mainMenuItems = [
+  { path: "/roles", label: "Roles y Permisos", icon: Shield },
+  { path: "/users", label: "Alta de Usuarios", icon: Users },
+];
+
+const catalogMenuItems = [
+  { path: "/catalogs/tipos-negocio", label: "Tipos de Negocio", icon: Briefcase },
+  { path: "/catalogs/clientes", label: "Clientes", icon: Building2 },
+  { path: "/catalogs/etapas-venta", label: "Etapas de Venta", icon: GitBranch },
+  { path: "/catalogs/productos", label: "Productos", icon: Package },
+  { path: "/catalogs/kpis", label: "KPIs", icon: BarChart3 },
 ];
 
 export default function AdminLayout({ user, onLogout, children }: AdminLayoutProps) {
@@ -32,6 +47,32 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
   const [showChat, setShowChat] = useState(false);
   const [location, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [catalogsOpen, setCatalogsOpen] = useState(() => location.startsWith("/catalogs"));
+
+  const renderMenuItem = (item: typeof mainMenuItems[0]) => {
+    const Icon = item.icon;
+    const isActive = location === item.path;
+    return (
+      <button
+        key={item.path}
+        onClick={() => {
+          navigate(item.path);
+          setMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+          isActive
+            ? "bg-[#00aeef]/10 text-[#00aeef]"
+            : "text-gray-600 hover:bg-gray-100"
+        } ${collapsed ? "justify-center" : ""}`}
+        title={collapsed ? item.label : undefined}
+      >
+        <Icon className="w-5 h-5 flex-shrink-0" />
+        {!collapsed && <span>{item.label}</span>}
+      </button>
+    );
+  };
+
+  const isCatalogActive = location.startsWith("/catalogs");
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -54,29 +95,68 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           )}
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.path;
-            return (
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {mainMenuItems.map(renderMenuItem)}
+
+          <div className="pt-2">
+            {collapsed ? (
               <button
-                key={item.path}
                 onClick={() => {
-                  navigate(item.path);
-                  setMobileMenuOpen(false);
+                  setCollapsed(false);
+                  setCatalogsOpen(true);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                  isActive
+                className={`w-full flex items-center justify-center px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                  isCatalogActive
                     ? "bg-[#00aeef]/10 text-[#00aeef]"
                     : "text-gray-600 hover:bg-gray-100"
-                } ${collapsed ? "justify-center" : ""}`}
-                title={collapsed ? item.label : undefined}
+                }`}
+                title="Catálogos"
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                <BookOpen className="w-5 h-5" />
               </button>
-            );
-          })}
+            ) : (
+              <>
+                <button
+                  onClick={() => setCatalogsOpen(!catalogsOpen)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                    isCatalogActive
+                      ? "bg-[#00aeef]/10 text-[#00aeef]"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <BookOpen className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-left">Catálogos</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${catalogsOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {catalogsOpen && (
+                  <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-gray-100 pl-3">
+                    {catalogMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location === item.path;
+                      return (
+                        <button
+                          key={item.path}
+                          onClick={() => {
+                            navigate(item.path);
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${
+                            isActive
+                              ? "bg-[#00aeef]/10 text-[#00aeef] font-medium"
+                              : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4 flex-shrink-0" />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </nav>
 
         <div className="border-t border-gray-100 p-3 space-y-2">
