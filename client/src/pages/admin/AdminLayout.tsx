@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
+import qssLogo from "@assets/qss-logo.png";
 
 interface AdminLayoutProps {
   user: any;
@@ -44,10 +45,13 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
         } ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
         <div className={`flex items-center gap-3 p-4 border-b border-gray-100 ${collapsed ? "justify-center" : ""}`}>
-          <div className="w-9 h-9 bg-[#00aeef] rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">Q</span>
-          </div>
-          {!collapsed && <span className="font-bold text-gray-900 text-sm">QSS Admin</span>}
+          {collapsed ? (
+            <div className="w-9 h-9 flex items-center justify-center flex-shrink-0">
+              <img src={qssLogo} alt="QSS" className="w-9 h-9 object-contain" />
+            </div>
+          ) : (
+            <img src={qssLogo} alt="QSoftware Solutions" className="h-9 object-contain" />
+          )}
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
