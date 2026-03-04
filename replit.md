@@ -27,6 +27,7 @@ server/
   routes.ts         - API routes (auth, admin CRUD, chat)
   catalogRoutes.ts  - Catalog module API routes (tipos negocio, clientes, etapas, productos, kpis)
   pipelineRoutes.ts - CRM Pipeline API routes (oportunidades, cotizaciones, actividades, stats)
+  dbIndexes.ts      - Database indexes (27 indexes, auto-applied on startup)
   auth.ts           - Authentication helpers (password hashing, RBAC, seed)
   db.ts             - Database connection (Neon + Drizzle)
   replit_integrations/ - Gemini AI integration modules

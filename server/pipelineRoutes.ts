@@ -17,41 +17,52 @@ import { eq, and, isNull, sql, count, sum } from "drizzle-orm";
 export function registerPipelineRoutes(app: Express, requireAuth: any) {
   app.get("/api/pipeline/oportunidades", requireAuth, async (_req: Request, res: Response) => {
     try {
-      const allOps = await db.select().from(oportunidades);
-      const result = await Promise.all(
-        allOps.map(async (op) => {
-          const [cliente] = op.clienteId
-            ? await db.select({ id: clientes.id, codigo: clientes.codigo, nombreNegocio: clientes.nombreNegocio }).from(clientes).where(eq(clientes.id, op.clienteId))
-            : [null];
-          const [etapa] = await db.select().from(etapasVenta).where(eq(etapasVenta.id, op.etapaVentaId));
-          const [responsable] = op.responsableId
-            ? await db.select({ id: users.id, username: users.username, fullName: users.fullName }).from(users).where(eq(users.id, op.responsableId))
-            : [null];
-          const [producto] = op.productoId
-            ? await db.select({ id: productos.id, nombre: productos.nombre }).from(productos).where(eq(productos.id, op.productoId))
-            : [null];
-          const [tipoNeg] = op.tipoNegocioId
-            ? await db.select({ id: tiposNegocio.id, nombre: tiposNegocio.nombre }).from(tiposNegocio).where(eq(tiposNegocio.id, op.tipoNegocioId))
-            : [null];
+      const rows = await db.execute(sql`
+        SELECT
+          o.*,
+          json_build_object('id', c.id, 'codigo', c.codigo, 'nombreNegocio', c.nombre_negocio) AS cliente,
+          json_build_object('id', e.id, 'codigoEtapa', e.codigo_etapa, 'etapa', e.etapa, 'descripcion', e.descripcion, 'inicial', e.inicial, 'final', e.final, 'probabilidad', e.probabilidad, 'orden', e.orden, 'kpiId', e.kpi_id) AS etapa,
+          json_build_object('id', u.id, 'username', u.username, 'fullName', u.full_name) AS responsable,
+          json_build_object('id', p.id, 'nombre', p.nombre) AS producto,
+          json_build_object('id', tn.id, 'nombre', tn.nombre) AS "tipoNegocio",
+          COALESCE(act.cnt, 0) AS "actividadesCount",
+          COALESCE(cot.cnt, 0) AS "cotizacionesCount"
+        FROM oportunidades o
+        LEFT JOIN clientes c ON c.id = o.cliente_id
+        JOIN etapas_venta e ON e.id = o.etapa_venta_id
+        LEFT JOIN users u ON u.id = o.responsable_id
+        LEFT JOIN productos p ON p.id = o.producto_id
+        LEFT JOIN tipos_negocio tn ON tn.id = o.tipo_negocio_id
+        LEFT JOIN LATERAL (SELECT COUNT(*)::int AS cnt FROM actividades WHERE oportunidad_id = o.id) act ON true
+        LEFT JOIN LATERAL (SELECT COUNT(*)::int AS cnt FROM cotizaciones WHERE oportunidad_id = o.id) cot ON true
+        ORDER BY o.id DESC
+      `);
 
-          const actCount = await db.select({ count: count() }).from(actividades).where(eq(actividades.oportunidadId, op.id));
-          const cotCount = await db.select({ count: count() }).from(cotizaciones).where(eq(cotizaciones.oportunidadId, op.id));
-
-          const daysSinceUpdate = Math.floor((Date.now() - new Date(op.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-
-          return {
-            ...op,
-            cliente,
-            etapa,
-            responsable,
-            producto,
-            tipoNegocio: tipoNeg,
-            actividadesCount: actCount[0]?.count || 0,
-            cotizacionesCount: cotCount[0]?.count || 0,
-            diasInactividad: daysSinceUpdate,
-          };
-        })
-      );
+      const result = ((rows as any).rows || rows as any[]).map((row: any) => ({
+        id: row.id,
+        codigo: row.codigo,
+        nombre: row.nombre,
+        clienteId: row.cliente_id,
+        tipoNegocioId: row.tipo_negocio_id,
+        productoId: row.producto_id,
+        etapaVentaId: row.etapa_venta_id,
+        valorEstimado: row.valor_estimado,
+        probabilidad: row.probabilidad,
+        responsableId: row.responsable_id,
+        estado: row.estado,
+        motivoCierre: row.motivo_cierre,
+        fechaCierre: row.fecha_cierre,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        cliente: row.cliente?.id ? row.cliente : null,
+        etapa: row.etapa,
+        responsable: row.responsable?.id ? row.responsable : null,
+        producto: row.producto?.id ? row.producto : null,
+        tipoNegocio: row.tipoNegocio?.id ? row.tipoNegocio : null,
+        actividadesCount: row.actividadesCount || 0,
+        cotizacionesCount: row.cotizacionesCount || 0,
+        diasInactividad: Math.floor((Date.now() - new Date(row.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
+      }));
       res.json(result);
     } catch (error) {
       console.error("Error fetching oportunidades:", error);
