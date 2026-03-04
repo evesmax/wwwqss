@@ -22,8 +22,8 @@ export const products = [
     icon: "fa-mobile-alt",
     iconColor: "text-[#575757]",
     iconBg: "bg-[#575757]/10",
-    title: "QNexus App",
-    description: "Movilidad y rastreo en tiempo real desde cualquier dispositivo móvil.",
+    title: "QNexusApp",
+    description: "Sistema moderno de punto de venta y gestión de inventario bilingüe para retail multi-sucursal.",
     route: "/productos/qnexus-app.html",
   },
   {

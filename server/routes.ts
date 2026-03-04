@@ -377,7 +377,7 @@ QSoftware Solutions ofrece los siguientes productos de software:
 
 1. **QNexus Control** - Plataforma integral de gestión de flotas vehiculares y control logístico en tiempo real. GPS, optimización de rutas, control de inventario. IDEAL PARA: empresas de transporte, logística, flotillas vehiculares. Reduce costos de combustible hasta 30%.
 
-2. **QNexus App** - Aplicación móvil para monitoreo operativo. Extensión móvil de QNexus. Notificaciones push, modo offline, seguridad biométrica. IDEAL PARA: gerentes de flotilla y operadores en campo.
+2. **QNexusApp** - Sistema moderno de punto de venta y gestión retail adaptado a tu negocio. Plataforma bilingüe (inglés/español) con POS táctil Scan & Go, gestión de inventario en tiempo real multi-ubicación, administración multi-sucursal desde un solo panel, órdenes de compra automatizadas con controles antirrobo, y reportes avanzados con dashboards. IDEAL PARA: tiendas minoristas, cadenas de retail, tiendas de conveniencia, delis, negocios con múltiples sucursales. Sitio: qnexusapp.com
 
 3. **QCampusOne** - Sistema completo de gestión académica y administrativa para instituciones educativas. Planes de estudio, inscripciones, calificaciones, portal padres/maestros. IDEAL PARA: escuelas, colegios, universidades.
 
@@ -410,7 +410,8 @@ Cuando te pidan recomendaciones de venta, sigue esta metodología:
 6. Cierre → Contrato y onboarding
 
 **Estrategias por Tipo de Producto:**
-- Para QNexus (logística): Enfocarse en ROI por ahorro de combustible y optimización. Buscar empresas con +10 vehículos.
+- Para QNexus Control (logística): Enfocarse en ROI por ahorro de combustible y optimización. Buscar empresas con +10 vehículos.
+- Para QNexusApp (retail/POS): Enfocarse en eficiencia operativa, control de inventario multi-sucursal y reducción de merma. Buscar tiendas minoristas, cadenas de retail, delis, tiendas de conveniencia con 2+ sucursales. Destacar interfaz bilingüe y sistema Scan & Go.
 - Para QCampusOne (educación): Demostrar eficiencia administrativa. Buscar instituciones con +200 alumnos.
 - Para Q Food Control (restaurantes): Enfocarse en control de inventario y reducción de merma. Cadenas de 3+ sucursales son ideales.
 - Para Q Inventia (inventarios): ROI por reducción de pérdida y control de stock. Empresas con almacenes o retail.

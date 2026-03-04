@@ -40,7 +40,7 @@ shared/
 - `/` - Homepage
 - `/productos/qnexus-control` - QNexus Control product page
 - `/productos/qcampus-one` - QCampusOne product page
-- `/productos/qnexus-app` - QNexus App product page
+- `/productos/qnexus-app` - QNexusApp product page (POS & retail management)
 - `/productos/holakura` - HolaKura product page
 - `/productos/auranuba` - Auranuba product page
 - `/qfood` - Q Food Control page

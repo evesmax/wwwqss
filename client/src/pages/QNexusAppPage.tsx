@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
-import { ArrowRight, Check, Smartphone, Bell, Wifi, Shield } from "lucide-react";
+import { ArrowRight, Check, ShoppingCart, Package, Building2, Languages, ShieldCheck, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
 
 export default function QNexusAppPage() {
@@ -10,24 +10,26 @@ export default function QNexusAppPage() {
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
   useEffect(() => {
-    document.title = "QNexus App - Monitoreo y Control Móvil | Q Software Solutions";
+    document.title = "QNexusApp - Sistema POS y Gestión Retail | Q Software Solutions";
     window.scrollTo(0, 0);
   }, []);
 
   const features = [
-    { icon: <Smartphone className="h-6 w-6" />, title: "Control Móvil", description: "Gestiona tu operación completa desde tu smartphone o tablet" },
-    { icon: <Bell className="h-6 w-6" />, title: "Notificaciones Push", description: "Alertas instantáneas de eventos críticos en tu operación" },
-    { icon: <Wifi className="h-6 w-6" />, title: "Sincronización en Vivo", description: "Datos actualizados en tiempo real con tu plataforma central" },
-    { icon: <Shield className="h-6 w-6" />, title: "Seguridad Avanzada", description: "Autenticación biométrica y encriptación de datos" },
+    { icon: <ShoppingCart className="h-6 w-6" />, title: "Punto de Venta", description: "Sistema de cobro rápido e intuitivo con interfaz táctil" },
+    { icon: <Package className="h-6 w-6" />, title: "Gestión de Inventario", description: "Seguimiento de stock en tiempo real en todas tus ubicaciones" },
+    { icon: <Building2 className="h-6 w-6" />, title: "Multi-Sucursal", description: "Administra múltiples tiendas desde un solo panel" },
+    { icon: <Languages className="h-6 w-6" />, title: "Interfaz Bilingüe", description: "Soporte completo en inglés y español para todos los usuarios" },
+    { icon: <ShieldCheck className="h-6 w-6" />, title: "Compras Inteligentes", description: "Órdenes de compra automatizadas con controles antirrobo" },
+    { icon: <BarChart3 className="h-6 w-6" />, title: "Reportes Avanzados", description: "Análisis detallado e insights para mejores decisiones" },
   ];
 
   const benefits = [
-    "Acceso a tu operación desde cualquier lugar del mundo",
-    "Funciona en iOS y Android de forma nativa",
-    "Modo offline con sincronización automática",
-    "Interfaz intuitiva y fácil de usar",
-    "Integración directa con QNexus Control",
-    "Actualizaciones automáticas sin interrupciones",
+    "Sistema de cobro Scan & Go rápido e intuitivo",
+    "Gestión de inventario en tiempo real multi-ubicación",
+    "Interfaz bilingüe inglés/español para todo el equipo",
+    "Administración centralizada de múltiples sucursales",
+    "Órdenes de compra automatizadas con controles antirrobo",
+    "Reportes y análisis detallados para mejores decisiones",
   ];
 
   return (
@@ -57,23 +59,33 @@ export default function QNexusAppPage() {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-3 mb-6">
               <div className="h-14 w-14 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                <i className="fas fa-mobile-alt text-2xl"></i>
+                <ShoppingCart className="h-7 w-7" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold">QNexus App</h1>
+              <h1 className="text-4xl md:text-5xl font-bold">QNexusApp</h1>
             </div>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Aplicación móvil para monitoreo y control operativo desde cualquier lugar. Lleva el poder de tu plataforma en tu bolsillo.
+            <p className="text-xl text-gray-600 mb-4 max-w-2xl mx-auto">
+              Sistema Moderno y adaptado a tu Negocio
             </p>
-            <a href="#contact-section">
-              <Button size="lg" className="text-lg px-8">
-                Solicitar Demo <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </a>
+            <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
+              Optimiza tus operaciones de venta con nuestra poderosa plataforma bilingüe. Gestiona inventario, ventas y múltiples ubicaciones desde un solo panel.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <a href="https://qnexusapp.com/" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" className="text-lg px-8">
+                  Comenzar Gratis <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </a>
+              <a href="#features-section">
+                <Button size="lg" variant="outline" className="text-lg px-8">
+                  Conocer Más
+                </Button>
+              </a>
+            </div>
           </div>
         </motion.div>
       </section>
 
-      <section className="py-20">
+      <section id="features-section" className="py-20">
         <motion.div
           ref={featuresRef}
           className="container mx-auto px-6"
@@ -81,8 +93,9 @@ export default function QNexusAppPage() {
           animate={featuresInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="text-3xl font-bold text-center mb-12">Características Principales</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <h2 className="text-3xl font-bold text-center mb-4">Características</h2>
+          <p className="text-gray-600 text-center mb-12 max-w-xl mx-auto">Todo lo que necesitas para administrar tu negocio eficientemente</p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((f, i) => (
               <div key={i} className="bg-gray-50 rounded-xl p-6 text-center hover:shadow-md transition-shadow">
                 <div className="h-12 w-12 bg-primary/10 text-primary rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -114,13 +127,18 @@ export default function QNexusAppPage() {
 
       <section id="contact-section" className="py-20">
         <div className="container mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold mb-4">Tu operación, siempre en tus manos</h2>
+          <h2 className="text-3xl font-bold mb-4">¿Listo para Transformar tu Negocio?</h2>
           <p className="text-gray-600 mb-8 max-w-xl mx-auto">
-            Agenda una demostración y conoce cómo QNexus App te da control total desde tu dispositivo móvil.
+            Únete a miles de minoristas que confían en QNexusApp
           </p>
-          <Link href="/#contact">
-            <Button size="lg">Contáctanos <ArrowRight className="ml-2 h-5 w-5" /></Button>
-          </Link>
+          <div className="flex items-center justify-center gap-4">
+            <a href="https://qnexusapp.com/" target="_blank" rel="noopener noreferrer">
+              <Button size="lg">Comenzar Gratis <ArrowRight className="ml-2 h-5 w-5" /></Button>
+            </a>
+            <Link href="/#contact">
+              <Button size="lg" variant="outline">Contáctanos</Button>
+            </Link>
+          </div>
         </div>
       </section>
     </div>

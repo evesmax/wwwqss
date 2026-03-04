@@ -48,7 +48,7 @@ export default function Footer() {
             <ul className="space-y-3">
               <li><Link href="/productos/qnexus-control" className="text-gray-400 hover:text-white transition-colors">QNexus Control</Link></li>
               <li><Link href="/productos/qcampus-one" className="text-gray-400 hover:text-white transition-colors">QCampusOne</Link></li>
-              <li><Link href="/productos/qnexus-app" className="text-gray-400 hover:text-white transition-colors">QNexus App</Link></li>
+              <li><Link href="/productos/qnexus-app" className="text-gray-400 hover:text-white transition-colors">QNexusApp</Link></li>
               <li><Link href="/productos/holakura" className="text-gray-400 hover:text-white transition-colors">HolaKura</Link></li>
               <li><Link href="/productos/auranuba" className="text-gray-400 hover:text-white transition-colors">Auranuba</Link></li>
             </ul>
