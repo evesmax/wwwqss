@@ -20,7 +20,7 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       const rows = await db.execute(sql`
         SELECT
           o.*,
-          json_build_object('id', c.id, 'codigo', c.codigo, 'nombreNegocio', c.nombre_negocio) AS cliente,
+          json_build_object('id', c.id, 'codigo', c.codigo, 'nombreNegocio', c.nombre_negocio, 'telefonoContacto', c.telefono_contacto) AS cliente,
           json_build_object('id', e.id, 'codigoEtapa', e.codigo_etapa, 'etapa', e.etapa, 'descripcion', e.descripcion, 'inicial', e.inicial, 'final', e.final, 'probabilidad', e.probabilidad, 'orden', e.orden, 'kpiId', e.kpi_id) AS etapa,
           json_build_object('id', u.id, 'username', u.username, 'fullName', u.full_name) AS responsable,
           json_build_object('id', p.id, 'nombre', p.nombre) AS producto,
