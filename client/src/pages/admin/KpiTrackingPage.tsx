@@ -56,6 +56,7 @@ interface KpiTracking {
 interface Resumen {
   totalKpis: number;
   totalMeta: number;
+  totalValor: number;
   totalPonderado: number;
   totalGanado: number;
   cumplimientoGeneral: number;
@@ -247,16 +248,17 @@ export default function KpiTrackingPage() {
   const filteredKpis = data?.kpis.filter(k => selectedKpiIds.size === 0 || selectedKpiIds.has(k.id)) ?? [];
 
   const filteredResumen: Resumen = selectedKpiIds.size === 0 || !data
-    ? (data?.resumen ?? { totalKpis: 0, totalMeta: 0, totalPonderado: 0, totalGanado: 0, cumplimientoGeneral: 0, oportunidadesTotales: 0 })
+    ? (data?.resumen ?? { totalKpis: 0, totalMeta: 0, totalValor: 0, totalPonderado: 0, totalGanado: 0, cumplimientoGeneral: 0, oportunidadesTotales: 0 })
     : {
         totalKpis: filteredKpis.length,
         totalMeta: filteredKpis.reduce((s, k) => s + k.metaValor, 0),
+        totalValor: filteredKpis.reduce((s, k) => s + k.valorTotal, 0),
         totalPonderado: filteredKpis.reduce((s, k) => s + k.valorPonderado, 0),
         totalGanado: filteredKpis.reduce((s, k) => s + k.valorGanado, 0),
         cumplimientoGeneral: (() => {
           const m = filteredKpis.reduce((s, k) => s + k.metaValor, 0);
-          const p = filteredKpis.reduce((s, k) => s + k.valorPonderado, 0);
-          return m > 0 ? Math.min(100, Math.round((p / m) * 100)) : 0;
+          const v = filteredKpis.reduce((s, k) => s + k.valorTotal, 0);
+          return m > 0 ? Math.min(100, Math.round((v / m) * 100)) : 0;
         })(),
         oportunidadesTotales: filteredKpis.reduce((s, k) => s + k.oportunidadesActivas, 0),
       };
@@ -485,7 +487,7 @@ export default function KpiTrackingPage() {
             <span className="text-xs font-medium text-gray-400">Meta Total</span>
           </div>
           <div className="text-2xl font-bold text-gray-900">{formatMoney(filteredResumen.totalMeta)}</div>
-          <p className="text-xs text-gray-500 mt-1">Ponderado: {formatMoney(filteredResumen.totalPonderado)}</p>
+          <p className="text-xs text-gray-500 mt-1">Total: {formatMoney(filteredResumen.totalValor || 0)} | Pond: {formatMoney(filteredResumen.totalPonderado)}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -556,8 +558,12 @@ export default function KpiTrackingPage() {
                         <div className="text-lg font-bold text-gray-900">{formatMoney(kpi.metaValor)}</div>
                       </div>
                       <div className="text-right hidden md:block">
+                        <div className="text-sm text-gray-500">Valor Total</div>
+                        <div className={`text-lg font-bold ${getCumplimientoColor(kpi.cumplimiento)}`}>{formatMoney(kpi.valorTotal)}</div>
+                      </div>
+                      <div className="text-right hidden md:block">
                         <div className="text-sm text-gray-500">Ponderado</div>
-                        <div className={`text-lg font-bold ${getCumplimientoColor(kpi.cumplimiento)}`}>{formatMoney(kpi.valorPonderado)}</div>
+                        <div className="text-lg font-bold text-gray-500">{formatMoney(kpi.valorPonderado)}</div>
                       </div>
                       <div className="text-right hidden lg:block">
                         <div className="text-sm text-gray-500">Cumplimiento</div>
@@ -577,7 +583,7 @@ export default function KpiTrackingPage() {
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>{formatMoney(kpi.valorPonderado)} de {formatMoney(kpi.metaValor)}</span>
+                      <span>{formatMoney(kpi.valorTotal)} de {formatMoney(kpi.metaValor)}</span>
                       <span>{kpi.cumplimiento}%</span>
                     </div>
                     <ProgressBar value={kpi.cumplimiento} color={getCumplimientoBg(kpi.cumplimiento)} />

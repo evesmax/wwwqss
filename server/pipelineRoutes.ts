@@ -485,6 +485,7 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
         resumen: {
           totalKpis: allKpis.length,
           totalMeta,
+          totalValor: Math.round(totalValor),
           totalPonderado: Math.round(totalPonderado),
           totalGanado: Math.round(totalGanado),
           cumplimientoGeneral,
