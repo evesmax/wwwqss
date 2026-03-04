@@ -16,6 +16,8 @@ import {
   ArrowRight,
   Clock,
   GripVertical,
+  UserPlus,
+  Check,
 } from "lucide-react";
 
 interface Etapa {
@@ -111,6 +113,10 @@ export default function PipelinePage() {
   const [cotizacionesData, setCotizacionesData] = useState<any[]>([]);
   const [newActivity, setNewActivity] = useState({ tipo: "nota", descripcion: "" });
   const [newCotizacion, setNewCotizacion] = useState({ codigo: "", descripcion: "", monto: "" });
+  const [showNewCliente, setShowNewCliente] = useState(false);
+  const [newClienteForm, setNewClienteForm] = useState({ codigo: "", tipo: "Prospecto", nombreNegocio: "", tipoNegocioId: "", nombreContacto: "", telefonoContacto: "" });
+  const [newClienteLoading, setNewClienteLoading] = useState(false);
+  const [newClienteError, setNewClienteError] = useState("");
 
   const fetchAll = useCallback(async () => {
     try {
@@ -187,6 +193,37 @@ export default function PipelinePage() {
       fetchAll();
     } catch {
       setError("Error al cerrar oportunidad");
+    }
+  };
+
+  const handleCreateCliente = async () => {
+    if (!newClienteForm.nombreNegocio.trim()) {
+      setNewClienteError("El nombre del negocio es requerido");
+      return;
+    }
+    setNewClienteLoading(true);
+    setNewClienteError("");
+    try {
+      const codigo = newClienteForm.codigo.trim() || `CLI-${Date.now().toString().slice(-6)}`;
+      const res = await apiRequest("POST", "/api/catalog/clientes", {
+        codigo,
+        tipo: newClienteForm.tipo,
+        nombreNegocio: newClienteForm.nombreNegocio.trim(),
+        tipoNegocioId: newClienteForm.tipoNegocioId ? parseInt(newClienteForm.tipoNegocioId) : null,
+        nombreContacto: newClienteForm.nombreContacto.trim() || null,
+        telefonoContacto: newClienteForm.telefonoContacto.trim() || null,
+        metadata: {},
+      });
+      const created = await res.json();
+      setClientes(prev => [...prev, { id: created.id, codigo: created.codigo, nombreNegocio: created.nombreNegocio }]);
+      setCreateForm(prev => ({ ...prev, clienteId: String(created.id) }));
+      setShowNewCliente(false);
+      setNewClienteForm({ codigo: "", tipo: "Prospecto", nombreNegocio: "", tipoNegocioId: "", nombreContacto: "", telefonoContacto: "" });
+    } catch (err: any) {
+      const msg = err?.message || "Error al crear cliente";
+      setNewClienteError(msg.includes("código") ? "El código ya existe" : msg);
+    } finally {
+      setNewClienteLoading(false);
     }
   };
 
@@ -553,7 +590,7 @@ export default function PipelinePage() {
           <div className="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold">{showEditModal ? "Editar Oportunidad" : "Nueva Oportunidad"}</h2>
-              <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); setSelectedOp(null); }} className="p-1 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); setSelectedOp(null); setShowNewCliente(false); }} className="p-1 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -565,10 +602,40 @@ export default function PipelinePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                  <select value={createForm.clienteId} onChange={e => setCreateForm({ ...createForm, clienteId: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]">
-                    <option value="">Seleccionar</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombreNegocio}</option>)}
-                  </select>
+                  <div className="flex gap-2">
+                    <select value={createForm.clienteId} onChange={e => setCreateForm({ ...createForm, clienteId: e.target.value })} className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]">
+                      <option value="">Seleccionar</option>
+                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombreNegocio}</option>)}
+                    </select>
+                    <button type="button" onClick={() => { setShowNewCliente(!showNewCliente); setNewClienteError(""); }} className={`p-2.5 rounded-xl border transition ${showNewCliente ? "bg-red-50 border-red-300 text-red-500 hover:bg-red-100" : "bg-[#00aeef]/10 border-[#00aeef]/30 text-[#00aeef] hover:bg-[#00aeef]/20"}`} title={showNewCliente ? "Cancelar" : "Crear nuevo cliente"}>
+                      {showNewCliente ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {showNewCliente && (
+                    <div className="mt-2 p-3 bg-blue-50/50 border border-[#00aeef]/20 rounded-xl space-y-2">
+                      <p className="text-xs font-semibold text-[#00aeef] flex items-center gap-1"><UserPlus className="w-3 h-3" /> Nuevo Cliente</p>
+                      {newClienteError && <p className="text-xs text-red-500">{newClienteError}</p>}
+                      <input type="text" value={newClienteForm.nombreNegocio} onChange={e => setNewClienteForm({ ...newClienteForm, nombreNegocio: e.target.value })} className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]" placeholder="Nombre del negocio *" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={newClienteForm.codigo} onChange={e => setNewClienteForm({ ...newClienteForm, codigo: e.target.value })} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]" placeholder="Código (auto)" />
+                        <select value={newClienteForm.tipo} onChange={e => setNewClienteForm({ ...newClienteForm, tipo: e.target.value })} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]">
+                          <option value="Prospecto">Prospecto</option>
+                          <option value="Cliente">Cliente</option>
+                        </select>
+                      </div>
+                      <select value={newClienteForm.tipoNegocioId} onChange={e => setNewClienteForm({ ...newClienteForm, tipoNegocioId: e.target.value })} className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]">
+                        <option value="">Tipo de negocio (opcional)</option>
+                        {tiposNeg.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                      </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={newClienteForm.nombreContacto} onChange={e => setNewClienteForm({ ...newClienteForm, nombreContacto: e.target.value })} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]" placeholder="Contacto" />
+                        <input type="text" value={newClienteForm.telefonoContacto} onChange={e => setNewClienteForm({ ...newClienteForm, telefonoContacto: e.target.value })} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#00aeef]" placeholder="Teléfono" />
+                      </div>
+                      <button type="button" onClick={handleCreateCliente} disabled={newClienteLoading} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#00aeef] text-white text-sm font-medium rounded-lg hover:bg-[#0099d6] disabled:opacity-50 transition">
+                        {newClienteLoading ? "Creando..." : <><Check className="w-3.5 h-3.5" /> Crear Cliente</>}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Negocio</label>
@@ -608,7 +675,7 @@ export default function PipelinePage() {
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); setSelectedOp(null); }} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancelar</button>
+                <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); setSelectedOp(null); setShowNewCliente(false); }} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancelar</button>
                 <button onClick={showEditModal ? handleUpdate : handleCreate} className="flex-1 py-2.5 bg-[#00aeef] text-white rounded-xl text-sm font-semibold hover:bg-[#0099d6] transition">
                   {showEditModal ? "Guardar Cambios" : "Crear Oportunidad"}
                 </button>
