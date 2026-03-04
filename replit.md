@@ -99,6 +99,7 @@ shared/
 
 ### CRM Pipeline
 - `oportunidades` - Sales opportunities (id, codigo auto OP-NNN, nombre, clienteId FK, tipoNegocioId FK, productoId FK, etapaVentaId FK, valorEstimado, probabilidad, responsableId FK, estado[activa/ganada/perdida], motivoCierre, fechaCierre)
+- `historial_etapas` - Stage history log (id, oportunidadId FK, etapaVentaId FK, valorEstimado, probabilidad, entradaAt, salidaAt nullable). Records every stage transition for persistent KPI metrics over time.
 - `cotizaciones` - Quotes (id, codigo auto COT-NNN, oportunidadId FK, descripcion, monto, estado)
 - `actividades` - Activity timeline (id, oportunidadId FK, tipo[llamada/correo/reunion/nota], descripcion, usuarioId FK)
 

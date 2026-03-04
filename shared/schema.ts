@@ -116,6 +116,16 @@ export const oportunidades = pgTable("oportunidades", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const historialEtapas = pgTable("historial_etapas", {
+  id: serial("id").primaryKey(),
+  oportunidadId: integer("oportunidad_id").notNull().references(() => oportunidades.id, { onDelete: "cascade" }),
+  etapaVentaId: integer("etapa_venta_id").notNull().references(() => etapasVenta.id),
+  valorEstimado: numeric("valor_estimado", { precision: 14, scale: 2 }).notNull().default("0"),
+  probabilidad: integer("probabilidad").notNull().default(0),
+  entradaAt: timestamp("entrada_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  salidaAt: timestamp("salida_at"),
+});
+
 export const cotizaciones = pgTable("cotizaciones", {
   id: serial("id").primaryKey(),
   codigo: text("codigo").notNull(),
@@ -167,6 +177,7 @@ export type EtapaVenta = typeof etapasVenta.$inferSelect;
 export type Producto = typeof productos.$inferSelect;
 export type Kpi = typeof kpis.$inferSelect;
 export type Oportunidad = typeof oportunidades.$inferSelect;
+export type HistorialEtapa = typeof historialEtapas.$inferSelect;
 export type Cotizacion = typeof cotizaciones.$inferSelect;
 export type Actividad = typeof actividades.$inferSelect;
 

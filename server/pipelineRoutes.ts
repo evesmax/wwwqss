@@ -10,8 +10,9 @@ import {
   tiposNegocio,
   users,
   kpis,
+  historialEtapas,
 } from "@shared/schema";
-import { eq, and, sql, count, sum } from "drizzle-orm";
+import { eq, and, isNull, sql, count, sum } from "drizzle-orm";
 
 export function registerPipelineRoutes(app: Express, requireAuth: any) {
   app.get("/api/pipeline/oportunidades", requireAuth, async (_req: Request, res: Response) => {
@@ -93,6 +94,14 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
         usuarioId: req.session.userId,
       });
 
+      await db.insert(historialEtapas).values({
+        oportunidadId: item.id,
+        etapaVentaId,
+        valorEstimado: String(valorEstimado || 0),
+        probabilidad,
+        entradaAt: new Date(),
+      });
+
       res.status(201).json(item);
     } catch (error: any) {
       console.error("Error creating oportunidad:", error);
@@ -136,13 +145,29 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       const [etapa] = await db.select().from(etapasVenta).where(eq(etapasVenta.id, etapaVentaId));
       if (!etapa) return res.status(404).json({ message: "Etapa no encontrada" });
 
+      const now = new Date();
+
+      await db.update(historialEtapas).set({ salidaAt: now })
+        .where(and(
+          eq(historialEtapas.oportunidadId, id),
+          isNull(historialEtapas.salidaAt)
+        ));
+
       const [updated] = await db.update(oportunidades).set({
         etapaVentaId,
         probabilidad: etapa.probabilidad,
-        updatedAt: new Date(),
+        updatedAt: now,
       }).where(eq(oportunidades.id, id)).returning();
 
       if (!updated) return res.status(404).json({ message: "No encontrada" });
+
+      await db.insert(historialEtapas).values({
+        oportunidadId: id,
+        etapaVentaId,
+        valorEstimado: updated.valorEstimado,
+        probabilidad: etapa.probabilidad,
+        entradaAt: now,
+      });
 
       await db.insert(actividades).values({
         oportunidadId: id,
@@ -167,12 +192,20 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
         return res.status(400).json({ message: "Estado debe ser 'ganada' o 'perdida'" });
       }
 
+      const now = new Date();
+
+      await db.update(historialEtapas).set({ salidaAt: now })
+        .where(and(
+          eq(historialEtapas.oportunidadId, id),
+          isNull(historialEtapas.salidaAt)
+        ));
+
       const [updated] = await db.update(oportunidades).set({
         estado,
         motivoCierre: motivoCierre || null,
-        fechaCierre: new Date(),
+        fechaCierre: now,
         probabilidad: estado === "ganada" ? 100 : 0,
-        updatedAt: new Date(),
+        updatedAt: now,
       }).where(eq(oportunidades.id, id)).returning();
 
       if (!updated) return res.status(404).json({ message: "No encontrada" });
@@ -298,34 +331,91 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       const { desde, hasta } = req.query as { desde?: string; hasta?: string };
       const allKpis = await db.select().from(kpis);
       const allEtapas = await db.select().from(etapasVenta);
-      let allOps = await db.select().from(oportunidades);
+      const allOps = await db.select().from(oportunidades);
+      const allHistorial = await db.select().from(historialEtapas);
 
-      if (desde) {
-        const desdeDate = new Date(desde);
-        allOps = allOps.filter(op => new Date(op.createdAt) >= desdeDate);
-      }
+      const hasDateFilter = !!(desde || hasta);
+      let desdeDate: Date | null = null;
+      let hastaDate: Date | null = null;
+      if (desde) desdeDate = new Date(desde);
       if (hasta) {
-        const hastaDate = new Date(hasta);
+        hastaDate = new Date(hasta);
         hastaDate.setHours(23, 59, 59, 999);
-        allOps = allOps.filter(op => new Date(op.createdAt) <= hastaDate);
       }
 
       const result = allKpis.map(kpi => {
         const etapasLinked = allEtapas.filter(e => e.kpiId === kpi.id);
         const etapaIds = etapasLinked.map(e => e.id);
 
+        if (hasDateFilter && allHistorial.length > 0) {
+          const historialInRange = allHistorial.filter(h => {
+            if (!etapaIds.includes(h.etapaVentaId)) return false;
+            const entrada = new Date(h.entradaAt);
+            const salida = h.salidaAt ? new Date(h.salidaAt) : null;
+            if (hastaDate && entrada > hastaDate) return false;
+            if (desdeDate && salida && salida < desdeDate) return false;
+            return true;
+          });
+
+          const opIdsInRange = [...new Set(historialInRange.map(h => h.oportunidadId))];
+          const opsInKpi = allOps.filter(op => opIdsInRange.includes(op.id));
+
+          const opsActivas = opsInKpi.filter(op => op.estado === "activa");
+          const opsGanadas = opsInKpi.filter(op => op.estado === "ganada");
+
+          const valorTotal = opsInKpi.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
+          const valorPonderado = opsInKpi.reduce((sum, op) => {
+            const h = historialInRange.find(hi => hi.oportunidadId === op.id);
+            const prob = h ? h.probabilidad : op.probabilidad;
+            return sum + parseFloat(op.valorEstimado || "0") * (prob / 100);
+          }, 0);
+
+          const metaValor = parseFloat(kpi.valor) || 0;
+          const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorPonderado / metaValor) * 100)) : 0;
+
+          const valorGanado = opsGanadas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
+
+          return {
+            id: kpi.id,
+            codigoKpi: kpi.codigoKpi,
+            nombre: kpi.kpi,
+            descripcion: kpi.descripcion,
+            metaValor,
+            periodoEvaluacion: kpi.periodoEvaluacion,
+            cumplimiento,
+            valorTotal: Math.round(valorTotal),
+            valorPonderado: Math.round(valorPonderado),
+            valorGanado: Math.round(valorGanado),
+            oportunidadesActivas: opsActivas.length,
+            oportunidadesGanadas: opsGanadas.length,
+            etapasVinculadas: etapasLinked.map(e => {
+              const histEtapa = historialInRange.filter(h => h.etapaVentaId === e.id);
+              const opIdsEtapa = [...new Set(histEtapa.map(h => h.oportunidadId))];
+              const opsEtapa = allOps.filter(op => opIdsEtapa.includes(op.id));
+              return {
+                id: e.id,
+                etapa: e.etapa,
+                orden: e.orden,
+                probabilidad: e.probabilidad,
+                oportunidades: opsEtapa.map(op => {
+                  const h = histEtapa.find(hi => hi.oportunidadId === op.id);
+                  return {
+                    id: op.id,
+                    codigo: op.codigo,
+                    nombre: op.nombre,
+                    valorEstimado: parseFloat(op.valorEstimado || "0"),
+                    probabilidad: h ? h.probabilidad : op.probabilidad,
+                    estado: op.estado,
+                    diasInactividad: Math.floor((Date.now() - new Date(op.updatedAt).getTime()) / (1000 * 60 * 60 * 24)),
+                  };
+                }),
+              };
+            }),
+          };
+        }
+
         const opsInKpi = allOps.filter(op => etapaIds.includes(op.etapaVentaId));
         const opsActivas = opsInKpi.filter(op => op.estado === "activa");
-        const opsGanadas = allOps.filter(op => op.estado === "ganada" && etapaIds.length > 0 &&
-          etapasLinked.some(e => e.final));
-        const opsPerdidas = allOps.filter(op => op.estado === "perdida" && etapaIds.length > 0 &&
-          etapasLinked.some(e => e.final));
-
-        const allOpsForKpiStages = allOps.filter(op =>
-          etapaIds.includes(op.etapaVentaId) ||
-          (op.estado === "ganada" && etapasLinked.some(e => e.final)) ||
-          (op.estado === "perdida" && etapasLinked.some(e => e.final))
-        );
 
         const valorTotal = opsActivas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
         const valorPonderado = opsActivas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0") * (op.probabilidad / 100), 0);
@@ -333,8 +423,10 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
         const metaValor = parseFloat(kpi.valor) || 0;
         const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorPonderado / metaValor) * 100)) : 0;
 
-        const opsGanadasTotal = allOps.filter(op => op.estado === "ganada");
-        const opsGanadasKpi = opsGanadasTotal.filter(op => {
+        const opsGanadasKpi = allOps.filter(op => {
+          if (op.estado !== "ganada") return false;
+          const hist = allHistorial.filter(h => h.oportunidadId === op.id && etapaIds.includes(h.etapaVentaId));
+          if (hist.length > 0) return true;
           const etapaOrig = allEtapas.find(e => e.id === op.etapaVentaId);
           return etapaOrig && etapaOrig.kpiId === kpi.id;
         });
