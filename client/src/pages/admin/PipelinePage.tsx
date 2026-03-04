@@ -117,6 +117,26 @@ export default function PipelinePage() {
   const [newClienteForm, setNewClienteForm] = useState({ codigo: "", tipo: "Prospecto", nombreNegocio: "", tipoNegocioId: "", nombreContacto: "", telefonoContacto: "" });
   const [newClienteLoading, setNewClienteLoading] = useState(false);
   const [newClienteError, setNewClienteError] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const clienteSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clienteSearchRef.current && !clienteSearchRef.current.contains(e.target as Node)) {
+        setShowClienteDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredClientes = clientes.filter(c =>
+    c.nombreNegocio.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+    c.codigo.toLowerCase().includes(clienteSearch.toLowerCase())
+  );
+
+  const selectedClienteName = clientes.find(c => String(c.id) === createForm.clienteId)?.nombreNegocio || "";
 
   const fetchAll = useCallback(async () => {
     try {
@@ -327,6 +347,9 @@ export default function PipelinePage() {
     const defaultEtapa = etapaId || (etapas.find(e => e.inicial)?.id) || (etapas[0]?.id) || "";
     setCreateForm({ nombre: "", clienteId: "", tipoNegocioId: "", productoId: "", etapaVentaId: String(defaultEtapa), valorEstimado: "", responsableId: "" });
     setPresetEtapaId(null);
+    setClienteSearch("");
+    setShowClienteDropdown(false);
+    setShowNewCliente(false);
     setShowCreateModal(true);
   };
 
@@ -602,10 +625,44 @@ export default function PipelinePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Cliente</label>
                 <div className="flex gap-2">
-                  <select value={createForm.clienteId} onChange={e => setCreateForm({ ...createForm, clienteId: e.target.value })} className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef]">
-                    <option value="">Seleccionar cliente</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombreNegocio}</option>)}
-                  </select>
+                  <div className="flex-1 relative" ref={clienteSearchRef}>
+                    <input
+                      type="text"
+                      value={showClienteDropdown ? clienteSearch : selectedClienteName}
+                      onChange={e => { setClienteSearch(e.target.value); setShowClienteDropdown(true); }}
+                      onFocus={() => { setClienteSearch(""); setShowClienteDropdown(true); }}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#00aeef] text-sm"
+                      placeholder="Buscar cliente por nombre o código..."
+                    />
+                    {createForm.clienteId && !showClienteDropdown && (
+                      <button type="button" onClick={() => { setCreateForm({ ...createForm, clienteId: "" }); setClienteSearch(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {showClienteDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                        {filteredClientes.length === 0 ? (
+                          <div className="px-3 py-3 text-sm text-gray-400 text-center">No se encontraron clientes</div>
+                        ) : (
+                          filteredClientes.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCreateForm({ ...createForm, clienteId: String(c.id) });
+                                setClienteSearch("");
+                                setShowClienteDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2.5 text-sm hover:bg-[#00aeef]/5 transition flex items-center justify-between ${String(c.id) === createForm.clienteId ? "bg-[#00aeef]/10 text-[#00aeef] font-medium" : "text-gray-700"}`}
+                            >
+                              <span>{c.nombreNegocio}</span>
+                              <span className="text-xs text-gray-400">{c.codigo}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button type="button" onClick={() => { setShowNewCliente(!showNewCliente); setNewClienteError(""); }} className={`px-3 py-2.5 rounded-xl border transition flex items-center gap-1.5 text-sm font-medium whitespace-nowrap ${showNewCliente ? "bg-red-50 border-red-300 text-red-500 hover:bg-red-100" : "bg-[#00aeef]/10 border-[#00aeef]/30 text-[#00aeef] hover:bg-[#00aeef]/20"}`} title={showNewCliente ? "Cancelar" : "Crear nuevo cliente"}>
                     {showNewCliente ? <><X className="w-4 h-4" /> Cancelar</> : <><UserPlus className="w-4 h-4" /> Nuevo</>}
                   </button>
