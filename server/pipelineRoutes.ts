@@ -382,7 +382,7 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
           }, 0);
 
           const metaValor = parseFloat(kpi.valor) || 0;
-          const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorPonderado / metaValor) * 100)) : 0;
+          const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorTotal / metaValor) * 100)) : 0;
 
           const valorGanado = opsGanadas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0"), 0);
 
@@ -432,7 +432,7 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
         const valorPonderado = opsActivas.reduce((sum, op) => sum + parseFloat(op.valorEstimado || "0") * (op.probabilidad / 100), 0);
 
         const metaValor = parseFloat(kpi.valor) || 0;
-        const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorPonderado / metaValor) * 100)) : 0;
+        const cumplimiento = metaValor > 0 ? Math.min(100, Math.round((valorTotal / metaValor) * 100)) : 0;
 
         const opsGanadasKpi = allOps.filter(op => {
           if (op.estado !== "ganada") return false;
@@ -475,9 +475,10 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       });
 
       const totalMeta = result.reduce((s, k) => s + k.metaValor, 0);
+      const totalValor = result.reduce((s, k) => s + k.valorTotal, 0);
       const totalPonderado = result.reduce((s, k) => s + k.valorPonderado, 0);
       const totalGanado = result.reduce((s, k) => s + k.valorGanado, 0);
-      const cumplimientoGeneral = totalMeta > 0 ? Math.min(100, Math.round((totalPonderado / totalMeta) * 100)) : 0;
+      const cumplimientoGeneral = totalMeta > 0 ? Math.min(100, Math.round((totalValor / totalMeta) * 100)) : 0;
 
       res.json({
         kpis: result,
