@@ -137,7 +137,7 @@ export default function Navbar() {
           
           <div className="hidden md:block">
             <Button asChild className="bg-primary text-white hover:bg-[#474747] transition-all duration-300 hover:scale-105 hover:shadow-lg transform">
-              <a href="https://wa.me/523334655385" target="_blank" rel="noopener noreferrer">Contáctanos</a>
+              <a href="#contact">Contáctanos</a>
             </Button>
           </div>
           
@@ -195,7 +195,7 @@ export default function Navbar() {
               </div>
               
               <Button asChild className="w-full mt-2 bg-primary text-white hover:bg-[#474747]">
-                <a href="https://wa.me/523334655385" target="_blank" rel="noopener noreferrer" onClick={handleNavLinkClick}>Contáctanos</a>
+                <a href="#contact" onClick={handleNavLinkClick}>Contáctanos</a>
               </Button>
             </div>
           </nav>
