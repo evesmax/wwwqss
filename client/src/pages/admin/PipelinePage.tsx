@@ -18,6 +18,10 @@ import {
   GripVertical,
   UserPlus,
   Check,
+  Search,
+  Trophy,
+  XCircle,
+  Activity,
 } from "lucide-react";
 
 interface Etapa {
@@ -120,6 +124,9 @@ export default function PipelinePage() {
   const [clienteSearch, setClienteSearch] = useState("");
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const clienteSearchRef = useRef<HTMLDivElement>(null);
+
+  const [searchOp, setSearchOp] = useState("");
+  const [filterEstado, setFilterEstado] = useState<"todas" | "activa" | "ganada" | "perdida">("activa");
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -393,7 +400,31 @@ export default function PipelinePage() {
     </svg>
   );
 
-  const activeOps = oportunidades.filter(op => op.estado === "activa");
+  const matchSearch = (op: OportunidadFull) => {
+    if (!searchOp.trim()) return true;
+    const q = searchOp.toLowerCase();
+    return (
+      op.codigo.toLowerCase().includes(q) ||
+      op.nombre.toLowerCase().includes(q) ||
+      (op.cliente?.nombreNegocio || "").toLowerCase().includes(q) ||
+      (op.responsable?.fullName || "").toLowerCase().includes(q) ||
+      (op.producto?.nombre || "").toLowerCase().includes(q)
+    );
+  };
+
+  const activeOps = oportunidades.filter(op => op.estado === "activa" && matchSearch(op));
+
+  const filteredOps = oportunidades.filter(op => {
+    if (filterEstado !== "todas" && op.estado !== filterEstado) return false;
+    return matchSearch(op);
+  });
+
+  const countByEstado = {
+    todas: oportunidades.length,
+    activa: oportunidades.filter(o => o.estado === "activa").length,
+    ganada: oportunidades.filter(o => o.estado === "ganada").length,
+    perdida: oportunidades.filter(o => o.estado === "perdida").length,
+  };
 
   if (loading) {
     return (
@@ -476,9 +507,69 @@ export default function PipelinePage() {
         </div>
       </div>
 
+      {/* Barra de búsqueda y filtros */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cliente, código..."
+            value={searchOp}
+            onChange={e => setSearchOp(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00aeef]/30 focus:border-[#00aeef] bg-white"
+          />
+          {searchOp && (
+            <button onClick={() => setSearchOp("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-0.5">
+          {([
+            { key: "todas", label: "Todas", icon: <Activity className="w-3.5 h-3.5" /> },
+            { key: "activa", label: "Activas", icon: <Target className="w-3.5 h-3.5" /> },
+            { key: "ganada", label: "Ganadas", icon: <Trophy className="w-3.5 h-3.5" /> },
+            { key: "perdida", label: "Perdidas", icon: <XCircle className="w-3.5 h-3.5" /> },
+          ] as const).map(({ key, label, icon }) => {
+            const active = filterEstado === key;
+            const colorMap = {
+              todas: active ? "bg-gray-700 text-white" : "text-gray-600 hover:bg-gray-100",
+              activa: active ? "bg-[#00aeef] text-white" : "text-gray-600 hover:bg-blue-50",
+              ganada: active ? "bg-emerald-500 text-white" : "text-gray-600 hover:bg-emerald-50",
+              perdida: active ? "bg-red-500 text-white" : "text-gray-600 hover:bg-red-50",
+            };
+            return (
+              <button
+                key={key}
+                onClick={() => setFilterEstado(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${colorMap[key]}`}
+              >
+                {icon}
+                {label}
+                <span className={`ml-0.5 text-xs rounded-full px-1.5 py-0.5 font-semibold ${active ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
+                  {countByEstado[key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {error && (
         <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg mb-4">{error}
           <button onClick={() => setError("")} className="ml-2 underline">Cerrar</button>
+        </div>
+      )}
+
+      {view === "kanban" && (filterEstado === "ganada" || filterEstado === "perdida") && (
+        <div className="flex items-center gap-3 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-500" />
+          <span>
+            El tablero Kanban solo muestra oportunidades <strong>activas</strong>.
+            {" "}Para ver oportunidades {filterEstado === "ganada" ? "ganadas" : "perdidas"}, cambia a
+            <button onClick={() => setView("lista")} className="underline font-semibold ml-1 hover:text-amber-900">Vista Lista</button>.
+          </span>
         </div>
       )}
 
@@ -595,8 +686,19 @@ export default function PipelinePage() {
                 </tr>
               </thead>
               <tbody>
-                {oportunidades.map(op => (
-                  <tr key={op.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                {filteredOps.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <Search className="w-8 h-8 text-gray-300" />
+                        <p className="font-medium text-gray-500">Sin resultados</p>
+                        <p className="text-sm">No hay oportunidades que coincidan con tu búsqueda o filtro.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {filteredOps.map(op => (
+                  <tr key={op.id} className={`border-b border-gray-100 transition ${op.estado === "ganada" ? "bg-emerald-50/40 hover:bg-emerald-50" : op.estado === "perdida" ? "bg-red-50/40 hover:bg-red-50" : "hover:bg-gray-50"}`}>
                     <td className="px-4 py-3">
                       <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-md">{op.codigo}</span>
                     </td>
@@ -633,12 +735,22 @@ export default function PipelinePage() {
                     </td>
                   </tr>
                 ))}
-                {oportunidades.length === 0 && (
-                  <tr><td colSpan={9} className="text-center py-12 text-gray-400">No hay oportunidades registradas.</td></tr>
-                )}
               </tbody>
             </table>
           </div>
+          {filteredOps.length > 0 && (
+            <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400 flex items-center justify-between bg-gray-50 rounded-b-xl">
+              <span>Mostrando <span className="font-semibold text-gray-600">{filteredOps.length}</span> de <span className="font-semibold text-gray-600">{oportunidades.length}</span> oportunidades</span>
+              {(searchOp || filterEstado !== "todas") && (
+                <button
+                  onClick={() => { setSearchOp(""); setFilterEstado("todas"); }}
+                  className="text-[#00aeef] hover:underline font-medium"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
