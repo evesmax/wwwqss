@@ -125,7 +125,13 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       const id = parseInt(req.params.id);
       const { nombre, clienteId, tipoNegocioId, productoId, etapaVentaId, valorEstimado, responsableId } = req.body;
 
-      const updateData: any = { updatedAt: new Date() };
+      const [current] = await db.select().from(oportunidades).where(eq(oportunidades.id, id));
+      if (!current) return res.status(404).json({ message: "No encontrada" });
+
+      const wasClosed = current.estado === "ganada" || current.estado === "perdida";
+      const now = new Date();
+
+      const updateData: any = { updatedAt: now };
       if (nombre !== undefined) updateData.nombre = nombre;
       if (clienteId !== undefined) updateData.clienteId = clienteId || null;
       if (tipoNegocioId !== undefined) updateData.tipoNegocioId = tipoNegocioId || null;
@@ -133,14 +139,47 @@ export function registerPipelineRoutes(app: Express, requireAuth: any) {
       if (valorEstimado !== undefined) updateData.valorEstimado = String(valorEstimado);
       if (responsableId !== undefined) updateData.responsableId = responsableId || null;
 
+      let nuevaEtapaVentaId = current.etapaVentaId;
+      let nuevaProbabilidad = current.probabilidad;
+
       if (etapaVentaId !== undefined) {
         updateData.etapaVentaId = etapaVentaId;
+        nuevaEtapaVentaId = etapaVentaId;
         const [etapa] = await db.select().from(etapasVenta).where(eq(etapasVenta.id, etapaVentaId));
-        if (etapa) updateData.probabilidad = etapa.probabilidad;
+        if (etapa) {
+          updateData.probabilidad = etapa.probabilidad;
+          nuevaProbabilidad = etapa.probabilidad;
+        }
+      }
+
+      if (wasClosed) {
+        updateData.estado = "activa";
+        updateData.motivoCierre = null;
+        updateData.fechaCierre = null;
+
+        await db.update(historialEtapas).set({ salidaAt: now })
+          .where(and(
+            eq(historialEtapas.oportunidadId, id),
+            isNull(historialEtapas.salidaAt)
+          ));
+
+        await db.insert(historialEtapas).values({
+          oportunidadId: id,
+          etapaVentaId: nuevaEtapaVentaId,
+          valorEstimado: String(valorEstimado ?? current.valorEstimado),
+          probabilidad: nuevaProbabilidad,
+          entradaAt: now,
+        });
+
+        await db.insert(actividades).values({
+          oportunidadId: id,
+          tipo: "nota",
+          descripcion: `Oportunidad reactivada desde estado "${current.estado}"`,
+          usuarioId: req.session.userId,
+        });
       }
 
       const [updated] = await db.update(oportunidades).set(updateData).where(eq(oportunidades.id, id)).returning();
-      if (!updated) return res.status(404).json({ message: "No encontrada" });
       res.json(updated);
     } catch (error) {
       console.error("Error updating oportunidad:", error);
