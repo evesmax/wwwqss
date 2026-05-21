@@ -4,15 +4,13 @@ import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, GraduationCap, Users, BookOpen, Calendar } from "lucide-react";
 import { Link } from "wouter";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function QCampusOnePage() {
   const [heroRef, heroInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
-  useEffect(() => {
-    document.title = "QCampusOne - Gestión Académica Integral | Q Software Solutions";
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const features = [
     { icon: <GraduationCap className="h-6 w-6" />, title: "Gestión Académica", description: "Control completo de planes de estudio, calificaciones y evaluaciones" },
@@ -32,6 +30,12 @@ export default function QCampusOnePage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="QCampusOne - Sistema de Gestión Académica Integral"
+        description="QCampusOne: software de gestión escolar y académica para instituciones educativas en México. Control de calificaciones, inscripciones, horarios y comunicación entre alumnos, docentes y padres."
+        path="/productos/qcampus-one"
+        jsonLd={softwareJsonLd("QCampusOne", "Sistema integral de gestión académica y escolar para instituciones educativas en México.", "https://qsoftwaresolutions.com/productos/qcampus-one", "EducationalApplication")}
+      />
       <nav className="bg-white shadow-sm fixed top-0 w-full z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/">

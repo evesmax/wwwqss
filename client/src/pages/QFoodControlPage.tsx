@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, BarChart3, ShoppingCart, Users, Clock } from "lucide-react";
 import foodControlLogo from "@assets/FoodC.png";
 import chefTabletImage from "@assets/chef-con-una-tablet.jpg";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function QFoodControlPage() {
   const [heroRef, heroInView] = useInView({
@@ -17,9 +17,6 @@ export default function QFoodControlPage() {
     threshold: 0.1,
   });
 
-  useEffect(() => {
-    document.title = "Q Food Control - Gestión Inteligente para Restaurantes | Q Software Solutions";
-  }, []);
 
   const features = [
     {
@@ -55,6 +52,12 @@ export default function QFoodControlPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="Q Food Control - Software de Gestión para Restaurantes"
+        description="Q Food Control: sistema integral de gestión para restaurantes en México. POS, control de inventario, comandas, gestión de mesas, análisis de ventas y control de personal en una sola plataforma."
+        path="/qfood"
+        jsonLd={softwareJsonLd("Q Food Control", "Sistema de gestión integral para restaurantes y negocios de alimentos en México.", "https://qsoftwaresolutions.com/qfood", "BusinessApplication")}
+      />
       {/* Hero Section */}
       <section className="pt-24 pb-20 md:pt-32 md:pb-28 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary-500/5 z-0"></div>

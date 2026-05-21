@@ -1,8 +1,8 @@
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Palette, Code, Settings, Users, Lightbulb, CheckCircle } from "lucide-react";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function QProfessionalServicesPage() {
   const [heroRef, heroInView] = useInView({
@@ -20,9 +20,6 @@ export default function QProfessionalServicesPage() {
     threshold: 0.1,
   });
 
-  useEffect(() => {
-    document.title = "Q Professional Services - Diseño y Personalización de Software | QSoftware Solutions";
-  }, []);
 
   const services = [
     {
@@ -62,6 +59,12 @@ export default function QProfessionalServicesPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="Q Professional Services - Diseño y Desarrollo de Software a la Medida"
+        description="Q Professional Services: consultoría de software, diseño UX/UI y desarrollo personalizado para empresas en Guadalajara, México. Transformamos tus procesos en soluciones tecnológicas eficientes."
+        path="/qprofessional"
+        jsonLd={softwareJsonLd("Q Professional Services", "Servicios de consultoría, diseño y desarrollo de software a la medida en Guadalajara, México.", "https://qsoftwaresolutions.com/qprofessional", "BusinessApplication")}
+      />
       {/* Hero Section */}
       <section className="pt-32 pb-20 md:pt-40 md:pb-28 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary-500/5 z-0"></div>

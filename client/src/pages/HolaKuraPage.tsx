@@ -4,15 +4,13 @@ import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, MessageCircle, Bot, Zap, Globe } from "lucide-react";
 import { Link } from "wouter";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function HolaKuraPage() {
   const [heroRef, heroInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
-  useEffect(() => {
-    document.title = "HolaKura - Atención al Cliente con IA | Q Software Solutions";
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const features = [
     { icon: <Bot className="h-6 w-6" />, title: "IA Conversacional", description: "Chatbot inteligente que entiende y responde como un humano" },
@@ -32,6 +30,12 @@ export default function HolaKuraPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="HolaKura - Atención al Cliente Automatizada con Inteligencia Artificial"
+        description="HolaKura: chatbot con IA para atención al cliente 24/7 en WhatsApp, web y redes sociales. Automatiza respuestas, califica leads y mejora la satisfacción de tus clientes."
+        path="/productos/holakura"
+        jsonLd={softwareJsonLd("HolaKura", "Plataforma de atención al cliente automatizada con inteligencia artificial multicanal.", "https://qsoftwaresolutions.com/productos/holakura", "BusinessApplication")}
+      />
       <nav className="bg-white shadow-sm fixed top-0 w-full z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/">

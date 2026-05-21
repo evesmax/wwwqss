@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, Package, BarChart3, AlertTriangle, Smartphone, Eye } from "lucide-react";
 import inventiaLogo from "@assets/Inventia.png";
 import warehouseSupervisorImage from "@assets/supervisor-de-exportacion-que-redacta-la-facturacion-para-la-logistica-de-los-productos.jpg";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function QInventiaControlPage() {
   const [heroRef, heroInView] = useInView({
@@ -17,9 +17,6 @@ export default function QInventiaControlPage() {
     threshold: 0.1,
   });
 
-  useEffect(() => {
-    document.title = "Q Inventia Control - Control Total de tu Inventario | Q Software Solutions";
-  }, []);
 
   const features = [
     {
@@ -60,6 +57,12 @@ export default function QInventiaControlPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="Q Inventia Control - Sistema de Control de Inventario"
+        description="Q Inventia Control: software de control de inventario en tiempo real para empresas en México. Reduce mermas, optimiza rotación de stock, controla costos y genera alertas automáticas de reabastecimiento."
+        path="/qinventia"
+        jsonLd={softwareJsonLd("Q Inventia Control", "Sistema de control de inventario en tiempo real para empresas en México.", "https://qsoftwaresolutions.com/qinventia", "BusinessApplication")}
+      />
       {/* Hero Section */}
       <section className="pt-24 pb-20 md:pt-32 md:pb-28 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary-500/5 z-0"></div>

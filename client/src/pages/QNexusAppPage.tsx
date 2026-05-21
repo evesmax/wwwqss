@@ -4,15 +4,13 @@ import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, ShoppingCart, Package, Building2, Languages, ShieldCheck, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function QNexusAppPage() {
   const [heroRef, heroInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
-  useEffect(() => {
-    document.title = "QNexusApp - Sistema POS y Gestión Retail | Q Software Solutions";
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const features = [
     { icon: <ShoppingCart className="h-6 w-6" />, title: "Punto de Venta", description: "Sistema de cobro rápido e intuitivo con interfaz táctil" },
@@ -34,6 +32,12 @@ export default function QNexusAppPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="QNexusApp - Sistema POS y Gestión Retail Multi-Sucursal"
+        description="QNexusApp: sistema punto de venta (POS) y gestión retail para negocios con múltiples sucursales en México. Control de inventario, ventas, cortes de caja y reportes en tiempo real."
+        path="/productos/qnexus-app"
+        jsonLd={softwareJsonLd("QNexusApp", "Sistema POS y gestión retail multi-sucursal para negocios en México.", "https://qsoftwaresolutions.com/productos/qnexus-app", "BusinessApplication")}
+      />
       <nav className="bg-white shadow-sm fixed top-0 w-full z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/">

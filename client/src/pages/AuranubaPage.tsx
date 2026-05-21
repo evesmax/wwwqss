@@ -4,15 +4,13 @@ import { useInView } from "react-intersection-observer";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, CalendarCheck, Sparkles, Users, LayoutDashboard } from "lucide-react";
 import { Link } from "wouter";
+import { SEO, softwareJsonLd } from "@/lib/useSEO";
 
 export default function AuranubaPage() {
   const [heroRef, heroInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
-  useEffect(() => {
-    document.title = "Auranuba - Gestión de Eventos Inteligente | Q Software Solutions";
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const features = [
     { icon: <CalendarCheck className="h-6 w-6" />, title: "Gestión de Eventos", description: "Planificación, coordinación y seguimiento de eventos de principio a fin" },
@@ -32,6 +30,12 @@ export default function AuranubaPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title="Auranuba - Plataforma de Gestión de Eventos con IA"
+        description="Auranuba: software inteligente para planificación, coordinación y gestión de eventos corporativos, sociales y académicos. Registro de asistentes, check-in digital y personalización con IA."
+        path="/productos/auranuba"
+        jsonLd={softwareJsonLd("Auranuba", "Plataforma de gestión de eventos inteligente con personalización por IA.", "https://qsoftwaresolutions.com/productos/auranuba", "BusinessApplication")}
+      />
       <nav className="bg-white shadow-sm fixed top-0 w-full z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/">

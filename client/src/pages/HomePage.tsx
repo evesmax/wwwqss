@@ -7,16 +7,18 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import CTASection from "@/components/CTASection";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
-import { useEffect } from "react";
+import { SEO, orgJsonLd } from "@/lib/useSEO";
 
 export default function HomePage() {
-  // Update page title and meta description
-  useEffect(() => {
-    document.title = "QNexus Control | Software & Technology Consulting";
-  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
+      <SEO
+        title="Q Software Solutions | Consultoría de Software en Guadalajara"
+        description="Empresa de consultoría de software e innovación tecnológica en Guadalajara, México. Desarrollamos soluciones SaaS, ERP, POS e IA a la medida para impulsar el crecimiento de tu negocio."
+        path="/"
+        jsonLd={orgJsonLd}
+      />
       <Navbar />
       <main>
         <HeroSection />

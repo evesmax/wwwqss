@@ -3,12 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Q Software Solutions | Consultoría de Software y Tecnología</title>
-    <meta name="description" content="Q Software Solutions transforma negocios a través de soluciones de software innovadoras y consultoría tecnológica estratégica. Obtenga desarrollo de software personalizado, soluciones en la nube, IA y más." />
-    <!-- Open Graph tags -->
-    <meta property="og:title" content="Q Software Solutions | Consultoría de Software y Tecnología" />
-    <meta property="og:description" content="Transforma tu negocio con soluciones de software de vanguardia y consultoría tecnológica experta." />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="Q Software Solutions" />
+    <meta name="geo.region" content="MX-JAL" />
+    <meta name="geo.placename" content="Guadalajara, Jalisco, México" />
+
+    <!-- Default title & description (overridden per-page by react-helmet-async) -->
+    <title>Q Software Solutions | Consultoría de Software en Guadalajara</title>
+    <meta name="description" content="Q Software Solutions: empresa de consultoría de software e innovación tecnológica en Guadalajara, México. Desarrollamos soluciones SaaS, ERP, POS, IA y software a la medida para impulsar tu negocio." />
+    <meta name="keywords" content="software Guadalajara, consultoría tecnológica, desarrollo software México, ERP, SaaS, POS, inteligencia artificial, Q Software Solutions" />
+
+    <!-- Open Graph (fallback) -->
+    <meta property="og:title" content="Q Software Solutions | Consultoría de Software en Guadalajara" />
+    <meta property="og:description" content="Empresa de consultoría de software e innovación tecnológica en Guadalajara, México. Soluciones SaaS, ERP, POS e IA." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://qsoftwaresolutions.com" />
+    <meta property="og:image" content="https://qsoftwaresolutions.com/og-image.png" />
+    <meta property="og:site_name" content="Q Software Solutions" />
+    <meta property="og:locale" content="es_MX" />
+
+    <!-- Twitter Card (fallback) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Q Software Solutions | Consultoría de Software en Guadalajara" />
+    <meta name="twitter:description" content="Consultoría de software e innovación tecnológica en Guadalajara, México." />
+    <meta name="twitter:image" content="https://qsoftwaresolutions.com/og-image.png" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://qsoftwaresolutions.com" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Q Software Solutions",
+      "url": "https://qsoftwaresolutions.com",
+      "logo": "https://qsoftwaresolutions.com/logo.png",
+      "description": "Empresa de consultoría de software e innovación tecnológica en Guadalajara, México.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Guadalajara",
+        "addressRegion": "Jalisco",
+        "addressCountry": "MX"
+      },
+      "sameAs": [
+        "https://www.instagram.com/qsoftwaresolutions",
+        "https://www.facebook.com/qsoftwaresolutions"
+      ]
+    }
+    </script>
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -17,9 +66,8 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
-    
+
     <!-- Chat Agent Widget -->
     <script>
     (function() {
