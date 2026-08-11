@@ -44,6 +44,16 @@ export const products = [
     description: "Invitaciones digitales y confirmación de asistencia para eventos.",
     route: "/productos/auranuba.html",
   },
+  {
+    id: "qpulsemes",
+    icon: "fa-industry",
+    iconColor: "text-[#575757]",
+    iconBg: "bg-[#575757]/10",
+    title: "QPulseMES",
+    description: "Sistema MES multi-tenant para manufactura de empaque flexible: planeación visual, ejecución en planta, grabado y coextrusión, con IA para optimización de programación y control de calidad.",
+    route: "https://www.qpulsemes.com",
+    external: true,
+  },
 ];
 
 export const customSoftware = {

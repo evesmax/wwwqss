@@ -51,6 +51,7 @@ interface ProductCardProps {
     iconColor: string;
     iconBg: string;
     route: string;
+    external?: boolean;
   };
   index: number;
 }
@@ -68,7 +69,11 @@ function ProductCard({ product, index }: ProductCardProps) {
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
-      <a href={product.route}>
+      <a
+        href={product.route}
+        target={product.external ? "_blank" : undefined}
+        rel={product.external ? "noopener noreferrer" : undefined}
+      >
         <div className="bg-white rounded-xl shadow-md p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer h-full">
           <div className={`h-12 w-12 ${product.iconBg} ${product.iconColor} rounded-lg flex items-center justify-center mb-6`}>
             <i className={`fas ${product.icon} text-xl`}></i>
@@ -79,6 +84,7 @@ function ProductCard({ product, index }: ProductCardProps) {
           </p>
           <span className="text-primary font-medium inline-flex items-center hover:text-[#575757] transition-colors">
             Ver Producto <ArrowRight className="ml-2 h-4 w-4" />
+            {product.external && <span className="ml-1 text-xs">↗</span>}
           </span>
         </div>
       </a>
