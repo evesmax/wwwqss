@@ -316,13 +316,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/chat", requireAuth, async (req: Request, res: Response) => {
     try {
       const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({
-        apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-        httpOptions: {
-          apiVersion: "",
-          baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-        },
-      });
+      const ai = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL
+        ? new GoogleGenAI({
+            apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+            httpOptions: {
+              apiVersion: "",
+              baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+            },
+          })
+        : new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY });
 
       const { message, history, searchMode } = req.body;
 
