@@ -5,6 +5,7 @@ import { MapPin, Phone, Mail, Linkedin, Twitter, Facebook, Instagram } from "luc
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useChatWidget } from "@/lib/chatWidgetContext";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -31,6 +32,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function ContactSection() {
   const { toast } = useToast();
+  const { openChat } = useChatWidget();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [contentRef, contentInView] = useInView({
@@ -82,7 +84,14 @@ export default function ContactSection() {
             <p className="text-lg text-gray-600 mb-8">
               ¿Tienes un proyecto en mente o quieres saber más sobre nuestros servicios? Ponte en contacto con nosotros y nuestro equipo te responderá lo antes posible.
             </p>
-            
+
+            <button
+              onClick={openChat}
+              className="mb-8 inline-flex items-center gap-2 rounded-lg bg-[#00aeef] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0099d6]"
+            >
+              Habla ahora con un asesor
+            </button>
+
             <div className="space-y-6">
               <div className="flex items-center">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-4">
