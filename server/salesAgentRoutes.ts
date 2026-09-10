@@ -14,9 +14,9 @@ const ai = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL
   : new GoogleGenAI({ apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY });
 
 const PRODUCTOS_INFO = `
-- QNexus Control: Gestión integral de flotas vehiculares y cotizaciones con rastreo en tiempo real.
+- QNexusControl: Gestión integral de flotas vehiculares y cotizaciones con rastreo en tiempo real.
 - QCampusOne: Control escolar completo con gestión de finanzas para instituciones educativas.
-- QNexusApp: Sistema moderno de punto de venta y gestión de inventario bilingüe para retail multi-sucursal.
+- QNexus App: Sistema moderno de punto de venta y gestión de inventario bilingüe para retail multi-sucursal.
 - HolaKura: Expedientes clínicos digitales y agenda inteligente para médicos y consultorios.
 - Auranuba: Invitaciones digitales y confirmación de asistencia para eventos.
 - QPulseMES: Sistema MES multi-tenant para manufactura de empaque flexible: planeación visual, ejecución en planta, grabado y coextrusión, con IA para optimización de programación y control de calidad.
