@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { clientes, oportunidades, actividades, productos, etapasVenta } from "@shared/schema";
-import { eq, sql, ilike } from "drizzle-orm";
+import { clientes, oportunidades, actividades, productos, etapasVenta, historialEtapas } from "@shared/schema";
+import { eq, sql, ilike, and, gte } from "drizzle-orm";
 
 export interface LeadInput {
   nombre: string;
@@ -15,6 +15,12 @@ export interface LeadResult {
   clienteId: number;
   oportunidadId: number;
   codigo: string;
+}
+
+const DUPLICATE_WINDOW_MS = 30 * 60 * 1000;
+
+function normalizePhone(s: string): string {
+  return s.replace(/\D/g, "");
 }
 
 function generateClienteCodigo(): string {
@@ -77,18 +83,65 @@ async function resolveEtapaInicial(): Promise<{ id: number; probabilidad: number
 }
 
 export async function createLeadFromAgent(input: LeadInput): Promise<LeadResult> {
-  const productoId = await resolveProductoId(input.producto);
+  const telefono = normalizePhone(input.telefono?.trim() || "");
+  const nombre = input.nombre?.trim();
+  const empresa = input.empresa?.trim();
+  if (!telefono || !nombre || !empresa) {
+    throw new Error("Datos de lead incompletos");
+  }
+
+  const normalizedInput: LeadInput = { ...input, telefono, nombre, empresa };
+
+  const productoId = await resolveProductoId(normalizedInput.producto);
   const etapaInicial = await resolveEtapaInicial();
   const codigo = await generateOportunidadCodigo();
 
   return await db.transaction(async (tx) => {
-    const clienteId = await findOrCreateCliente(input, tx);
+    const clienteId = await findOrCreateCliente(normalizedInput, tx);
+
+    // Guard against the model calling crear_lead twice for the same client
+    // within one conversation (e.g. the visitor adds a second product or
+    // updates a detail later in the same session). Reuse the most recent
+    // active opportunity for this client if it was created recently instead
+    // of creating a duplicate oportunidad/historialEtapas pair.
+    const recentThreshold = new Date(Date.now() - DUPLICATE_WINDOW_MS);
+    const [existingOportunidad] = await tx
+      .select()
+      .from(oportunidades)
+      .where(
+        and(
+          eq(oportunidades.clienteId, clienteId),
+          eq(oportunidades.estado, "activa"),
+          gte(oportunidades.createdAt, recentThreshold)
+        )
+      )
+      .orderBy(sql`id DESC`)
+      .limit(1);
+
+    if (existingOportunidad) {
+      // Still record the new conversation transcript as its own activity
+      // note, since it may contain new information (e.g. a follow-up
+      // question or a second product mentioned), even though we're not
+      // creating a new opportunity/historialEtapas row for it.
+      await tx.insert(actividades).values({
+        oportunidadId: existingOportunidad.id,
+        tipo: "nota",
+        descripcion: `Lead generado por el agente de ventas del sitio web (conversación adicional).\n\n${normalizedInput.transcript}`,
+        usuarioId: null,
+      });
+
+      return {
+        clienteId,
+        oportunidadId: existingOportunidad.id,
+        codigo: existingOportunidad.codigo,
+      };
+    }
 
     const [oportunidad] = await tx
       .insert(oportunidades)
       .values({
         codigo,
-        nombre: `${input.empresa} - ${input.producto}`,
+        nombre: `${normalizedInput.empresa} - ${normalizedInput.producto}`,
         clienteId,
         productoId,
         etapaVentaId: etapaInicial.id,
@@ -99,10 +152,18 @@ export async function createLeadFromAgent(input: LeadInput): Promise<LeadResult>
       })
       .returning();
 
+    await tx.insert(historialEtapas).values({
+      oportunidadId: oportunidad.id,
+      etapaVentaId: etapaInicial.id,
+      valorEstimado: "0",
+      probabilidad: etapaInicial.probabilidad,
+      entradaAt: new Date(),
+    });
+
     await tx.insert(actividades).values({
       oportunidadId: oportunidad.id,
       tipo: "nota",
-      descripcion: `Lead generado por el agente de ventas del sitio web.\n\n${input.transcript}`,
+      descripcion: `Lead generado por el agente de ventas del sitio web.\n\n${normalizedInput.transcript}`,
       usuarioId: null,
     });
 

@@ -4,6 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 import { ensureIndexes } from "./dbIndexes";
 
 const app = express();
+// Trust exactly one hop (Cloud Run's front end) so req.ip reflects the real
+// visitor instead of collapsing every visitor onto one shared IP/bucket.
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

@@ -61,6 +61,33 @@ interface ChatTurn {
   content: string;
 }
 
+const MAX_HISTORY_TURNS = 20;
+const MAX_TURN_CONTENT_LENGTH = 4000;
+
+/**
+ * The `history` array in the request body is entirely client-controlled.
+ * Sanitize it before it's ever used: cap how many turns we consider (cost,
+ * and how much a client can inject), cap each turn's length (a crafted
+ * request could otherwise write up to the JSON body limit into one CRM
+ * activity row), and drop any turn whose role isn't exactly "user" or
+ * "assistant" (a client could inject fabricated "assistant" turns to try to
+ * steer the model into a bogus crear_lead call).
+ */
+function sanitizeHistory(history: unknown): ChatTurn[] {
+  if (!Array.isArray(history)) return [];
+
+  const sanitized: ChatTurn[] = [];
+  for (const entry of history) {
+    if (!entry || typeof entry !== "object") continue;
+    const { role, content } = entry as { role?: unknown; content?: unknown };
+    if (role !== "user" && role !== "assistant") continue;
+    if (typeof content !== "string") continue;
+    sanitized.push({ role, content: content.slice(0, MAX_TURN_CONTENT_LENGTH) });
+  }
+
+  return sanitized.slice(-MAX_HISTORY_TURNS);
+}
+
 function buildTranscript(history: ChatTurn[], lastUserMessage: string): string {
   const turns = [...history, { role: "user" as const, content: lastUserMessage }];
   return turns.map((t) => `${t.role === "user" ? "Visitante" : "Agente"}: ${t.content}`).join("\n");
@@ -77,10 +104,11 @@ export function registerSalesAgentRoutes(app: Express): void {
     }
 
     try {
-      const { message, history } = req.body as { message: string; history: ChatTurn[] };
+      const { message, history: rawHistory } = req.body as { message: string; history: unknown };
+      const history = sanitizeHistory(rawHistory);
 
       const contents = [
-        ...(history || []).map((h) => ({
+        ...history.map((h) => ({
           role: h.role === "assistant" ? "model" : "user",
           parts: [{ text: h.content }],
         })),
@@ -107,7 +135,7 @@ export function registerSalesAgentRoutes(app: Express): void {
           producto: string;
         };
         try {
-          const transcript = buildTranscript(history || [], message);
+          const transcript = buildTranscript(history, message);
           await createLeadFromAgent({ ...args, transcript });
           return res.json({
             reply: `¡Gracias, ${args.nombre}! Ya registré tus datos — un asesor de QSS se va a poner en contacto contigo pronto al ${args.telefono} para platicar sobre ${args.producto}.`,
