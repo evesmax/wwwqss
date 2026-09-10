@@ -30,7 +30,7 @@ Tu objetivo es ayudar a visitantes del sitio a entender cuál de nuestros produc
 Estos son los productos que ofrecemos:
 ${PRODUCTOS_INFO}
 
-Cuando el visitante muestre interés en alguno, guía la conversación para obtener: su nombre, el nombre de su empresa, y un teléfono de contacto (los tres son obligatorios), y ofrece pedir también su correo (opcional). No inventes información que no tengas. No llames a la función crear_lead hasta tener nombre, empresa y teléfono. Una vez que la tengas, llama a crear_lead con esos datos y el nombre del producto de interés (usa exactamente uno de los nombres de la lista de arriba, o "Software a la Medida" si es un desarrollo a la medida).`;
+Cuando el visitante muestre interés en alguno, guía la conversación para obtener: su nombre, el nombre de su empresa, y un teléfono de contacto a 10 dígitos (los tres son obligatorios), y ofrece pedir también su correo (opcional). Si el teléfono que te dan no tiene 10 dígitos, pide que lo confirmen o corrijan antes de continuar. No inventes información que no tengas. No llames a la función crear_lead hasta tener nombre, empresa y un teléfono de 10 dígitos. Una vez que la tengas, llama a crear_lead con esos datos y el nombre del producto de interés (usa exactamente uno de los nombres de la lista de arriba, o "Software a la Medida" si es un desarrollo a la medida).`;
 
 const CREAR_LEAD_TOOL = {
   functionDeclarations: [
@@ -142,6 +142,13 @@ export function registerSalesAgentRoutes(app: Express): void {
             leadCreated: true,
           });
         } catch (dbError) {
+          const dbErrorMessage = dbError instanceof Error ? dbError.message : "";
+          if (dbErrorMessage.startsWith("VALIDATION:")) {
+            return res.json({
+              reply: dbErrorMessage.slice("VALIDATION:".length),
+              leadCreated: false,
+            });
+          }
           console.error("Error al crear lead del agente:", dbError, JSON.stringify(args));
           return res.json({
             reply:

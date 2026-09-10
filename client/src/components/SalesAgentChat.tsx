@@ -7,6 +7,16 @@ interface ChatMessage {
   content: string;
 }
 
+function formatContent(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export default function SalesAgentChat() {
   const { isOpen, openChat, closeChat } = useChatWidget();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -81,7 +91,7 @@ export default function SalesAgentChat() {
                       : "rounded-bl-sm bg-gray-100 text-gray-800"
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === "assistant" ? formatContent(msg.content) : msg.content}
                 </div>
               </div>
             ))}

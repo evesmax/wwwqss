@@ -89,6 +89,9 @@ export async function createLeadFromAgent(input: LeadInput): Promise<LeadResult>
   if (!telefono || !nombre || !empresa) {
     throw new Error("Datos de lead incompletos");
   }
+  if (telefono.length !== 10) {
+    throw new Error("VALIDATION:Ese teléfono no parece completo — ¿me confirmas un número a 10 dígitos?");
+  }
 
   const normalizedInput: LeadInput = { ...input, telefono, nombre, empresa };
 
