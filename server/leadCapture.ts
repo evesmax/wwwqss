@@ -35,15 +35,15 @@ async function generateOportunidadCodigo(): Promise<string> {
   return `OP-${nextNum}`;
 }
 
-async function findOrCreateCliente(input: LeadInput): Promise<number> {
-  const [existing] = await db
+async function findOrCreateCliente(input: LeadInput, dbOrTx: any = db): Promise<number> {
+  const [existing] = await dbOrTx
     .select()
     .from(clientes)
     .where(eq(clientes.telefonoContacto, input.telefono));
 
   if (existing) return existing.id;
 
-  const [created] = await db
+  const [created] = await dbOrTx
     .insert(clientes)
     .values({
       codigo: generateClienteCodigo(),
@@ -77,32 +77,35 @@ async function resolveEtapaInicial(): Promise<{ id: number; probabilidad: number
 }
 
 export async function createLeadFromAgent(input: LeadInput): Promise<LeadResult> {
-  const clienteId = await findOrCreateCliente(input);
   const productoId = await resolveProductoId(input.producto);
   const etapaInicial = await resolveEtapaInicial();
   const codigo = await generateOportunidadCodigo();
 
-  const [oportunidad] = await db
-    .insert(oportunidades)
-    .values({
-      codigo,
-      nombre: `${input.empresa} - ${input.producto}`,
-      clienteId,
-      productoId,
-      etapaVentaId: etapaInicial.id,
-      valorEstimado: "0",
-      probabilidad: etapaInicial.probabilidad,
-      responsableId: null,
-      estado: "activa",
-    })
-    .returning();
+  return await db.transaction(async (tx) => {
+    const clienteId = await findOrCreateCliente(input, tx);
 
-  await db.insert(actividades).values({
-    oportunidadId: oportunidad.id,
-    tipo: "nota",
-    descripcion: `Lead generado por el agente de ventas del sitio web.\n\n${input.transcript}`,
-    usuarioId: null,
+    const [oportunidad] = await tx
+      .insert(oportunidades)
+      .values({
+        codigo,
+        nombre: `${input.empresa} - ${input.producto}`,
+        clienteId,
+        productoId,
+        etapaVentaId: etapaInicial.id,
+        valorEstimado: "0",
+        probabilidad: etapaInicial.probabilidad,
+        responsableId: null,
+        estado: "activa",
+      })
+      .returning();
+
+    await tx.insert(actividades).values({
+      oportunidadId: oportunidad.id,
+      tipo: "nota",
+      descripcion: `Lead generado por el agente de ventas del sitio web.\n\n${input.transcript}`,
+      usuarioId: null,
+    });
+
+    return { clienteId, oportunidadId: oportunidad.id, codigo };
   });
-
-  return { clienteId, oportunidadId: oportunidad.id, codigo };
 }
