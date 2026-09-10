@@ -22,7 +22,7 @@
 
 ---
 
-### Tarea 1: Agregar QPulseMES al catálogo de productos
+### Task 1: Agregar QPulseMES al catálogo de productos
 
 **Files:**
 - Ninguno (cambio directo en base de datos vía `psql`)
@@ -63,7 +63,7 @@ No hay archivo que commitear en esta tarea (cambio directo en datos, no en códi
 
 ---
 
-### Tarea 2: Lógica de creación de leads (`server/leadCapture.ts`)
+### Task 2: Lógica de creación de leads (`server/leadCapture.ts`)
 
 **Files:**
 - Create: `server/leadCapture.ts`
@@ -260,7 +260,7 @@ git commit -m "feat: add CRM lead creation logic for sales agent"
 
 ---
 
-### Tarea 3: Rate limiting en memoria (`server/rateLimiter.ts`)
+### Task 3: Rate limiting en memoria (`server/rateLimiter.ts`)
 
 **Files:**
 - Create: `server/rateLimiter.ts`
@@ -329,7 +329,7 @@ git commit -m "feat: add in-memory rate limiter for public endpoints"
 
 ---
 
-### Tarea 4: Endpoint del agente (`server/salesAgentRoutes.ts`)
+### Task 4: Endpoint del agente (`server/salesAgentRoutes.ts`)
 
 **Files:**
 - Create: `server/salesAgentRoutes.ts`
@@ -522,7 +522,7 @@ git commit -m "feat: add public sales agent chat endpoint with lead capture tool
 
 ---
 
-### Tarea 5: Widget de chat público (frontend)
+### Task 5: Widget de chat público (frontend)
 
 **Files:**
 - Create: `client/src/lib/chatWidgetContext.tsx`
@@ -786,7 +786,7 @@ git commit -m "feat: add public sales agent chat widget"
 
 ---
 
-### Tarea 6: Botón en Contáctanos
+### Task 6: Botón en Contáctanos
 
 **Files:**
 - Modify: `client/src/components/ContactSection.tsx`
@@ -846,7 +846,7 @@ git commit -m "feat: link contact section to the sales agent chat"
 
 ---
 
-### Tarea 7: Eliminar la burbuja vieja
+### Task 7: Eliminar la burbuja vieja
 
 **Files:**
 - Modify: `client/index.html:70-145`
@@ -895,7 +895,7 @@ git commit -m "chore: remove embedded qssintelligence chat bubble"
 
 ---
 
-### Tarea 8: Verificación local end-to-end (Docker)
+### Task 8: Verificación local end-to-end (Docker)
 
 **Files:**
 - Ninguno (solo verificación)
@@ -1011,7 +1011,7 @@ Si alguno de los casos límite reveló un bug y se corrigió código, commitear 
 
 ---
 
-### Tarea 9: Deploy a producción
+### Task 9: Deploy a producción
 
 **Files:**
 - Ninguno (deploy vía el pipeline ya existente)
