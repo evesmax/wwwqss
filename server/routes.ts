@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword, getUserPermissions, getUserRoles, seedAdm
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerCatalogRoutes } from "./catalogRoutes";
 import { registerPipelineRoutes } from "./pipelineRoutes";
+import { registerSalesAgentRoutes } from "./salesAgentRoutes";
 
 declare module "express-session" {
   interface SessionData {
@@ -41,6 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerChatRoutes(app);
   registerCatalogRoutes(app, requireAuth);
   registerPipelineRoutes(app, requireAuth);
+  registerSalesAgentRoutes(app);
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
