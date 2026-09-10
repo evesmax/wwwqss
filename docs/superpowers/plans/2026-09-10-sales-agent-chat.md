@@ -229,6 +229,7 @@ Ejecutar:
 ```bash
 cd /Users/evesmax/projects/personal/wwwqss
 export $(grep -v '^#' conn.env.docker | xargs)
+export DATABASE_URL=$(grep '^NEW_DATABASE_URL=' conn.env.docker | cut -d= -f2-)
 npx tsx server/_verify-task2.ts
 ```
 
@@ -499,6 +500,7 @@ Agregar el registro junto a los otros tres, alrededor de la línea 43:
 ```bash
 cd /Users/evesmax/projects/personal/wwwqss
 export $(grep -v '^#' conn.env.docker | xargs)
+export DATABASE_URL=$(grep '^NEW_DATABASE_URL=' conn.env.docker | cut -d= -f2-)
 export SESSION_SECRET=$(openssl rand -base64 32)
 npm run dev &
 sleep 4
@@ -762,6 +764,7 @@ export default App;
 ```bash
 cd /Users/evesmax/projects/personal/wwwqss
 export $(grep -v '^#' conn.env.docker | xargs)
+export DATABASE_URL=$(grep '^NEW_DATABASE_URL=' conn.env.docker | cut -d= -f2-)
 export SESSION_SECRET=$(openssl rand -base64 32)
 npm run dev
 ```
@@ -825,6 +828,7 @@ Insertar justo después del párrafo de introducción (`<p className="text-lg te
 ```bash
 cd /Users/evesmax/projects/personal/wwwqss
 export $(grep -v '^#' conn.env.docker | xargs)
+export DATABASE_URL=$(grep '^NEW_DATABASE_URL=' conn.env.docker | cut -d= -f2-)
 export SESSION_SECRET=$(openssl rand -base64 32)
 npm run dev
 ```
