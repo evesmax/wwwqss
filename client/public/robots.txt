@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /admin/
+Disallow: /clientes/
 
 Sitemap: https://qsoftwaresolutions.com/sitemap.xml
