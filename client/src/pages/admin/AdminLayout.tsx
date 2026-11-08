@@ -18,6 +18,7 @@ import {
   BarChart3,
   Briefcase,
   Kanban,
+  Lock,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -99,6 +100,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {renderMenuItem({ path: "/pipeline", label: "Pipeline de Ventas", icon: Kanban })}
           {renderMenuItem({ path: "/kpi-tracking", label: "Seguimiento de KPIs", icon: BarChart3 })}
+          {renderMenuItem({ path: "/security", label: "Seguridad", icon: Lock })}
 
           <div className="pt-2">
             {collapsed ? (

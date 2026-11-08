@@ -12,17 +12,35 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [code, setCode] = useState("");
+
+  const failMessage = (err: any, wrong: string) =>
+    err.message?.includes("429")
+      ? "Demasiados intentos. Intenta de nuevo en 15 minutos."
+      : err.message?.includes("401")
+        ? wrong
+        : "Error al iniciar sesión";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
+      if (mfaStep) {
+        const res = await apiRequest("POST", "/api/auth/mfa", { token: code.trim() });
+        onLogin(await res.json());
+        return;
+      }
       const res = await apiRequest("POST", "/api/auth/login", { username, password });
-      const user = await res.json();
-      onLogin(user);
+      const data = await res.json();
+      if (data.mfaRequired) {
+        setMfaStep(true);
+        return;
+      }
+      onLogin(data);
     } catch (err: any) {
-      setError(err.message?.includes("401") ? "Credenciales incorrectas" : "Error al iniciar sesión");
+      setError(failMessage(err, mfaStep ? "Código incorrecto o expirado" : "Credenciales incorrectas"));
     } finally {
       setLoading(false);
     }
@@ -127,10 +145,28 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
                 <img src={qssLogo} alt="QSoftware Solutions" className="h-11 object-contain" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
-              <p className="text-gray-500 mt-1.5 text-sm">Ingresa tus credenciales para continuar</p>
+              <p className="text-gray-500 mt-1.5 text-sm">{mfaStep ? "Ingresa el código de tu app de autenticación" : "Ingresa tus credenciales para continuar"}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {mfaStep ? (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Código de verificación</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00aeef] focus:border-transparent outline-none transition tracking-widest text-center text-lg"
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    required
+                  />
+                </div>
+              ) : (<>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Usuario</label>
                 <input
@@ -155,6 +191,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
                   required
                 />
               </div>
+              </>)}
 
               {error && (
                 <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200">

@@ -59,6 +59,7 @@ async function userPayload(user: typeof users.$inferSelect) {
     email: user.email,
     avatarUrl: user.avatarUrl,
     totpEnabled: user.totpEnabled,
+    deskEnabled: process.env.SD_ENABLED === "true",
     roles: await getUserRoles(user.id),
     permissions: await getUserPermissions(user.id),
   };

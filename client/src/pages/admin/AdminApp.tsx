@@ -11,6 +11,7 @@ import ProductosPage from "./ProductosPage";
 import KpisPage from "./KpisPage";
 import PipelinePage from "./PipelinePage";
 import KpiTrackingPage from "./KpiTrackingPage";
+import SecurityPage from "./desk/SecurityPage";
 
 export default function AdminApp() {
   const [user, setUser] = useState<any>(null);
@@ -53,6 +54,9 @@ export default function AdminApp() {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
+        <Route path="/security">
+          <SecurityPage user={user} onChanged={(p) => setUser({ ...user, ...p })} />
+        </Route>
         <Route path="/pipeline" component={PipelinePage} />
         <Route path="/kpi-tracking" component={KpiTrackingPage} />
         <Route path="/roles" component={RolesPage} />
