@@ -1,7 +1,13 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
-import { db } from "./db";
+import connectPgSimple from "connect-pg-simple";
+import crypto from "crypto";
+import { db, pool } from "./db";
+import { loginThrottle, throttleKey } from "./loginThrottle";
+import { generateTotpSecret, totpUri, verifyTotp } from "./serviceDesk/totp";
+import { writeAudit } from "./serviceDesk/audit";
+import QRCode from "qrcode";
 import { users, roles, permissions, rolePermissions, userRoles } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { hashPassword, verifyPassword, getUserPermissions, getUserRoles, seedAdminUser } from "./auth";
@@ -13,25 +19,72 @@ import { registerSalesAgentRoutes } from "./salesAgentRoutes";
 declare module "express-session" {
   interface SessionData {
     userId: number;
+    pendingUserId?: number;
+    pendingAt?: number;
+    totpSetupSecret?: string;
   }
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session.userId) {
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const uid = req.session.userId;
+  if (!uid) {
     return res.status(401).json({ message: "No autorizado" });
   }
-  next();
+  try {
+    const [u] = await db.select({ active: users.active }).from(users).where(eq(users.id, uid));
+    if (!u || !u.active) {
+      return req.session.destroy(() => res.status(401).json({ message: "No autorizado" }));
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+}
+
+const PENDING_MFA_MS = 5 * 60_000;
+
+function sessionSecret(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+  return crypto.randomBytes(32).toString("hex");
+}
+
+async function userPayload(user: typeof users.$inferSelect) {
+  return {
+    id: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+    totpEnabled: user.totpEnabled,
+    roles: await getUserRoles(user.id),
+    permissions: await getUserPermissions(user.id),
+  };
+}
+
+function loginSession(req: Request, userId: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) return reject(err);
+      req.session.userId = userId;
+      resolve();
+    });
+  });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || "qss-admin-secret-key-2024",
+      store: new (connectPgSimple(session))({ pool: pool as any, tableName: "session", createTableIfMissing: true }),
+      secret: sessionSecret(),
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
       },
     })
@@ -47,33 +100,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { username, password } = req.body;
-      if (!username || !password) {
+      if (!username || !password || typeof username !== "string" || typeof password !== "string") {
         return res.status(400).json({ message: "Usuario y contraseña requeridos" });
+      }
+      const key = throttleKey(req.ip, username);
+      if (loginThrottle.isBlocked(key)) {
+        return res.status(429).json({ message: "Demasiados intentos. Intenta de nuevo en 15 minutos." });
       }
 
       const [user] = await db.select().from(users).where(eq(users.username, username));
       if (!user || !verifyPassword(password, user.password)) {
+        loginThrottle.recordFailure(key);
+        await writeAudit({ actorUserId: user?.id ?? null, action: "login.failed", entity: "user", entityId: user ? String(user.id) : undefined, detail: { username, ip: req.ip } }).catch(() => {});
         return res.status(401).json({ message: "Credenciales incorrectas" });
       }
       if (!user.active) {
         return res.status(403).json({ message: "Usuario desactivado" });
       }
 
-      req.session.userId = user.id;
-      const userPerms = await getUserPermissions(user.id);
-      const userRoleNames = await getUserRoles(user.id);
+      if (user.totpEnabled) {
+        await new Promise<void>((resolve, reject) =>
+          req.session.regenerate((err) => {
+            if (err) return reject(err);
+            req.session.pendingUserId = user.id;
+            req.session.pendingAt = Date.now();
+            resolve();
+          }),
+        );
+        return res.json({ mfaRequired: true });
+      }
 
-      res.json({
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        roles: userRoleNames,
-        permissions: userPerms,
-      });
+      loginThrottle.reset(key);
+      await loginSession(req, user.id);
+      await writeAudit({ actorUserId: user.id, action: "login.ok", entity: "user", entityId: String(user.id), detail: { ip: req.ip } }).catch(() => {});
+      res.json(await userPayload(user));
     } catch (error) {
       console.error("Login error:", error);
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  });
+
+  app.post("/api/auth/mfa", async (req: Request, res: Response) => {
+    try {
+      const pendingId = req.session.pendingUserId;
+      const token = String(req.body?.token ?? "");
+      if (!pendingId || !req.session.pendingAt || Date.now() - req.session.pendingAt > PENDING_MFA_MS) {
+        return res.status(401).json({ message: "Sesión de verificación expirada. Inicia sesión de nuevo." });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, pendingId));
+      if (!user || !user.active || !user.totpEnabled || !user.totpSecret) {
+        return res.status(401).json({ message: "No autorizado" });
+      }
+      const key = throttleKey(req.ip, user.username);
+      if (loginThrottle.isBlocked(key)) {
+        return res.status(429).json({ message: "Demasiados intentos. Intenta de nuevo en 15 minutos." });
+      }
+      if (!verifyTotp(user.totpSecret, token)) {
+        loginThrottle.recordFailure(key);
+        await writeAudit({ actorUserId: user.id, action: "mfa.failed", entity: "user", entityId: String(user.id), detail: { ip: req.ip } }).catch(() => {});
+        return res.status(401).json({ message: "Código incorrecto" });
+      }
+      loginThrottle.reset(key);
+      await loginSession(req, user.id);
+      await writeAudit({ actorUserId: user.id, action: "login.ok", entity: "user", entityId: String(user.id), detail: { ip: req.ip, mfa: true } }).catch(() => {});
+      res.json(await userPayload(user));
+    } catch (error) {
+      console.error("MFA error:", error);
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  });
+
+  app.post("/api/auth/mfa/setup", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, req.session.userId!));
+      if (user.totpEnabled) return res.status(400).json({ message: "MFA ya está activado" });
+      const secret = generateTotpSecret();
+      req.session.totpSetupSecret = secret;
+      const uri = totpUri(secret, user.email || user.username);
+      res.json({ secret, otpauthUri: uri, qrDataUrl: await QRCode.toDataURL(uri) });
+    } catch (error) {
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  });
+
+  app.post("/api/auth/mfa/enable", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const secret = req.session.totpSetupSecret;
+      if (!secret) return res.status(400).json({ message: "Inicia la configuración de MFA primero" });
+      if (!verifyTotp(secret, String(req.body?.token ?? ""))) {
+        return res.status(400).json({ message: "Código incorrecto" });
+      }
+      await db.update(users).set({ totpSecret: secret, totpEnabled: true }).where(eq(users.id, req.session.userId!));
+      delete req.session.totpSetupSecret;
+      await writeAudit({ actorUserId: req.session.userId!, action: "mfa.enabled", entity: "user", entityId: String(req.session.userId) });
+      res.json({ totpEnabled: true });
+    } catch (error) {
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  });
+
+  app.post("/api/auth/mfa/disable", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, req.session.userId!));
+      if (!user.totpEnabled || !user.totpSecret || !verifyTotp(user.totpSecret, String(req.body?.token ?? ""))) {
+        return res.status(400).json({ message: "Código incorrecto" });
+      }
+      await db.update(users).set({ totpSecret: null, totpEnabled: false }).where(eq(users.id, user.id));
+      await writeAudit({ actorUserId: user.id, action: "mfa.disabled", entity: "user", entityId: String(user.id) });
+      res.json({ totpEnabled: false });
+    } catch (error) {
       res.status(500).json({ message: "Error del servidor" });
     }
   });
@@ -92,18 +227,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
       if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
 
-      const userPerms = await getUserPermissions(user.id);
-      const userRoleNames = await getUserRoles(user.id);
-
-      res.json({
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        roles: userRoleNames,
-        permissions: userPerms,
-      });
+      if (!user.active) return res.status(401).json({ message: "No autorizado" });
+      res.json(await userPayload(user));
     } catch (error) {
       res.status(500).json({ message: "Error del servidor" });
     }

@@ -10,9 +10,15 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  const testHash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return hash === testHash;
+  try {
+    const [salt, hash] = (stored || "").split(":");
+    if (!salt || !hash || !/^[0-9a-f]+$/i.test(hash)) return false;
+    const expected = Buffer.from(hash, "hex");
+    const actual = crypto.scryptSync(password, salt, expected.length);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  } catch {
+    return false;
+  }
 }
 
 export async function getUserPermissions(userId: number): Promise<string[]> {
@@ -37,10 +43,15 @@ export async function getUserRoles(userId: number): Promise<string[]> {
 }
 
 export async function seedAdminUser() {
-  const existing = await db.select().from(users).where(eq(users.username, "admin"));
-  if (existing.length > 0) return;
+  // Never creates a default account with a known password. Only bootstraps the
+  // very first admin when the users table is empty AND credentials come from env.
+  const username = process.env.BOOTSTRAP_ADMIN_USER;
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  if (!username || !password) return;
+  const anyUser = await db.select({ id: users.id }).from(users).limit(1);
+  if (anyUser.length > 0) return;
 
-  const hashedPw = hashPassword("admin123");
+  const hashedPw = hashPassword(password);
 
   const [adminRole] = await db
     .insert(roles)
@@ -74,7 +85,7 @@ export async function seedAdminUser() {
   const [adminUser] = await db
     .insert(users)
     .values({
-      username: "admin",
+      username,
       password: hashedPw,
       fullName: "Administrador",
       email: "contacto@qsoftwaresolutions.com",
@@ -86,5 +97,5 @@ export async function seedAdminUser() {
     await db.insert(userRoles).values({ userId: adminUser.id, roleId: adminRole.id });
   }
 
-  console.log("Admin user seeded: admin / admin123");
+  console.log(`Bootstrap admin user created: ${username}`);
 }

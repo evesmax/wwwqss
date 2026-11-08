@@ -8,7 +8,7 @@ test("sanitizeDetail strips sensitive keys recursively", () => {
     { nested: { ok: 1 }, list: [{ a: 2 }] });
 });
 
-const hasDb = !!process.env.DATABASE_URL;
+const hasDb = process.env.RUN_DB_TESTS === "1";
 class Rollback extends Error {}
 
 test("audit rows are append-only (trigger)", { skip: !hasDb }, async () => {
