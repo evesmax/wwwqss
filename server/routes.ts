@@ -15,6 +15,7 @@ import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerCatalogRoutes } from "./catalogRoutes";
 import { registerPipelineRoutes } from "./pipelineRoutes";
 import { registerSalesAgentRoutes } from "./salesAgentRoutes";
+import { registerDeskRoutes } from "./serviceDesk/routes";
 
 declare module "express-session" {
   interface SessionData {
@@ -65,14 +66,22 @@ async function userPayload(user: typeof users.$inferSelect) {
   };
 }
 
-function loginSession(req: Request, userId: number): Promise<void> {
-  return new Promise((resolve, reject) => {
+// express-session may flush the response body before the store write finishes,
+// so a client that immediately sends its next request can miss the session.
+// Always persist explicitly before responding when the session was just changed.
+function saveSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+}
+
+async function loginSession(req: Request, userId: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
     req.session.regenerate((err) => {
       if (err) return reject(err);
       req.session.userId = userId;
       resolve();
     });
   });
+  await saveSession(req);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -97,6 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCatalogRoutes(app, requireAuth);
   registerPipelineRoutes(app, requireAuth);
   registerSalesAgentRoutes(app);
+  if (process.env.SD_ENABLED === "true") registerDeskRoutes(app, requireAuth);
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
@@ -128,6 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             resolve();
           }),
         );
+        await saveSession(req);
         return res.json({ mfaRequired: true });
       }
 
@@ -177,6 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.totpEnabled) return res.status(400).json({ message: "MFA ya está activado" });
       const secret = generateTotpSecret();
       req.session.totpSetupSecret = secret;
+      await saveSession(req);
       const uri = totpUri(secret, user.email || user.username);
       res.json({ secret, otpauthUri: uri, qrDataUrl: await QRCode.toDataURL(uri) });
     } catch (error) {
