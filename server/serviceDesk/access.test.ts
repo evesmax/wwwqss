@@ -29,3 +29,12 @@ test("hasRole", () => {
   assert.equal(hasRole(actor([], ["owner"]), "owner", "support_manager"), true);
   assert.equal(hasRole(actor([], ["agent_l1"]), "owner"), false);
 });
+
+import { assignSchema } from "./routes";
+test("owner and support_manager can only be granted with global scope", () => {
+  const ok = (a: any) => assignSchema.safeParse({ assignments: [a] }).success;
+  assert.equal(ok({ role: "owner", scopeType: "global", scopeId: null }), true);
+  assert.equal(ok({ role: "owner", scopeType: "account", scopeId: 5 }), false);
+  assert.equal(ok({ role: "support_manager", scopeType: "product", scopeId: 2 }), false);
+  assert.equal(ok({ role: "agent_l2", scopeType: "account", scopeId: 5 }), true);
+});

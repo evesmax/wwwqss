@@ -99,3 +99,9 @@ export async function seedAdminUser() {
 
   console.log(`Bootstrap admin user created: ${username}`);
 }
+
+// Safe projection of a users row for any API response: never the hash or TOTP secret.
+export function publicUser(u: typeof users.$inferSelect) {
+  const { password: _p, totpSecret: _t, ...rest } = u;
+  return rest;
+}

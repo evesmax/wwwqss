@@ -25,3 +25,11 @@ test("throttle blocks after 5 failures, expires after 15 min, resets on success"
   th.reset("k");
   assert.equal(th.isBlocked("k"), false);
 });
+
+import { publicUser } from "./auth";
+test("publicUser never exposes password hash or TOTP secret", () => {
+  const out = publicUser({ id: 1, username: "u", password: "salt:hash", totpSecret: "SECRET", totpEnabled: true, fullName: "n", email: "e", avatarUrl: null, active: true, createdAt: new Date() } as any);
+  assert.ok(!("password" in out) && !("totpSecret" in out));
+  assert.equal(out.username, "u");
+  assert.equal(out.totpEnabled, true);
+});

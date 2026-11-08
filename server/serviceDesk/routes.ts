@@ -14,6 +14,8 @@ export const DESK_ROLES = ["owner", "support_manager", "agent_l2", "agent_l1", "
 const SCOPE_TYPES = ["global", "product", "account"] as const;
 const ACCOUNT_TYPES = ["suscripcion", "proyecto", "bolsa_horas", "demo", "interno"] as const;
 const WRITERS = ["owner", "support_manager"];
+// Role gates (hasRole) ignore scope, so these roles must never be scoped.
+const GLOBAL_ONLY_ROLES: string[] = ["owner", "support_manager"];
 
 type Req = Request & { actor: Actor };
 
@@ -51,6 +53,13 @@ const wrap = (fn: (req: Req, res: Response) => Promise<unknown>): RequestHandler
 
 const requireRole = (...roles: string[]): RequestHandler => (req, res, next) =>
   hasRole((req as Req).actor, ...roles) ? next() : void res.status(403).json({ message: "Sin permiso" });
+
+export const assignSchema = z.object({
+  assignments: z.array(z.object({
+    role: z.enum(DESK_ROLES), scopeType: z.enum(SCOPE_TYPES), scopeId: z.number().int().positive().nullable().default(null),
+  }).refine((a) => (a.scopeType === "global") === (a.scopeId === null), { message: "scopeId requerido salvo en alcance global" })
+    .refine((a) => !GLOBAL_ONLY_ROLES.includes(a.role) || a.scopeType === "global", { message: "owner y support_manager solo con alcance global" })),
+});
 
 export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   const deskAuth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -198,11 +207,6 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     const as = await db.select().from(sdRoleAssignments);
     res.json(us.map((u) => ({ ...u, assignments: as.filter((a) => a.userId === u.id).map(({ role, scopeType, scopeId }) => ({ role, scopeType, scopeId })) })));
   }));
-  const assignSchema = z.object({
-    assignments: z.array(z.object({
-      role: z.enum(DESK_ROLES), scopeType: z.enum(SCOPE_TYPES), scopeId: z.number().int().positive().nullable().default(null),
-    }).refine((a) => (a.scopeType === "global") === (a.scopeId === null), { message: "scopeId requerido salvo en alcance global" })),
-  });
   app.put("/api/desk/users/:id/assignments", ...auth, requireRole("owner"), wrap(async (req, res) => {
     const userId = Number(req.params.id);
     const { assignments } = assignSchema.parse(req.body);

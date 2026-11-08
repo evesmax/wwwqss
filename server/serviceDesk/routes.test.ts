@@ -123,7 +123,8 @@ test("agent_l1 cannot write; owner can", { skip: !run }, async () => {
   assert.equal(ok.body.accountType, "demo");
 });
 
-test("SMTP: owner only, password never returned, empty password keeps stored one", { skip: !run }, async () => {
+test("SMTP: owner only, password never returned, empty password keeps stored one", { skip: !run }, async (t) => {
+  if (prevSmtp) return t.skip("a real SMTP config exists; not touching it");
   const cfg = { host: "smtp.test", port: 587, secure: false, user: "u", password: "TOP-SECRET-PW", fromName: "QSS", fromEmail: "soporte@test.dev" };
   assert.equal((await api("l1", "PUT", "/api/desk/settings/smtp", cfg)).status, 403);
   const put = await api("owner", "PUT", "/api/desk/settings/smtp", cfg);
@@ -160,4 +161,12 @@ test("user with a role but no MFA is refused", { skip: !run }, async () => {
   assert.equal(r.status, 403);
   assert.equal(r.body.code, "mfa_required");
   await db.update(users).set({ totpEnabled: true }).where(eq(users.id, ids.users[2]));
+});
+
+test("admin user endpoints never return password hash or TOTP secret", { skip: !run }, async () => {
+  const target = ids.users[3]; // temp 'nobody' user, has totpSecret
+  const r = await api("owner", "PUT", `/api/admin/users/${target}`, { fullName: "Temp Nobody", active: true });
+  assert.equal(r.status, 200);
+  assert.ok(!("password" in r.body) && !("totpSecret" in r.body));
+  assert.ok(!r.raw.includes(SECRET));
 });

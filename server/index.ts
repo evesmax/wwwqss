@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { shouldLogBody } from "./logging";
 import { ensureIndexes } from "./dbIndexes";
 import { ensureServiceDeskSchema } from "./serviceDesk/migrate";
 
@@ -26,7 +27,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && shouldLogBody(path)) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

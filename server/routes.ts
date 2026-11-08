@@ -10,7 +10,7 @@ import { writeAudit } from "./serviceDesk/audit";
 import QRCode from "qrcode";
 import { users, roles, permissions, rolePermissions, userRoles } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { hashPassword, verifyPassword, getUserPermissions, getUserRoles, seedAdminUser } from "./auth";
+import { hashPassword, verifyPassword, getUserPermissions, getUserRoles, seedAdminUser, publicUser } from "./auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerCatalogRoutes } from "./catalogRoutes";
 import { registerPipelineRoutes } from "./pipelineRoutes";
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      res.status(201).json(newUser);
+      res.status(201).json(publicUser(newUser));
     } catch (error: any) {
       if (error?.constraint?.includes("unique")) {
         return res.status(400).json({ message: "El nombre de usuario ya existe" });
@@ -337,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json(updated);
+      res.json(publicUser(updated));
     } catch (error) {
       res.status(500).json({ message: "Error del servidor" });
     }
