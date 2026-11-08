@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, bigserial, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -11,6 +11,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().default(""),
   avatarUrl: text("avatar_url"),
   active: boolean("active").notNull().default(true),
+  totpSecret: text("totp_secret"),
+  totpEnabled: boolean("totp_enabled").notNull().default(false),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -182,3 +184,87 @@ export type Cotizacion = typeof cotizaciones.$inferSelect;
 export type Actividad = typeof actividades.$inferSelect;
 
 export * from "./models/chat";
+
+// ───────── Service Desk (sd_*) ─────────
+const ts = (n: string) => timestamp(n).default(sql`CURRENT_TIMESTAMP`).notNull();
+
+export const sdProducts = pgTable("sd_products", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at"),
+});
+
+export const sdAccounts = pgTable("sd_accounts", {
+  id: serial("id").primaryKey(),
+  clienteId: integer("cliente_id").notNull().unique().references(() => clientes.id),
+  accountType: text("account_type").notNull().default("suscripcion"),
+  ticketPrefix: text("ticket_prefix").notNull().unique(),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at"),
+});
+
+export const sdInstances = pgTable("sd_instances", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => sdProducts.id),
+  name: text("name").notNull(),
+  environment: text("environment").notNull().default("prod"),
+  baseUrl: text("base_url").notNull().default(""),
+  active: boolean("active").notNull().default(true),
+});
+
+export const sdContracts = pgTable("sd_contracts", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => sdProducts.id),
+  plan: text("plan").notNull().default("estandar"),
+  slaActiveFrom: timestamp("sla_active_from"),
+  calendar: text("calendar").notNull().default("America/Mexico_City"),
+  reportRecipients: jsonb("report_recipients").notNull().default([]),
+  hoursBank: numeric("hours_bank"),
+  active: boolean("active").notNull().default(true),
+});
+
+export const sdContacts = pgTable("sd_contacts", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  name: text("name").notNull().default(""),
+  role: text("role").notNull().default("contact"),
+}, (t) => ({ uq: unique("sd_contacts_account_email").on(t.accountId, t.email) }));
+
+export const sdRoleAssignments = pgTable("sd_role_assignments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull(),
+  scopeType: text("scope_type").notNull().default("global"),
+  scopeId: integer("scope_id"),
+});
+
+export const sdSettings = pgTable("sd_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: ts("updated_at"),
+  updatedBy: integer("updated_by"),
+});
+
+export const sdEmailLog = pgTable("sd_email_log", {
+  id: serial("id").primaryKey(),
+  toAddress: text("to_address").notNull(),
+  subject: text("subject").notNull(),
+  status: text("status").notNull(),
+  error: text("error"),
+  createdAt: ts("created_at"),
+});
+
+export const sdAuditLog = pgTable("sd_audit_log", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  at: ts("at"),
+  actorUserId: integer("actor_user_id"),
+  action: text("action").notNull(),
+  entity: text("entity").notNull(),
+  entityId: text("entity_id"),
+  detail: jsonb("detail").notNull().default({}),
+});
