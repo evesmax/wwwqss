@@ -10,6 +10,7 @@ import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
 import { registerTicketRoutes } from "./ticketRoutes";
 import { registerSlaRoutes } from "./slaRoutes";
 import { registerImportRoutes } from "./importRoutes";
+import { registerSdkRoutes } from "./sdkRoutes";
 import { writeAudit } from "./audit";
 import { getSmtpPublic, saveSmtpConfig } from "./settings";
 import { sendEmail } from "./emailService";
@@ -72,6 +73,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   registerTicketRoutes(app, auth);
   registerSlaRoutes(app, auth);
   registerImportRoutes(app, auth);
+  registerSdkRoutes(app, auth);
 
   // ---- Products ----
   const productSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), active: z.boolean().default(true) });

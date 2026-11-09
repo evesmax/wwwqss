@@ -103,6 +103,11 @@ const STATEMENTS: string[] = [
   `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS sla_exclusion_reason text, ADD COLUMN IF NOT EXISTS sla_excluded_by integer`,
   `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS import_ref text, ADD COLUMN IF NOT EXISTS import_flags jsonb`,
   `CREATE UNIQUE INDEX IF NOT EXISTS sd_tickets_import_ref ON sd_tickets(account_id, import_ref) WHERE import_ref IS NOT NULL`,
+  `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS context jsonb`,
+  `CREATE TABLE IF NOT EXISTS sd_sdk_keys (
+     id serial PRIMARY KEY, key_id text NOT NULL UNIQUE, product_id integer NOT NULL REFERENCES sd_products(id), name text NOT NULL,
+     secret_enc text NOT NULL, allowed_origins jsonb NOT NULL DEFAULT '[]', active boolean NOT NULL DEFAULT true,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at timestamp)`,
   `CREATE TABLE IF NOT EXISTS sd_sla_policies (
      id serial PRIMARY KEY, name text NOT NULL, position integer NOT NULL DEFAULT 100, filters jsonb NOT NULL DEFAULT '{}',
      calendar_kind text NOT NULL DEFAULT 'business', first_response_min integer, update_min integer, resolution_min integer,

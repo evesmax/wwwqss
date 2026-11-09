@@ -295,6 +295,7 @@ export const sdTickets = pgTable("sd_tickets", {
   slaExcludedBy: integer("sla_excluded_by"),
   importRef: text("import_ref"),
   importFlags: jsonb("import_flags"),
+  context: jsonb("context"),
   rca: jsonb("rca"),
   receivedAt: ts("received_at"),
   createdAt: ts("created_at"),
@@ -405,4 +406,16 @@ export const sdSlaChanges = pgTable("sd_sla_changes", {
   userId: integer("user_id"),
   kind: text("kind").notNull(),
   detail: jsonb("detail").notNull().default({}),
+});
+
+export const sdSdkKeys = pgTable("sd_sdk_keys", {
+  id: serial("id").primaryKey(),
+  keyId: text("key_id").notNull().unique(),
+  productId: integer("product_id").notNull().references(() => sdProducts.id),
+  name: text("name").notNull(),
+  secretEnc: text("secret_enc").notNull(),
+  allowedOrigins: jsonb("allowed_origins").notNull().default([]),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at"),
+  lastUsedAt: timestamp("last_used_at"),
 });

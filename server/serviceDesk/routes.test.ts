@@ -114,6 +114,7 @@ after(async () => {
   await db.delete(s.sdEmailLog).where(inArray(s.sdEmailLog.toAddress, TEST_EMAILS));
   if (ids.accounts.length) await db.delete(s.sdAccounts).where(inArray(s.sdAccounts.id, ids.accounts));
   if (ids.clientes.length) await db.delete(s.clientes).where(inArray(s.clientes.id, ids.clientes));
+  if (ids.product) await db.delete(s.sdSdkKeys).where(eq(s.sdSdkKeys.productId, ids.product));
   if (ids.product) await db.delete(s.sdProducts).where(eq(s.sdProducts.id, ids.product));
   if (ids.users.length) {
     await db.delete(s.users).where(inArray(s.users.id, ids.users));
@@ -455,4 +456,59 @@ test("import: CSV preview/commit is manager-only, idempotent, SLA-excluded and f
   assert.ok(d.ticket.createdAt.startsWith("2026-03-05T16:00"));
   const sla = await api("owner", "GET", `/api/desk/tickets/${t.id}/sla`);
   assert.ok(sla.body.metrics.every((m: any) => m.state === "excluded"));
+});
+
+test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, scope and keys enforced", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const sc = await import("@shared/schema");
+  const { signJwt } = await import("./sdkAuth");
+  await db.insert(sc.sdInstances).values([{ accountId: accA, productId: ids.product, name: "TMPT Planta" }, { accountId: accB, productId: ids.product, name: "TMPT Otra" }]);
+  assert.equal((await api("l1", "POST", "/api/desk/sdk/keys", { productId: ids.product, name: "x" })).status, 403);
+  assert.equal((await api("agentA", "GET", "/api/desk/sdk/keys")).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/sdk/keys", { productId: ids.product, name: "TMPT key", allowedOrigins: ["https://app.cliente.com/ruta"] })).status, 400);
+  const k = await api("owner", "POST", "/api/desk/sdk/keys", { productId: ids.product, name: "TMPT key", allowedOrigins: ["https://app.cliente.com"] });
+  assert.equal(k.status, 201);
+  assert.equal(k.body.secret.length, 64);
+  assert.ok(!(await api("owner", "GET", "/api/desk/sdk/keys")).raw.includes(k.body.secret));
+  const now = Math.floor(Date.now() / 1000);
+  const tok = (o: object = {}, secret = k.body.secret) => signJwt({ sub: "u-77", email: "Ana.SDK@cliente.com", name: "Ana", tenant: "TMPT Planta", iat: now, exp: now + 300, ...o }, secret, k.body.keyId);
+  const call = (method: string, path: string, token: string | null, body?: any, headers: Record<string, string> = {}) =>
+    fetch(base + path, { method, headers: { ...(body && !Buffer.isBuffer(body) ? { "content-type": "application/json" } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: body ? (Buffer.isBuffer(body) ? body : JSON.stringify(body)) : undefined })
+      .then(async (r) => ({ status: r.status, headers: r.headers, body: await r.json().catch(() => null) }));
+  const good = { title: "No guarda el formulario", description: "Al dar guardar no pasa nada", type: "incident", perceivedSeverity: "P0", context: { url: "https://app.cliente.com/orden/5?token=SECRETO#x", consoleErrors: ["TypeError: x"], userAgent: "UA" } };
+  const O = { origin: "https://app.cliente.com" };
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", null, good, O)).status, 401);
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", tok({}, "x".repeat(64)), good, O)).status, 401);
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", tok({ tenant: "Nadie" }), good, O)).status, 400);
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", tok({ tenant: undefined }), good, O)).status, 400);
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, { origin: "https://evil.com" })).status, 403);
+  const pre = await fetch(base + "/api/v1/sdk/tickets", { method: "OPTIONS", headers: { origin: "https://app.cliente.com", "access-control-request-method": "POST" } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get("access-control-allow-origin"), "https://app.cliente.com");
+  const evil = await fetch(base + "/api/v1/sdk/tickets", { method: "OPTIONS", headers: { origin: "https://evil.com" } });
+  assert.equal(evil.headers.get("access-control-allow-origin"), null);
+  const r = await call("POST", "/api/v1/sdk/tickets", tok(), good, O);
+  assert.equal(r.status, 201);
+  assert.equal(r.headers.get("access-control-allow-origin"), "https://app.cliente.com");
+  const d = (await api("owner", "GET", `/api/desk/tickets/${r.body.id}`)).body.ticket;
+  assert.equal(d.channel, "widget");
+  assert.equal(d.accountId, accA);
+  assert.equal(d.severity, null);
+  assert.equal(d.perceivedSeverity, "P0");
+  assert.equal(d.context.url, "https://app.cliente.com/orden/5");
+  const contact = (await api("owner", "GET", `/api/desk/contacts?accountId=${accA}`)).body.find((c: any) => c.email === "ana.sdk@cliente.com");
+  assert.ok(contact);
+  assert.equal(d.requesterContactId, contact.id);
+  const png = Buffer.from([137, 80, 78, 71, 1, 2, 3]);
+  const up = (token: string, mime = "image/png") => fetch(base + `/api/v1/sdk/tickets/${r.body.id}/attachments?filename=captura.png`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": mime, ...O }, body: png }).then((x) => x.status);
+  assert.equal(await up(tok()), 201);
+  assert.equal(await up(tok({ sub: "u-78", email: "otra@cliente.com" })), 404);
+  assert.equal(await up(tok(), "application/pdf"), 400);
+  assert.equal((await call("GET", "/api/v1/sdk/tickets", tok(), undefined, O)).body.length, 1);
+  assert.equal((await call("GET", "/api/v1/sdk/tickets", tok({ email: "otra@cliente.com" }), undefined, O)).body.length, 0);
+  const rot = await api("owner", "POST", `/api/desk/sdk/keys/${k.body.id}/rotate`);
+  assert.equal(rot.status, 200);
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, O)).status, 401); // old secret no longer valid
+  await api("owner", "PUT", `/api/desk/sdk/keys/${k.body.id}`, { name: "TMPT key", allowedOrigins: [], active: false });
+  assert.equal((await call("POST", "/api/v1/sdk/tickets", signJwt({ sub: "u", email: "a@b.co", tenant: "TMPT Planta", iat: now, exp: now + 60 }, rot.body.secret, k.body.keyId), good, O)).status, 401);
 });
