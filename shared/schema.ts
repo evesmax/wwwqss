@@ -293,6 +293,8 @@ export const sdTickets = pgTable("sd_tickets", {
   slaApplicable: boolean("sla_applicable").notNull().default(true),
   slaExclusionReason: text("sla_exclusion_reason"),
   slaExcludedBy: integer("sla_excluded_by"),
+  importRef: text("import_ref"),
+  importFlags: jsonb("import_flags"),
   rca: jsonb("rca"),
   receivedAt: ts("received_at"),
   createdAt: ts("created_at"),

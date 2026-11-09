@@ -421,3 +421,38 @@ test("SLA: tick endpoint requires the secret token", { skip: !run }, async () =>
   assert.equal(ok.status, 200);
   assert.equal(typeof (await ok.json()).refreshed, "number");
 });
+
+test("import: CSV preview/commit is manager-only, idempotent, SLA-excluded and flagged", { skip: !run }, async () => {
+  const csv = "Folio;Asunto;Prioridad;Estatus;Fecha de reporte;Fecha de resolución;Horas\n" +
+    "T-1;Falla de login;P0;Cerrado;05/03/2026 10:00;06/03/2026 12:00;1,5\n" +
+    "T-2;Reporte lento;Media;En proceso;07/03/2026;;\n" +
+    "T-3;;Baja;Abierto;08/03/2026;;\n";
+  const post = (who: string, path: string, body: string, ct = "text/csv") =>
+    fetch(base + path, { method: "POST", headers: { "content-type": ct, cookie: jars[who] }, body }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
+  const q = `?accountId=${accA}`;
+  assert.equal((await post("agentA", `/api/desk/import/preview${q}`, csv)).status, 403);
+  assert.equal((await post("owner", `/api/desk/import/preview${q}`, JSON.stringify({ a: 1 }), "application/json")).status, 400);
+  assert.equal((await post("owner", `/api/desk/import/preview?accountId=999999999`, csv)).status, 404);
+  const pv = await post("owner", `/api/desk/import/preview${q}`, csv);
+  assert.equal(pv.status, 200);
+  assert.equal(pv.body.mapping.title, "Asunto");
+  assert.equal(pv.body.summary.importable, 2);
+  assert.equal(pv.body.summary.skipped, 1);
+  const c1 = await post("owner", `/api/desk/import/commit${q}`, csv);
+  assert.equal(c1.status, 201);
+  assert.equal(c1.body.imported, 2);
+  const c2 = await post("owner", `/api/desk/import/commit${q}`, csv);
+  assert.equal(c2.body.imported, 0);
+  assert.equal(c2.body.alreadyImported, 2);
+  const list = (await api("owner", "GET", `/api/desk/tickets?accountId=${accA}&q=login`)).body.rows;
+  const t = list.find((x: any) => x.title === "Falla de login");
+  assert.ok(t);
+  const d = (await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body;
+  assert.equal(d.ticket.status, "closed");
+  assert.equal(d.ticket.severity, null);
+  assert.equal(d.ticket.perceivedSeverity, "P0");
+  assert.equal(d.ticket.slaApplicable, false);
+  assert.ok(d.ticket.createdAt.startsWith("2026-03-05T16:00"));
+  const sla = await api("owner", "GET", `/api/desk/tickets/${t.id}/sla`);
+  assert.ok(sla.body.metrics.every((m: any) => m.state === "excluded"));
+});

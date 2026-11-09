@@ -101,6 +101,8 @@ const STATEMENTS: string[] = [
   `CREATE TRIGGER sd_audit_no_change BEFORE UPDATE OR DELETE ON sd_audit_log
      FOR EACH ROW EXECUTE FUNCTION sd_audit_immutable()`,
   `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS sla_exclusion_reason text, ADD COLUMN IF NOT EXISTS sla_excluded_by integer`,
+  `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS import_ref text, ADD COLUMN IF NOT EXISTS import_flags jsonb`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS sd_tickets_import_ref ON sd_tickets(account_id, import_ref) WHERE import_ref IS NOT NULL`,
   `CREATE TABLE IF NOT EXISTS sd_sla_policies (
      id serial PRIMARY KEY, name text NOT NULL, position integer NOT NULL DEFAULT 100, filters jsonb NOT NULL DEFAULT '{}',
      calendar_kind text NOT NULL DEFAULT 'business', first_response_min integer, update_min integer, resolution_min integer,

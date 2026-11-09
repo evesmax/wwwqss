@@ -12,7 +12,7 @@ export const STATE_LABEL: Record<string, string> = { running: "En curso", at_ris
 const STATE_COLOR: Record<string, string> = { running: "bg-blue-100 text-blue-800", at_risk: "bg-yellow-100 text-yellow-800", met: "bg-green-100 text-green-800", breached: "bg-red-100 text-red-800", excluded: "bg-gray-200 text-gray-700", cancelled: "bg-gray-200 text-gray-700" };
 const BAR: Record<string, string> = { running: "bg-blue-500", at_risk: "bg-yellow-500", met: "bg-green-500", breached: "bg-red-500", excluded: "bg-gray-400", cancelled: "bg-gray-400" };
 export const EXCLUSION_LABEL: Record<string, string> = {
-  third_party_declared: "Tercero declarado", customer_no_info: "Cliente no entregó información", mistyped: "Ticket mal tipificado", force_majeure: "Fuerza mayor",
+  third_party_declared: "Tercero declarado", customer_no_info: "Cliente no entregó información", mistyped: "Ticket mal tipificado", force_majeure: "Fuerza mayor", imported: "Ticket importado (histórico)",
 };
 
 export default function SlaPanel({ ticketId, isManager, version }: { ticketId: number; isManager: boolean; version?: unknown }) {

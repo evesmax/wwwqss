@@ -14,6 +14,7 @@ import KpiTrackingPage from "./KpiTrackingPage";
 import SecurityPage from "./desk/SecurityPage";
 import SmtpSettingsPage from "./desk/SmtpSettingsPage";
 import SlaConfigPage from "./desk/SlaConfigPage";
+import ImportPage from "./desk/ImportPage";
 import SupportCatalogPage from "./desk/SupportCatalogPage";
 import TicketsPage from "./desk/TicketsPage";
 import TicketDetailPage from "./desk/TicketDetailPage";
@@ -68,6 +69,7 @@ export default function AdminApp() {
         </Route>
         <Route path="/soporte/correo" component={SmtpSettingsPage} />
         <Route path="/soporte/sla" component={SlaConfigPage} />
+        <Route path="/soporte/importar" component={ImportPage} />
         <Route path="/security">
           <SecurityPage user={user} onChanged={(p) => setUser({ ...user, ...p })} />
         </Route>
