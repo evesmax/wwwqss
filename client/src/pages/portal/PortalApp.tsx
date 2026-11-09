@@ -6,6 +6,7 @@ import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, fmt } from "../admin/desk/ticketUi
 
 const inp = "w-full border rounded-lg px-3 py-2 text-sm";
 const btn = "bg-[#00aeef] text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50";
+const slaDur = (ms: number) => { const m = Math.round(ms / 60000), h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h} h ${r} min` : `${h} h`) : `${r} min`; };
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
 
 function Shell({ children, email, onLogout }: { children: React.ReactNode; email?: string; onLogout?: () => void }) {
@@ -131,6 +132,18 @@ function TicketView({ id }: { id: string }) {
       <Link href="/" className="text-sm text-[#0088c2]">← Mis tickets</Link>
       <div><p className="font-mono text-sm text-gray-500">{t.key} · {TYPE_LABEL[t.type]}</p><h1 className="text-xl font-bold">{t.title}</h1>
         <p className="text-sm mt-1"><b>{STATUS_LABEL[t.status] ?? t.status}</b>{t.severity && <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>}</p></div>
+      {d.sla && <div className="bg-white border rounded-xl p-4 text-sm space-y-3">
+        <h3 className="font-semibold">Tiempos de servicio</h3>
+        {d.sla.metrics.map((m: any) => (
+          <div key={m.key} className="space-y-0.5">
+            <div className="flex justify-between"><span>{m.key === "first_response" ? "Primera respuesta" : "Resolución"} <span className="text-gray-500">(meta {slaDur(m.targetMinutes * 60000)} hábiles)</span></span>
+              <span className={`font-semibold ${m.state === "met" ? "text-green-700" : m.state === "breached" ? "text-red-700" : "text-blue-700"}`}>
+                {m.state === "met" ? "Cumplido" : m.state === "breached" ? "Fuera de tiempo" : m.paused ? "En pausa" : `Quedan ${slaDur(m.remainingMs)}`}</span></div>
+            {m.dueAt && m.state === "running" && !m.paused && <p className="text-xs text-gray-500">Vence aproximadamente el {fmt(m.dueAt)}</p>}
+            {m.pauses.map((p: any, i: number) => <p key={i} className="text-xs text-gray-500">Pausa: {p.label}{p.note ? ` (${p.note})` : ""} · {fmt(p.from)} → {p.to ? fmt(p.to) : "en curso"}</p>)}
+          </div>))}
+        <p className="text-xs text-gray-400">El reloj corre solo en horario laboral y se detiene mientras esperamos tu respuesta.</p>
+      </div>}
       {t.description && <div className="bg-white border rounded-xl p-4 text-sm whitespace-pre-wrap">{t.description}</div>}
       <div className="space-y-2">
         {d.comments.map((c: any) => (

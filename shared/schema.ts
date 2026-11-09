@@ -291,6 +291,8 @@ export const sdTickets = pgTable("sd_tickets", {
   moduleArea: text("module_area").notNull().default(""),
   sharedWithAccount: boolean("shared_with_account").notNull().default(false),
   slaApplicable: boolean("sla_applicable").notNull().default(true),
+  slaExclusionReason: text("sla_exclusion_reason"),
+  slaExcludedBy: integer("sla_excluded_by"),
   rca: jsonb("rca"),
   receivedAt: ts("received_at"),
   createdAt: ts("created_at"),
@@ -352,4 +354,53 @@ export const sdTicketAttachments = pgTable("sd_ticket_attachments", {
   uploaderType: text("uploader_type").notNull(),
   uploaderId: integer("uploader_id"),
   createdAt: ts("created_at"),
+});
+
+export const sdSlaPolicies = pgTable("sd_sla_policies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(100),
+  filters: jsonb("filters").notNull().default({}),
+  calendarKind: text("calendar_kind").notNull().default("business"),
+  firstResponseMin: integer("first_response_min"),
+  updateMin: integer("update_min"),
+  resolutionMin: integer("resolution_min"),
+  active: boolean("active").notNull().default(true),
+  version: integer("version").notNull().default(1),
+  updatedAt: ts("updated_at"),
+});
+export const sdHolidays = pgTable("sd_holidays", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").references(() => sdAccounts.id, { onDelete: "cascade" }),
+  date: text("date").notNull(),
+  name: text("name").notNull().default(""),
+});
+export const sdSlaInstances = pgTable("sd_sla_instances", {
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
+  metric: text("metric").notNull(),
+  policyId: integer("policy_id"),
+  policyVersion: integer("policy_version"),
+  state: text("state").notNull(),
+  targetMs: numeric("target_ms").notNull(),
+  elapsedMs: numeric("elapsed_ms").notNull(),
+  dueAt: timestamp("due_at"),
+  paused: boolean("paused").notNull().default(false),
+  stoppedAt: timestamp("stopped_at"),
+  breaches: integer("breaches").notNull().default(0),
+  pauses: jsonb("pauses").notNull().default([]),
+  calcVersion: integer("calc_version").notNull().default(1),
+  computedAt: ts("computed_at"),
+}, (t) => ({ uq: unique("sd_sla_instances_pk").on(t.ticketId, t.metric) }));
+export const sdSlaAlerts = pgTable("sd_sla_alerts", {
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
+  metric: text("metric").notNull(),
+  threshold: integer("threshold").notNull(),
+  sentAt: ts("sent_at"),
+}, (t) => ({ uq: unique("sd_sla_alerts_pk").on(t.ticketId, t.metric, t.threshold) }));
+export const sdSlaChanges = pgTable("sd_sla_changes", {
+  id: serial("id").primaryKey(),
+  at: ts("at"),
+  userId: integer("user_id"),
+  kind: text("kind").notNull(),
+  detail: jsonb("detail").notNull().default({}),
 });

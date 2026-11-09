@@ -1,5 +1,5 @@
 // Pure SLA engine (no I/O). Same inputs always give the same output (RF-SLA-05/09).
-import { windows, workingMs, type Calendar } from "./slaCalendar";
+import { eachWindow, workingMs, type Calendar } from "./slaCalendar";
 
 export type SlaEvent = { at: Date; kind: string; actorType: string; detail: Record<string, unknown> };
 export type Policy = { id: number; name: string; firstResponseMin: number | null; updateMin: number | null; resolutionMin: number | null };
@@ -52,31 +52,31 @@ export function derivePauses(events: SlaEvent[]): Derived {
   return { pauses, resolvedAt, cancelledAt, firstResponseAt };
 }
 
-function* activeSegments(cal: Calendar, pauses: Pause[], from: number, to: number, now: number): Generator<[number, number]> {
-  for (const [a, b] of windows(cal, from, to)) {
+function eachActive(cal: Calendar, pauses: Pause[], from: number, to: number, now: number, visit: (a: number, b: number) => boolean | void): void {
+  eachWindow(cal, from, to, (a, b) => {
     let cur = a;
     for (const p of pauses) {
       const pf = +p.from, pt = p.to ? +p.to : now;
       if (pt <= cur || pf >= b) continue;
-      if (pf > cur) yield [cur, pf];
+      if (pf > cur && visit(cur, pf)) return true;
       cur = Math.max(cur, pt);
       if (cur >= b) break;
     }
-    if (cur < b) yield [cur, b];
-  }
+    if (cur < b && visit(cur, b)) return true;
+  });
 }
 const activeMs = (cal: Calendar, pauses: Pause[], from: number, to: number, now: number) => {
   let s = 0;
-  for (const [a, b] of activeSegments(cal, pauses, from, to, now)) s += b - a;
+  eachActive(cal, pauses, from, to, now, (a, b) => { s += b - a; });
   return s;
 };
 function dueFrom(cal: Calendar, pauses: Pause[], from: number, target: number, now: number): Date {
-  let left = target;
-  for (const [a, b] of activeSegments(cal, pauses, from, from + 3660 * 86_400_000, now)) {
-    if (b - a >= left) return new Date(a + left);
+  let left = target, out = from + target;
+  eachActive(cal, pauses, from, from + 3660 * 86_400_000, now, (a, b) => {
+    if (b - a >= left) { out = a + left; return true; }
     left -= b - a;
-  }
-  return new Date(from + target);
+  });
+  return new Date(out);
 }
 
 function metric(o: {

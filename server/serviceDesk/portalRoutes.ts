@@ -1,4 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { toCustomerSla } from "./slaCustomer";
+import { computeForTicket } from "./slaService";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
@@ -125,8 +127,9 @@ export function registerPortalRoutes(app: Express) {
       db.select({ id: sdTicketAttachments.id, filename: sdTicketAttachments.filename, size: sdTicketAttachments.size }).from(sdTicketAttachments)
         .where(and(eq(sdTicketAttachments.ticketId, t.id), eq(sdTicketAttachments.visibility, "public"))).orderBy(sdTicketAttachments.id),
     ]);
+    const sla = toCustomerSla(await computeForTicket(t.id));
     res.json({
-      ticket: strip(t), comments, attachments,
+      ticket: strip(t), comments, attachments, sla,
       history: events.map((e) => ({ at: e.at, from: (e.detail as any).from, to: (e.detail as any).to })), // reason omitted: may be internal
       canComment: !["closed", "duplicate", "cancelled", "rejected"].includes(t.status) && nextStatuses(t.type, t.status) !== undefined,
     });

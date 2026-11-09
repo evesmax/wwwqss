@@ -14,6 +14,7 @@ let server: any;
 const ids = { users: [] as number[], clientes: [] as number[], accounts: [] as number[], product: 0 };
 const jars: Record<string, string> = {};
 let prevSmtp: any = null;
+let prevTick: any = null;
 let accA = 0, accB = 0;
 const contactIds: Record<string, number> = {};
 const TEST_EMAILS = ["c1@a.test", "c2@a.test", "adm@a.test", "cb@b.test"];
@@ -54,6 +55,8 @@ before(async () => {
 
   const [prev] = await db.select().from(s.sdSettings).where(eq(s.sdSettings.key, "smtp"));
   prevSmtp = prev ?? null;
+  const [pt] = await db.select().from(s.sdSettings).where(eq(s.sdSettings.key, "sla.tickTokenHash"));
+  prevTick = pt ?? null;
 
   const mkUser = async (username: string) => {
     const [u] = await db.insert(s.users).values({ username, password: hashPassword("pw-test-12345"), email: `${username}@t.test`, active: true, totpEnabled: true, totpSecret: SECRET }).returning();
@@ -103,6 +106,9 @@ after(async () => {
   server?.close();
   await db.delete(s.sdSettings).where(eq(s.sdSettings.key, "smtp"));
   if (prevSmtp) await db.insert(s.sdSettings).values(prevSmtp);
+  await db.delete(s.sdSettings).where(eq(s.sdSettings.key, "sla.tickTokenHash"));
+  if (prevTick) await db.insert(s.sdSettings).values(prevTick);
+  if (ids.users.length) await db.delete(s.sdSlaChanges).where(inArray(s.sdSlaChanges.userId, ids.users));
   if (ids.accounts.length) await db.delete(s.sdTickets).where(inArray(s.sdTickets.accountId, ids.accounts));
   await db.delete(s.sdPortalTokens).where(inArray(s.sdPortalTokens.email, TEST_EMAILS));
   await db.delete(s.sdEmailLog).where(inArray(s.sdEmailLog.toAddress, TEST_EMAILS));
@@ -333,4 +339,84 @@ test("customers cannot see internal_task tickets; assignee must have access", { 
   assert.ok(!(await papi("adm", "GET", "/api/portal/tickets")).body.some((x: any) => x.id === t.id));
   const nobodyId = ids.users[3];
   assert.equal((await api("owner", "PATCH", `/api/desk/tickets/${t.id}`, { assigneeUserId: nobodyId })).status, 400);
+});
+
+test("SLA: per-ticket view, instances persisted, scoped access", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "incident", title: "Con SLA", severity: "P2", channel: "manual" })).body;
+  const v = await api("agentA", "GET", `/api/desk/tickets/${t.id}/sla`);
+  assert.equal(v.status, 200);
+  assert.equal(v.body.policy.name, "Incidente P2");
+  assert.deepEqual(v.body.metrics.map((m: any) => m.key).sort(), ["first_response", "resolution"]);
+  assert.equal((await api("l1", "GET", `/api/desk/tickets/${t.id}/sla`)).status, 200);
+  assert.equal((await api("nobody", "GET", `/api/desk/tickets/${t.id}/sla`)).status, 403);
+  const other = (await api("owner", "POST", "/api/desk/tickets", { accountId: accB, type: "incident", title: "Otro", severity: "P3", channel: "manual" })).body;
+  assert.equal((await api("agentA", "GET", `/api/desk/tickets/${other.id}/sla`)).status, 404);
+  let rows: any[] = [];
+  for (let i = 0; i < 20 && rows.length < 2; i++) { rows = (await db.execute(sql`SELECT metric FROM sd_sla_instances WHERE ticket_id = ${t.id}`)).rows as any[]; if (rows.length < 2) await new Promise((r) => setTimeout(r, 250)); }
+  assert.equal(rows.length, 2);
+});
+
+test("SLA: exclusion needs a manager and a catalog reason; customers never see it", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test");
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "incident", title: "Excluible", severity: "P3", channel: "manual", requesterContactId: contactIds.c1 })).body;
+  const view = await papi("c1", "GET", `/api/portal/tickets/${t.id}`);
+  assert.deepEqual(view.body.sla.metrics.map((m: any) => m.key).sort(), ["first_response", "resolution"]);
+  assert.ok(!JSON.stringify(view.body).includes("Incidente P3"));
+  assert.equal((await api("agentA", "POST", `/api/desk/tickets/${t.id}/sla-exclusion`, { reason: "force_majeure" })).status, 403);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/sla-exclusion`, { reason: "porque si" })).status, 400);
+  const ex = await api("owner", "POST", `/api/desk/tickets/${t.id}/sla-exclusion`, { reason: "third_party_declared", note: "Caída de AWS" });
+  assert.equal(ex.status, 200);
+  assert.ok(ex.body.metrics.every((m: any) => m.state === "excluded"));
+  assert.equal((await papi("c1", "GET", `/api/portal/tickets/${t.id}`)).body.sla, null);
+  assert.ok(!(await papi("c1", "GET", `/api/portal/tickets/${t.id}`)).raw.includes("AWS"));
+  assert.equal((await api("owner", "GET", "/api/desk/sla/exclusions")).body.some((x: any) => x.id === t.id), true);
+  const back = await api("owner", "DELETE", `/api/desk/tickets/${t.id}/sla-exclusion`);
+  assert.ok(back.body.metrics.every((m: any) => m.state !== "excluded"));
+});
+
+test("SLA: waiting_customer pauses and is visible to the customer with its reason", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test");
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "incident", title: "Pausa", severity: "P3", channel: "manual", requesterContactId: contactIds.c1 })).body;
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/transition`, { to: "in_progress" })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/transition`, { to: "waiting_customer" })).status, 200);
+  const v = (await papi("c1", "GET", `/api/portal/tickets/${t.id}`)).body.sla.metrics.find((m: any) => m.key === "resolution");
+  assert.equal(v.paused, true);
+  assert.equal(v.pauses[0].label, "Esperando tu respuesta");
+  const tp = await api("owner", "POST", `/api/desk/tickets/${t.id}/transition`, { to: "in_progress" });
+  assert.equal(tp.status, 200);
+  assert.equal((await papi("c1", "GET", `/api/portal/tickets/${t.id}`)).body.sla.metrics.find((m: any) => m.key === "resolution").paused, false);
+});
+
+test("SLA: policy and holiday management is manager-only and recalculates", { skip: !run }, async () => {
+  const body = { name: "TMPT política", position: 5, filters: { accountIds: [accA], types: ["question"] }, calendarKind: "business", firstResponseMin: 60, updateMin: null, resolutionMin: 120 };
+  assert.equal((await api("l1", "POST", "/api/desk/sla/policies", body)).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/sla/policies", { ...body, firstResponseMin: 0 })).status, 400);
+  const c = await api("owner", "POST", "/api/desk/sla/policies", body);
+  assert.equal(c.status, 201);
+  const pid = c.body.policy.id;
+  const q = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Pregunta con política propia", channel: "manual" })).body;
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${q.id}/sla`)).body.policy.name, "TMPT política");
+  const up = await api("owner", "PUT", `/api/desk/sla/policies/${pid}`, { ...body, firstResponseMin: 30 });
+  assert.equal(up.body.policy.version, 2);
+  const h = await api("owner", "POST", "/api/desk/sla/holidays", { date: "2031-01-02", name: "TMPT", accountId: accA });
+  assert.equal(h.status, 201);
+  assert.equal((await api("owner", "POST", "/api/desk/sla/holidays", { date: "2031-01-02", name: "TMPT", accountId: accA })).status, 409);
+  assert.equal((await api("owner", "DELETE", `/api/desk/sla/holidays/${h.body.holiday.id}`)).status, 200);
+  assert.equal((await api("owner", "DELETE", `/api/desk/sla/policies/${pid}`)).status, 200);
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${q.id}/sla`)).body.policy.name, "Solicitudes y preguntas");
+});
+
+test("SLA: tick endpoint requires the secret token", { skip: !run }, async () => {
+  const tick = (tok?: string) => fetch(base + "/api/internal/sla/tick", { method: "POST", headers: tok ? { "x-tick-token": tok } : {} });
+  assert.equal((await tick()).status, 401);
+  assert.equal((await tick("nope")).status, 401);
+  assert.equal((await api("agentA", "POST", "/api/desk/sla/tick-token")).status, 403);
+  const { token } = (await api("owner", "POST", "/api/desk/sla/tick-token")).body;
+  assert.equal(token.length, 64);
+  assert.equal((await tick("nope")).status, 401);
+  const ok = await tick(token);
+  assert.equal(ok.status, 200);
+  assert.equal(typeof (await ok.json()).refreshed, "number");
 });

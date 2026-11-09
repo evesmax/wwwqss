@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, fmt } from "./ticketUi";
+import SlaPanel from "./SlaPanel";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
@@ -12,6 +13,8 @@ const EVENT_TEXT: Record<string, (d: any) => string> = {
   time_logged: (d) => `Horas registradas: ${d.minutes} min`,
   fields_changed: (d) => `Campos cambiados: ${Object.keys(d.changed ?? {}).join(", ")}`,
   attachment: (d) => `Adjunto: ${d.filename}`,
+  sla_excluded: (d) => `Excluido del SLA: ${d.reason}${d.note ? ` — ${d.note}` : ""}`,
+  sla_exclusion_removed: () => "Exclusión de SLA retirada",
 };
 
 export default function TicketDetailPage({ id }: { id: string; user?: any }) {
@@ -87,6 +90,7 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
       </div>
 
       <div className="space-y-4">
+        <SlaPanel ticketId={Number(id)} isManager={isManager} version={`${d.ticket.updatedAt}-${d.events.length}`} />
         <div className="bg-white border rounded-xl p-4 space-y-2 text-sm">
           <h3 className="font-semibold">Estado</h3>
           <select className={`${inp} w-full`} value={tr.to} onChange={(e) => setTr({ ...tr, to: e.target.value })}><option value="">Cambiar a…</option>{d.nextStatuses.map((s: string) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>

@@ -5,6 +5,7 @@ import {
 } from "@shared/schema";
 import { accountProductMap, loadActor, visibleAccountIds } from "./access";
 import { sendEmail } from "./emailService";
+import { refreshSoon } from "./slaService";
 import { ackEmail, commentEmail, statusEmail } from "./emailTemplates";
 import {
   initialStatus, ticketKey, validateSeverity, validateTransition, timestampsFor,
@@ -61,6 +62,7 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
     await addEvent(tx, t.id, who, "created", { channel: input.channel, type: input.type, severity: input.severity ?? null, ...(input.p0 ? { p0: input.p0 } : {}) });
     return t;
   });
+  refreshSoon(ticket.id);
   if (opts.notify !== false) void notifyRequester(ticket, (t) => ackEmail(t, portalLink(ticket.id)));
   return ticket;
 }
@@ -90,6 +92,7 @@ export async function transitionTicket(id: number, to: string, who: Who, o: { re
     await addEvent(tx, id, who, "status_changed", { from: t.status, to, reason: o.reason ?? null });
     return { ticket: u, from: t.status };
   });
+  refreshSoon(id);
   void notifyRequester(ticket, (t) => statusEmail(t, to, portalLink(ticket.id)));
   return { ticket, from };
 }
@@ -114,6 +117,7 @@ export async function addComment(id: number, who: Who, body: string, visibility:
     const [u] = await tx.update(sdTickets).set(patch).where(eq(sdTickets.id, id)).returning();
     return { ticket: u, comment: c };
   });
+  refreshSoon(id);
   if (who.type === "user" && visibility === "public") void notifyRequester(ticket, (t) => commentEmail(t, body, portalLink(ticket.id)));
   return comment;
 }
@@ -135,7 +139,7 @@ export type UpdateInput = Partial<{
 }>;
 export async function updateTicket(id: number, userId: number, u: UpdateInput) {
   const now = new Date();
-  return db.transaction(async (tx) => {
+  const out = await db.transaction(async (tx) => {
     const t = await lockTicket(tx, id);
     const { p0, ...rest } = u;
     if (u.severity !== undefined && u.severity !== t.severity) {
@@ -161,4 +165,6 @@ export async function updateTicket(id: number, userId: number, u: UpdateInput) {
     if (Object.keys(changed).length) await addEvent(tx, id, { type: "user", id: userId }, "fields_changed", { changed, ...(p0 ? { p0 } : {}) });
     return row;
   });
+  refreshSoon(id);
+  return out;
 }

@@ -8,6 +8,7 @@ import {
 import { loadActor, hasRole, visibleAccountIds, accountProductMap } from "./access";
 import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
 import { registerTicketRoutes } from "./ticketRoutes";
+import { registerSlaRoutes } from "./slaRoutes";
 import { writeAudit } from "./audit";
 import { getSmtpPublic, saveSmtpConfig } from "./settings";
 import { sendEmail } from "./emailService";
@@ -68,6 +69,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   }));
 
   registerTicketRoutes(app, auth);
+  registerSlaRoutes(app, auth);
 
   // ---- Products ----
   const productSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), active: z.boolean().default(true) });

@@ -22,6 +22,7 @@ import {
   LifeBuoy,
   Ticket,
   Mail,
+  Timer,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -105,6 +106,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           {renderMenuItem({ path: "/kpi-tracking", label: "Seguimiento de KPIs", icon: BarChart3 })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/tickets", label: "Tickets", icon: Ticket })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/catalogo", label: "Catálogo de soporte", icon: LifeBuoy })}
+          {user.deskEnabled && renderMenuItem({ path: "/soporte/sla", label: "Motor de SLA", icon: Timer })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/correo", label: "Correo saliente", icon: Mail })}
           {renderMenuItem({ path: "/security", label: "Seguridad", icon: Lock })}
 

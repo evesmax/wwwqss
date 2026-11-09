@@ -100,6 +100,34 @@ const STATEMENTS: string[] = [
   `DROP TRIGGER IF EXISTS sd_audit_no_change ON sd_audit_log`,
   `CREATE TRIGGER sd_audit_no_change BEFORE UPDATE OR DELETE ON sd_audit_log
      FOR EACH ROW EXECUTE FUNCTION sd_audit_immutable()`,
+  `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS sla_exclusion_reason text, ADD COLUMN IF NOT EXISTS sla_excluded_by integer`,
+  `CREATE TABLE IF NOT EXISTS sd_sla_policies (
+     id serial PRIMARY KEY, name text NOT NULL, position integer NOT NULL DEFAULT 100, filters jsonb NOT NULL DEFAULT '{}',
+     calendar_kind text NOT NULL DEFAULT 'business', first_response_min integer, update_min integer, resolution_min integer,
+     active boolean NOT NULL DEFAULT true, version integer NOT NULL DEFAULT 1, updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_holidays (
+     id serial PRIMARY KEY, account_id integer REFERENCES sd_accounts(id) ON DELETE CASCADE, date text NOT NULL, name text NOT NULL DEFAULT '')`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS sd_holidays_unique ON sd_holidays(COALESCE(account_id, 0), date)`,
+  `CREATE TABLE IF NOT EXISTS sd_sla_instances (
+     ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE, metric text NOT NULL, policy_id integer, policy_version integer,
+     state text NOT NULL, target_ms numeric NOT NULL, elapsed_ms numeric NOT NULL, due_at timestamp, paused boolean NOT NULL DEFAULT false,
+     stopped_at timestamp, breaches integer NOT NULL DEFAULT 0, pauses jsonb NOT NULL DEFAULT '[]', calc_version integer NOT NULL DEFAULT 1,
+     computed_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT sd_sla_instances_pk UNIQUE (ticket_id, metric))`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_sla_instances_state ON sd_sla_instances(state)`,
+  `CREATE TABLE IF NOT EXISTS sd_sla_alerts (
+     ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE, metric text NOT NULL, threshold integer NOT NULL,
+     sent_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT sd_sla_alerts_pk UNIQUE (ticket_id, metric, threshold))`,
+  `CREATE TABLE IF NOT EXISTS sd_sla_changes (
+     id serial PRIMARY KEY, at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, user_id integer, kind text NOT NULL, detail jsonb NOT NULL DEFAULT '{}')`,
+  `INSERT INTO sd_sla_policies (name, position, filters, first_response_min, update_min, resolution_min)
+     SELECT * FROM (VALUES
+       ('Incidente P0', 10, '{"types":["incident"],"severities":["P0"]}'::jsonb, 120, 120, 360),
+       ('Incidente P1', 20, '{"types":["incident"],"severities":["P1"]}'::jsonb, 240, 240, 480),
+       ('Incidente P2', 30, '{"types":["incident"],"severities":["P2"]}'::jsonb, 720, NULL::int, 1440),
+       ('Incidente P3', 40, '{"types":["incident"],"severities":["P3"]}'::jsonb, 960, NULL::int, 2160),
+       ('Solicitudes y preguntas', 50, '{"types":["service_request","question"]}'::jsonb, 960, NULL::int, 2160)
+     ) v(name, position, filters, first_response_min, update_min, resolution_min)
+     WHERE NOT EXISTS (SELECT 1 FROM sd_sla_policies)`,
 ];
 
 export async function ensureServiceDeskSchema() {

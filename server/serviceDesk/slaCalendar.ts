@@ -36,10 +36,10 @@ const hm = (s: string) => { const [h, m] = s.split(":").map(Number); return { h,
 
 const MAX_DAYS = 3660;
 
-/** Working windows [startMs,endMs) clipped to [from,to), in order. */
-export function* windows(cal: Calendar, from: number, to: number): Generator<[number, number]> {
+/** Visits working windows [startMs,endMs) clipped to [from,to), in order. Return true from the visitor to stop early. */
+export function eachWindow(cal: Calendar, from: number, to: number, visit: (a: number, b: number) => boolean | void): void {
   if (to <= from) return;
-  if (cal.kind === "24x7") { yield [from, to]; return; }
+  if (cal.kind === "24x7") { visit(from, to); return; }
   const hol = new Set(cal.holidays);
   const s = hm(cal.start), e = hm(cal.end);
   const p0 = localParts(from, cal.tz);
@@ -52,7 +52,7 @@ export function* windows(cal: Calendar, from: number, to: number): Generator<[nu
     if (cal.days.includes(dow) && !hol.has(dayKey(y, m, d))) {
       const we = zonedToMs(y, m, d, e.h, e.m, cal.tz);
       const a = Math.max(ws, from), b = Math.min(we, to);
-      if (b > a) yield [a, b];
+      if (b > a && visit(a, b)) return;
     }
     noon.setUTCDate(noon.getUTCDate() + 1);
     y = noon.getUTCFullYear(); m = noon.getUTCMonth() + 1; d = noon.getUTCDate();
@@ -61,27 +61,28 @@ export function* windows(cal: Calendar, from: number, to: number): Generator<[nu
 
 export function workingMs(cal: Calendar, from: Date | number, to: Date | number): number {
   let sum = 0;
-  for (const [a, b] of windows(cal, +from, +to)) sum += b - a;
+  eachWindow(cal, +from, +to, (a, b) => { sum += b - a; });
   return sum;
 }
 
 /** First instant at/after `from` that is inside working time (or `from` itself if it is). */
 export function nextWorkingInstant(cal: Calendar, from: Date | number): Date {
   const f = +from;
-  for (const [a] of windows(cal, f, f + MAX_DAYS * 86_400_000)) return new Date(a);
-  return new Date(f);
+  let r = f;
+  eachWindow(cal, f, f + MAX_DAYS * 86_400_000, (a) => { r = a; return true; });
+  return new Date(r);
 }
 
 /** The instant at which `ms` of working time has elapsed after `from`. */
 export function addWorkingMs(cal: Calendar, from: Date | number, ms: number): Date {
   const f = +from;
   if (ms <= 0) return nextWorkingInstant(cal, f);
-  let left = ms;
-  for (const [a, b] of windows(cal, f, f + MAX_DAYS * 86_400_000)) {
-    if (b - a >= left) return new Date(a + left);
+  let left = ms, out = f + ms;
+  eachWindow(cal, f, f + MAX_DAYS * 86_400_000, (a, b) => {
+    if (b - a >= left) { out = a + left; return true; }
     left -= b - a;
-  }
-  return new Date(f + ms);
+  });
+  return new Date(out);
 }
 
 function nthMonday(year: number, month: number, n: number) {

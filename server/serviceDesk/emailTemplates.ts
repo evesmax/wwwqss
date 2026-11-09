@@ -36,3 +36,13 @@ export function magicLinkEmail(url: string) {
     html: wrap(`<h2>Acceso al portal de soporte</h2><p>Haz clic para entrar (válido 15 minutos, un solo uso):</p><p><a href="${escapeHtml(url)}" style="background:#00aeef;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Entrar al portal</a></p><p style="font-size:12px;color:#888">Si no lo solicitaste, ignora este correo.</p>`),
   };
 }
+
+export const METRIC_LABEL: Record<string, string> = { first_response: "Primera respuesta", update: "Actualización periódica", resolution: "Resolución" };
+export function slaAlertEmail(t: T & { severity?: string | null }, metric: string, threshold: number, adminUrl: string) {
+  const label = METRIC_LABEL[metric] ?? metric;
+  const head = threshold >= 100 ? `SLA vencido` : `SLA al ${threshold}%`;
+  return {
+    subject: `[${t.key}] ${head} · ${label}`,
+    html: wrap(`<h2>${escapeHtml(head)}: ${escapeHtml(label)}</h2><p>Ticket <b>${escapeHtml(t.key)}</b>${t.severity ? ` (${escapeHtml(t.severity)})` : ""}: <i>${escapeHtml(t.title)}</i></p><p><a href="${escapeHtml(adminUrl)}">Abrir ticket</a></p>`),
+  };
+}
