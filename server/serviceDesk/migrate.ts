@@ -127,7 +127,8 @@ const STATEMENTS: string[] = [
        ('Incidente P3', 40, '{"types":["incident"],"severities":["P3"]}'::jsonb, 960, NULL::int, 2160),
        ('Solicitudes y preguntas', 50, '{"types":["service_request","question"]}'::jsonb, 960, NULL::int, 2160)
      ) v(name, position, filters, first_response_min, update_min, resolution_min)
-     WHERE NOT EXISTS (SELECT 1 FROM sd_sla_policies)`,
+     WHERE NOT EXISTS (SELECT 1 FROM sd_sla_policies) AND NOT EXISTS (SELECT 1 FROM sd_settings WHERE key = 'sla.seeded')`,
+  `INSERT INTO sd_settings (key, value) VALUES ('sla.seeded', 'true'::jsonb) ON CONFLICT (key) DO NOTHING`,
 ];
 
 export async function ensureServiceDeskSchema() {

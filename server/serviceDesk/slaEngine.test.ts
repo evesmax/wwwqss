@@ -156,3 +156,9 @@ test("selectPolicy: first match wins; empty filter matches anything; none -> nul
   assert.equal(selectPolicy(ps, t({ plan: "demo" }))!.id, 3);
   assert.equal(selectPolicy(ps.slice(0, 2), t({ plan: "demo" })), null);
 });
+test("public comment after resolving does not count as an update breach", () => {
+  const e = [created("2026-11-04T09:00"), ev("2026-11-04T10:00", "comment", { visibility: "public" }), st("2026-11-04T10:10", "resolved"), ev("2026-11-06T10:00", "comment", { visibility: "public" })];
+  const u = m(base(e, "2026-11-07T10:00", P1, cal(), "2026-11-04T09:00"), "update");
+  assert.equal(u.state, "met");
+  assert.equal(u.breaches, 0);
+});

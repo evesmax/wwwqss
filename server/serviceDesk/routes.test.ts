@@ -392,6 +392,7 @@ test("SLA: waiting_customer pauses and is visible to the customer with its reaso
 test("SLA: policy and holiday management is manager-only and recalculates", { skip: !run }, async () => {
   const body = { name: "TMPT política", position: 5, filters: { accountIds: [accA], types: ["question"] }, calendarKind: "business", firstResponseMin: 60, updateMin: null, resolutionMin: 120 };
   assert.equal((await api("l1", "POST", "/api/desk/sla/policies", body)).status, 403);
+  assert.equal((await api("owner", "PUT", "/api/desk/sla/calendar", { tz: "America/Mexico_City", days: [1], start: "09:00", end: "99:00" })).status, 400);
   assert.equal((await api("owner", "POST", "/api/desk/sla/policies", { ...body, firstResponseMin: 0 })).status, 400);
   const c = await api("owner", "POST", "/api/desk/sla/policies", body);
   assert.equal(c.status, 201);

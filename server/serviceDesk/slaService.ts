@@ -6,7 +6,7 @@ import {
 } from "@shared/schema";
 import { computeTicketSla, selectPolicy, type SlaEvent, type Policy, type PolicyFilters, type MetricResult } from "./slaEngine";
 import { defaultBusinessCalendar, mxOfficialHolidays, type Calendar } from "./slaCalendar";
-import { DEFAULT_ESCALATION, targetsFor, thresholdsCrossed, type Escalation } from "./slaAlerts";
+import { DEFAULT_ESCALATION, alertKey, targetsFor, thresholdsCrossed, type Escalation } from "./slaAlerts";
 import { accountProductMap, canAccessAccount, resolveScope } from "./access";
 import { sendEmail } from "./emailService";
 import { slaAlertEmail } from "./emailTemplates";
@@ -120,8 +120,11 @@ async function sendAlerts(ticketId: number, view: TicketSlaView) {
     if (m.stoppedAt || m.state === "excluded" || m.state === "cancelled") continue;
     const crossed = thresholdsCrossed(m.pctUsed, m.state === "breached");
     const fresh: number[] = [];
-    for (const th of crossed) {
-      const ins = await db.insert(sdSlaAlerts).values({ ticketId, metric: m.key, threshold: th }).onConflictDoNothing().returning();
+    const key = alertKey(m.key, m.startedAt);
+    const sent = await db.select({ th: sdSlaAlerts.threshold }).from(sdSlaAlerts).where(and(eq(sdSlaAlerts.ticketId, ticketId), eq(sdSlaAlerts.metric, key)));
+    const maxSent = Math.max(0, ...sent.map((r) => r.th));
+    for (const th of crossed.filter((x) => x > maxSent)) {
+      const ins = await db.insert(sdSlaAlerts).values({ ticketId, metric: key, threshold: th }).onConflictDoNothing().returning();
       if (ins.length) fresh.push(th);
     }
     if (!fresh.length) continue;
@@ -146,10 +149,13 @@ export async function slaTick(now = new Date()) {
 /** Retroactive recalculation after a policy/calendar change: bumps the version and logs the change (RF-SLA-05). */
 export async function recalcAll(userId: number | null, reason: string, now = new Date()) {
   const ver = (await getCalcVersion()) + 1;
-  await setSetting("sla.version", ver, userId);
-  const all = await db.select({ id: sdTickets.id }).from(sdTickets).where(notInArray(sdTickets.type, ["internal_task", "feature_request"]));
+  // Open tickets plus anything touched in the last 120 days; older closed tickets keep their last computed values.
+  const since = new Date(now.getTime() - 120 * 86_400_000);
+  const all = await db.select({ id: sdTickets.id }).from(sdTickets)
+    .where(and(notInArray(sdTickets.type, ["internal_task", "feature_request"]), sql`(${sdTickets.status} NOT IN ('resolved','closed','duplicate','cancelled','rejected') OR ${sdTickets.updatedAt} > ${since})`));
   let n = 0;
   for (const t of all) { await refreshTicketSla(t.id, now).catch((e) => console.error("sla recalc error:", e.message)); n++; }
+  await setSetting("sla.version", ver, userId);
   await db.insert(sdSlaChanges).values({ userId, kind: "recalc", detail: { reason, version: ver, tickets: n } });
   return { version: ver, tickets: n };
 }

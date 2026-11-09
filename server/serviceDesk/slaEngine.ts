@@ -112,6 +112,7 @@ export function computeTicketSla(i: TicketSlaInput): TicketSla {
     out.push(metric({ key: "first_response", cal, pauses: d.pauses, start: created, stop: d.firstResponseAt ?? d.resolvedAt ?? d.cancelledAt, targetMin: pol.firstResponseMin, now }));
   if (pol.updateMin != null) {
     const comms = [created, ...i.events.filter((e) => e.kind === "comment" && e.actorType === "user" && e.detail.visibility === "public").map((e) => e.at)]
+      .filter((at) => !d.resolvedAt || +at <= +d.resolvedAt)
       .sort((a, b) => +a - +b);
     let breaches = 0;
     const target = pol.updateMin * 60_000;

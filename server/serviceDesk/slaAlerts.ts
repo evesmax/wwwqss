@@ -17,3 +17,7 @@ export function targetsFor(esc: Escalation, severity: string | null, threshold: 
   const row = (severity && esc[severity]) || esc.default || {};
   return row[String(threshold)] ?? [];
 }
+
+export const SLA_EDIT_WINDOW = 1;
+/** Alert dedupe key: the update clock restarts at every public comment, so each window is keyed by its start. */
+export const alertKey = (metric: string, startedAt: Date) => (metric === "update" ? `update@${+startedAt}` : metric);

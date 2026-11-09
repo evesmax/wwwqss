@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import { sdTickets, sdTicketEvents, sdSlaPolicies, sdHolidays, sdSlaChanges, sdSettings } from "@shared/schema";
-import { visibleAccountIds } from "./access";
+import { hasRole, visibleAccountIds } from "./access";
 import { wrap, requireRole, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
 import {
@@ -27,7 +27,7 @@ const policySchema = z.object({
 });
 const calendarSchema = z.object({
   tz: z.string().refine((z) => { try { new Intl.DateTimeFormat("en", { timeZone: z }); return true; } catch { return false; } }, "Zona horaria inválida"),
-  days: z.array(z.number().int().min(0).max(6)).min(1), start: z.string().regex(/^\d{2}:\d{2}$/), end: z.string().regex(/^\d{2}:\d{2}$/),
+  days: z.array(z.number().int().min(0).max(6)).min(1), start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
 }).refine((c) => c.start < c.end, "La hora de inicio debe ser menor que la de fin");
 const escalationSchema = z.record(z.record(z.array(z.enum(["assignee", "manager", "owner"]))));
 
@@ -35,20 +35,23 @@ const tokenHash = (t: string) => crypto.createHash("sha256").update(t).digest("h
 
 export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   const workers = requireRole(...WORKERS), managers = requireRole(...MANAGERS);
+  // Global configuration (policies, calendar, escalation, recalc, change log) needs a manager with global scope.
+  const globalMgr: RequestHandler = (req, res, next) =>
+    hasRole((req as Req).actor, ...MANAGERS) && (req as Req).actor.scope.global ? next() : void res.status(403).json({ message: "Sin permiso" });
   const change = (req: Req, kind: string, detail: object) => db.insert(sdSlaChanges).values({ userId: req.actor.userId, kind, detail });
 
   // --- policies (RF-SLA-01) ---
   app.get("/api/desk/sla/policies", ...auth, workers, wrap(async (_req, res) => {
     res.json(await db.select().from(sdSlaPolicies).orderBy(sdSlaPolicies.position, sdSlaPolicies.id));
   }));
-  app.post("/api/desk/sla/policies", ...auth, managers, wrap(async (req, res) => {
+  app.post("/api/desk/sla/policies", ...auth, globalMgr, wrap(async (req, res) => {
     const b = policySchema.parse(req.body);
     const [row] = await db.insert(sdSlaPolicies).values(b).returning();
     await change(req, "policy_created", { id: row.id, name: row.name });
     await writeAudit({ actorUserId: req.actor.userId, action: "sla.policy.create", entity: "sla_policy", entityId: String(row.id), detail: b });
     res.status(201).json({ policy: row, recalc: await recalcAll(req.actor.userId, `Política creada: ${row.name}`) });
   }));
-  app.put("/api/desk/sla/policies/:id", ...auth, managers, wrap(async (req, res) => {
+  app.put("/api/desk/sla/policies/:id", ...auth, globalMgr, wrap(async (req, res) => {
     const id = Number(req.params.id), b = policySchema.parse(req.body);
     const [prev] = Number.isInteger(id) ? await db.select().from(sdSlaPolicies).where(eq(sdSlaPolicies.id, id)) : [];
     if (!prev) return res.status(404).json({ message: "No encontrado" });
@@ -57,7 +60,7 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
     await writeAudit({ actorUserId: req.actor.userId, action: "sla.policy.update", entity: "sla_policy", entityId: String(id), detail: b });
     res.json({ policy: row, recalc: await recalcAll(req.actor.userId, `Política actualizada: ${row.name} v${row.version}`) });
   }));
-  app.delete("/api/desk/sla/policies/:id", ...auth, managers, wrap(async (req, res) => {
+  app.delete("/api/desk/sla/policies/:id", ...auth, globalMgr, wrap(async (req, res) => {
     const id = Number(req.params.id);
     const [row] = Number.isInteger(id) ? await db.delete(sdSlaPolicies).where(eq(sdSlaPolicies.id, id)).returning() : [];
     if (!row) return res.status(404).json({ message: "No encontrado" });
@@ -67,10 +70,12 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   }));
 
   // --- calendar, holidays, escalation (RF-SLA-03/06) ---
-  app.get("/api/desk/sla/calendar", ...auth, workers, wrap(async (_req, res) => {
-    res.json({ calendar: await getCalendarSettings(), holidays: await db.select().from(sdHolidays).orderBy(sdHolidays.date), escalation: await getEscalation() });
+  app.get("/api/desk/sla/calendar", ...auth, workers, wrap(async (req, res) => {
+    const vis = await visibleAccountIds(req.actor);
+    const hs = (await db.select().from(sdHolidays).orderBy(sdHolidays.date)).filter((h) => h.accountId == null || vis.includes(h.accountId));
+    res.json({ calendar: await getCalendarSettings(), holidays: hs, escalation: await getEscalation() });
   }));
-  app.put("/api/desk/sla/calendar", ...auth, managers, wrap(async (req, res) => {
+  app.put("/api/desk/sla/calendar", ...auth, globalMgr, wrap(async (req, res) => {
     const c = calendarSchema.parse(req.body);
     await setSetting("sla.calendar", c, req.actor.userId);
     await change(req, "calendar_updated", c);
@@ -79,6 +84,7 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   app.post("/api/desk/sla/holidays", ...auth, managers, wrap(async (req, res) => {
     const b = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), name: z.string().trim().max(100).default(""), accountId: z.number().int().positive().nullish() }).parse(req.body);
     if (b.accountId && !(await visibleAccountIds(req.actor)).includes(b.accountId)) return res.status(404).json({ message: "No encontrado" });
+    if (!b.accountId && !req.actor.scope.global) return res.status(403).json({ message: "Sin permiso" });
     const [row] = await db.insert(sdHolidays).values({ date: b.date, name: b.name, accountId: b.accountId ?? null }).onConflictDoNothing().returning();
     if (!row) return res.status(409).json({ message: "Ese feriado ya existe" });
     await change(req, "holiday_added", row);
@@ -86,12 +92,14 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   }));
   app.delete("/api/desk/sla/holidays/:id", ...auth, managers, wrap(async (req, res) => {
     const id = Number(req.params.id);
-    const [row] = Number.isInteger(id) ? await db.delete(sdHolidays).where(eq(sdHolidays.id, id)).returning() : [];
-    if (!row) return res.status(404).json({ message: "No encontrado" });
+    const [cur] = Number.isInteger(id) ? await db.select().from(sdHolidays).where(eq(sdHolidays.id, id)) : [];
+    const vis = await visibleAccountIds(req.actor);
+    if (!cur || (cur.accountId ? !vis.includes(cur.accountId) : !req.actor.scope.global)) return res.status(404).json({ message: "No encontrado" });
+    const [row] = await db.delete(sdHolidays).where(eq(sdHolidays.id, id)).returning();
     await change(req, "holiday_removed", row);
     res.json({ ok: true, recalc: await recalcAll(req.actor.userId, `Feriado eliminado ${row.date}`) });
   }));
-  app.put("/api/desk/sla/escalation", ...auth, managers, wrap(async (req, res) => {
+  app.put("/api/desk/sla/escalation", ...auth, globalMgr, wrap(async (req, res) => {
     const e = escalationSchema.parse(req.body);
     await setSetting("sla.escalation", e, req.actor.userId);
     await change(req, "escalation_updated", e);
@@ -137,10 +145,10 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
       .from(sdTickets).where(eq(sdTickets.slaApplicable, false));
     res.json(rows.filter((r) => r.reason && ids.includes(r.accountId)));
   }));
-  app.get("/api/desk/sla/changes", ...auth, managers, wrap(async (_req, res) => {
+  app.get("/api/desk/sla/changes", ...auth, globalMgr, wrap(async (_req, res) => {
     res.json(await db.select().from(sdSlaChanges).orderBy(desc(sdSlaChanges.id)).limit(100));
   }));
-  app.post("/api/desk/sla/recalc", ...auth, managers, wrap(async (req, res) => {
+  app.post("/api/desk/sla/recalc", ...auth, globalMgr, wrap(async (req, res) => {
     res.json(await recalcAll(req.actor.userId, String(req.body?.reason ?? "Recálculo manual").slice(0, 200)));
   }));
 

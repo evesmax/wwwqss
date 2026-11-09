@@ -15,3 +15,9 @@ test("escalation by severity", () => {
   assert.deepEqual(targetsFor(DEFAULT_ESCALATION, "P3", 50), []);
   assert.deepEqual(targetsFor(DEFAULT_ESCALATION, null, 100), ["assignee", "manager"]);
 });
+import { alertKey, SLA_EDIT_WINDOW } from "./slaAlerts";
+test("update alerts are keyed by window so each new window can alert again", () => {
+  assert.equal(alertKey("resolution", new Date(5)), "resolution");
+  assert.notEqual(alertKey("update", new Date(1000)), alertKey("update", new Date(2000)));
+  assert.ok(SLA_EDIT_WINDOW > 0);
+});

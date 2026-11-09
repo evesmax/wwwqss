@@ -127,7 +127,7 @@ export function registerPortalRoutes(app: Express) {
       db.select({ id: sdTicketAttachments.id, filename: sdTicketAttachments.filename, size: sdTicketAttachments.size }).from(sdTicketAttachments)
         .where(and(eq(sdTicketAttachments.ticketId, t.id), eq(sdTicketAttachments.visibility, "public"))).orderBy(sdTicketAttachments.id),
     ]);
-    const sla = toCustomerSla(await computeForTicket(t.id));
+    const sla = await computeForTicket(t.id).then(toCustomerSla).catch((e) => { console.error("portal sla error:", e.message); return null; });
     res.json({
       ticket: strip(t), comments, attachments, sla,
       history: events.map((e) => ({ at: e.at, from: (e.detail as any).from, to: (e.detail as any).to })), // reason omitted: may be internal
