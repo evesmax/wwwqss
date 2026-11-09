@@ -16,3 +16,6 @@ test("account_admin sees all of its account only", () => {
 });
 test("never across accounts even if shared", () => assert.equal(canContactSeeTicket([{ id: 10, accountId: 2, role: "contact" }], t({ sharedWithAccount: true })), false));
 test("no contacts, nothing", () => assert.equal(canContactSeeTicket([], t()), false));
+test("internal_task is never visible to customers", () => {
+  assert.equal(canContactSeeTicket([{ id: 10, accountId: 1, role: "account_admin" }], t({ type: "internal_task", sharedWithAccount: true })), false);
+});

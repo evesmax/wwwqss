@@ -44,11 +44,13 @@ export function registerPortalRoutes(app: Express) {
     const key = String(req.ip);
     if (requestThrottle.isBlocked(key)) return res.status(429).json({ message: "Demasiados intentos" });
     requestThrottle.recordFailure(key); // counts every request; window 15 min, max 5
-    await requestMagicLink(email).catch((e) => console.error("magic link error:", e.message));
+    if (!req.is("application/json")) return res.status(415).json({ message: "Tipo de contenido no soportado" });
     res.json({ ok: true });
+    void requestMagicLink(email).catch((e) => console.error("magic link error:", e.message)); // after responding: no timing oracle
   }));
 
   app.post("/api/portal/auth/verify", handle(async (req, res) => {
+    if (!req.is("application/json")) return res.status(415).json({ message: "Tipo de contenido no soportado" }); // blocks cross-site form login-CSRF
     const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
     const key = String(req.ip);
     if (verifyThrottle.isBlocked(key)) return res.status(429).json({ message: "Demasiados intentos" });
@@ -82,7 +84,7 @@ export function registerPortalRoutes(app: Express) {
   }));
 
   const portalFields = {
-    id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, type: sdTickets.type, status: sdTickets.status, severity: sdTickets.severity,
+    id: sdTickets.id,  key: sdTickets.key, title: sdTickets.title, type: sdTickets.type, status: sdTickets.status, severity: sdTickets.severity,
     perceivedSeverity: sdTickets.perceivedSeverity, accountId: sdTickets.accountId, requesterContactId: sdTickets.requesterContactId,
     sharedWithAccount: sdTickets.sharedWithAccount, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt, description: sdTickets.description,
   };

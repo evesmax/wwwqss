@@ -46,11 +46,13 @@ function Login() {
 function Verify({ onDone }: { onDone: () => void }) {
   const [err, setErr] = useState("");
   const [, nav] = useLocation();
-  useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("token") ?? "";
-    apiRequest("POST", "/api/portal/auth/verify", { token }).then(() => { onDone(); nav("/"); }).catch(() => setErr("El enlace es inválido o ya venció. Solicita uno nuevo."));
-  }, []);
-  return <Shell><div className="max-w-md mx-auto mt-10 text-center text-gray-700">{err ? <><p>{err}</p><Link href="/" className="text-[#0088c2]">Volver</Link></> : "Verificando…"}</div></Shell>;
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  useEffect(() => { window.history.replaceState(null, "", window.location.pathname); }, []);
+  // Requires a click so email link scanners that load the page cannot burn the single-use token.
+  const go = () => apiRequest("POST", "/api/portal/auth/verify", { token }).then(() => { onDone(); nav("/"); }).catch(() => setErr("El enlace es inválido o ya venció. Solicita uno nuevo."));
+  return <Shell><div className="max-w-md mx-auto mt-10 text-center space-y-3">
+    {err ? <><p className="text-gray-700">{err}</p><Link href="/" className="text-[#0088c2]">Volver</Link></> : <><p className="text-gray-700">Confirma para entrar al portal de soporte.</p><button className={btn} onClick={go}>Entrar al portal</button></>}
+  </div></Shell>;
 }
 
 function TicketList({ me }: { me: any }) {

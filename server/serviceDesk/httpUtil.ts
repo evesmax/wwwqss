@@ -8,6 +8,7 @@ export type Req = Request & { actor: Actor };
 export const wrap = (fn: (req: Req, res: Response) => Promise<unknown>): RequestHandler => (req, res, next) =>
   fn(req as Req, res).catch((e) => {
     if (e instanceof z.ZodError) return res.status(400).json({ message: "Datos inválidos", issues: e.issues });
+    if ((e as any)?.code === "23503") return res.status(409).json({ message: "No se puede eliminar: tiene registros relacionados" });
     if (e instanceof TicketError) return res.status(e.status).json({ message: e.message });
     console.error("desk route error:", e);
     next(e);

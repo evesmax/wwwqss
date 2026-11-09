@@ -3,7 +3,7 @@ import { db } from "../db";
 import {
   sdAccounts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdContacts, sdInstances,
 } from "@shared/schema";
-import { accountProductMap } from "./access";
+import { accountProductMap, loadActor, visibleAccountIds } from "./access";
 import { sendEmail } from "./emailService";
 import { ackEmail, commentEmail, statusEmail } from "./emailTemplates";
 import {
@@ -65,9 +65,9 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
   return ticket;
 }
 
-async function notifyRequester(t: { id: number; key: string; title: string; requesterContactId: number | null }, build: (t: { key: string; title: string }) => { subject: string; html: string }) {
+async function notifyRequester(t: { id: number; key: string; title: string; type?: string; requesterContactId: number | null }, build: (t: { key: string; title: string }) => { subject: string; html: string }) {
   try {
-    if (!t.requesterContactId) return;
+    if (!t.requesterContactId || t.type === "internal_task") return;
     const [c] = await db.select({ email: sdContacts.email }).from(sdContacts).where(eq(sdContacts.id, t.requesterContactId));
     if (c) await sendEmail({ to: c.email, ...build(t) });
   } catch (e: any) { console.error("ticket notify error:", e.message); }
@@ -99,6 +99,7 @@ export async function addComment(id: number, who: Who, body: string, visibility:
   if (who.type === "contact" && visibility !== "public") throw new TicketError("Sin permiso", 403);
   const { ticket, comment } = await db.transaction(async (tx) => {
     const t = await lockTicket(tx, id);
+    if (who.type === "contact" && ["closed", "duplicate", "cancelled", "rejected"].includes(t.status)) throw new TicketError("El ticket está cerrado", 409);
     const [c] = await tx.insert(sdTicketComments).values({ ticketId: id, visibility, authorType: who.type, authorId: who.id, body, createdAt: now }).returning();
     await addEvent(tx, id, who, "comment", { commentId: c.id, visibility });
     const patch: Partial<typeof sdTickets.$inferInsert> = { updatedAt: now };
@@ -140,6 +141,10 @@ export async function updateTicket(id: number, userId: number, u: UpdateInput) {
     if (u.severity !== undefined && u.severity !== t.severity) {
       const v = validateSeverity(t.type, u.severity, p0);
       if (!v.ok) throw new TicketError(v.error);
+    }
+    if (u.assigneeUserId) {
+      const a = await loadActor(u.assigneeUserId);
+      if (!a || !a.roles.some((r) => ["owner", "support_manager", "agent_l2", "agent_l1"].includes(r)) || !(await visibleAccountIds(a)).includes(t.accountId)) throw new TicketError("El responsable no tiene acceso a esta cuenta");
     }
     if (u.instanceId) {
       const [inst] = await tx.select().from(sdInstances).where(and(eq(sdInstances.id, u.instanceId), eq(sdInstances.accountId, t.accountId)));

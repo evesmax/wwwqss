@@ -108,6 +108,8 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   app.put("/api/desk/accounts/:id", ...auth, requireRole(...WRITERS), wrap(async (req, res) => {
     if (!(await accountOr404(req.actor, Number(req.params.id), res))) return;
     const { clienteId: _ignored, ...rest } = accountSchema.parse(req.body);
+    const [cur] = await db.select().from(sdAccounts).where(eq(sdAccounts.id, Number(req.params.id)));
+    if (cur && cur.ticketPrefix !== rest.ticketPrefix && cur.ticketSeq > 0) return res.status(409).json({ message: "El prefijo no se puede cambiar una vez que hay tickets" });
     const [row] = await db.update(sdAccounts).set(rest).where(eq(sdAccounts.id, Number(req.params.id))).returning();
     await writeAudit({ actorUserId: req.actor.userId, action: "account.updated", entity: "sd_accounts", entityId: String(row.id), detail: row });
     res.json(row);

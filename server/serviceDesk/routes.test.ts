@@ -319,3 +319,18 @@ test("ticket events are immutable while the ticket exists", { skip: !run }, asyn
   await assert.rejects(db.execute(sql`UPDATE sd_ticket_events SET kind = 'x' WHERE ticket_id = ${t.id}`));
   await assert.rejects(db.execute(sql`DELETE FROM sd_ticket_events WHERE ticket_id = ${t.id}`));
 });
+
+test("portal verify rejects non-JSON (login CSRF) and prefix is locked once tickets exist", { skip: !run }, async () => {
+  const r = await fetch(base + "/api/portal/auth/verify", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "token=" + "z".repeat(30) });
+  assert.equal(r.status, 415);
+  const p = await api("owner", "PUT", `/api/desk/accounts/${accA}`, { clienteId: 1, accountType: "demo", ticketPrefix: "QQQ" });
+  assert.equal(p.status, 409);
+});
+
+test("customers cannot see internal_task tickets; assignee must have access", { skip: !run }, async () => {
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "internal_task", title: "Tarea interna", requesterContactId: contactIds.c1, sharedWithAccount: true })).body;
+  assert.equal((await papi("adm", "GET", `/api/portal/tickets/${t.id}`)).status, 404);
+  assert.ok(!(await papi("adm", "GET", "/api/portal/tickets")).body.some((x: any) => x.id === t.id));
+  const nobodyId = ids.users[3];
+  assert.equal((await api("owner", "PATCH", `/api/desk/tickets/${t.id}`, { assigneeUserId: nobodyId })).status, 400);
+});
