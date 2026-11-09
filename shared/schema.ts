@@ -302,7 +302,7 @@ export const sdTickets = pgTable("sd_tickets", {
 
 export const sdTicketEvents = pgTable("sd_ticket_events", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
-  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
   at: timestamp("at", { precision: 3 }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   actorType: text("actor_type").notNull(),
   actorId: integer("actor_id"),
@@ -312,7 +312,7 @@ export const sdTicketEvents = pgTable("sd_ticket_events", {
 
 export const sdTicketComments = pgTable("sd_ticket_comments", {
   id: serial("id").primaryKey(),
-  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
   visibility: text("visibility").notNull().default("public"),
   authorType: text("author_type").notNull(),
   authorId: integer("author_id"),
@@ -322,7 +322,7 @@ export const sdTicketComments = pgTable("sd_ticket_comments", {
 
 export const sdTimeEntries = pgTable("sd_time_entries", {
   id: serial("id").primaryKey(),
-  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => users.id),
   minutes: integer("minutes").notNull(),
   billable: boolean("billable").notNull().default(true),
@@ -343,7 +343,7 @@ export const sdPortalTokens = pgTable("sd_portal_tokens", {
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 export const sdTicketAttachments = pgTable("sd_ticket_attachments", {
   id: serial("id").primaryKey(),
-  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
   visibility: text("visibility").notNull().default("public"),
   filename: text("filename").notNull(),
   mime: text("mime").notNull(),

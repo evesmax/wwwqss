@@ -15,6 +15,8 @@ const ids = { users: [] as number[], clientes: [] as number[], accounts: [] as n
 const jars: Record<string, string> = {};
 let prevSmtp: any = null;
 let accA = 0, accB = 0;
+const contactIds: Record<string, number> = {};
+const TEST_EMAILS = ["c1@a.test", "c2@a.test", "adm@a.test", "cb@b.test"];
 
 async function api(who: string, method: string, path: string, body?: unknown) {
   const r = await fetch(base + path, { method, headers: { "content-type": "application/json", cookie: jars[who] ?? "" }, body: body ? JSON.stringify(body) : undefined });
@@ -79,6 +81,15 @@ before(async () => {
     { userId: agentA, role: "agent_l2", scopeType: "account", scopeId: accA },
     { userId: l1, role: "agent_l1", scopeType: "global" },
   ]);
+  await db.insert(s.sdContracts).values([{ accountId: accA, productId: p.id }, { accountId: accB, productId: p.id }]);
+  const mkContact = async (key: string, accountId: number, email: string, role: string) => {
+    const [c] = await db.insert(s.sdContacts).values({ accountId, email, name: key, role }).returning();
+    contactIds[key] = c.id;
+  };
+  await mkContact("c1", accA, "c1@a.test", "contact");
+  await mkContact("c2", accA, "c2@a.test", "contact");
+  await mkContact("adm", accA, "adm@a.test", "account_admin");
+  await mkContact("cb", accB, "cb@b.test", "contact");
   await login("owner", `tmpt_owner_${stamp}`);
   await login("agentA", `tmpt_agenta_${stamp}`);
   await login("l1", `tmpt_l1_${stamp}`);
@@ -92,6 +103,9 @@ after(async () => {
   server?.close();
   await db.delete(s.sdSettings).where(eq(s.sdSettings.key, "smtp"));
   if (prevSmtp) await db.insert(s.sdSettings).values(prevSmtp);
+  if (ids.accounts.length) await db.delete(s.sdTickets).where(inArray(s.sdTickets.accountId, ids.accounts));
+  await db.delete(s.sdPortalTokens).where(inArray(s.sdPortalTokens.email, TEST_EMAILS));
+  await db.delete(s.sdEmailLog).where(inArray(s.sdEmailLog.toAddress, TEST_EMAILS));
   if (ids.accounts.length) await db.delete(s.sdAccounts).where(inArray(s.sdAccounts.id, ids.accounts));
   if (ids.clientes.length) await db.delete(s.clientes).where(inArray(s.clientes.id, ids.clientes));
   if (ids.product) await db.delete(s.sdProducts).where(eq(s.sdProducts.id, ids.product));
@@ -169,4 +183,139 @@ test("admin user endpoints never return password hash or TOTP secret", { skip: !
   assert.equal(r.status, 200);
   assert.ok(!("password" in r.body) && !("totpSecret" in r.body));
   assert.ok(!r.raw.includes(SECRET));
+});
+
+
+// ───────── H1: tickets + portal ─────────
+async function portalLogin(who: string, email: string) {
+  const { db } = await import("../db");
+  const { sdPortalTokens } = await import("@shared/schema");
+  const { hashToken } = await import("./portalAuth");
+  const token = `tok-${who}-${Math.random().toString(36).slice(2)}-${"x".repeat(20)}`;
+  await db.insert(sdPortalTokens).values({ email, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 60_000) });
+  const r = await fetch(base + "/api/portal/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+  assert.equal(r.status, 200);
+  jars[who] = r.headers.getSetCookie()[0].split(";")[0];
+  return token;
+}
+const papi = (who: string, method: string, path: string, body?: unknown) => api(who, method, path, body);
+
+test("tickets: scoped agent creates in own account only; keys are sequential and unique under concurrency", { skip: !run }, async () => {
+  const mk = () => api("agentA", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Pregunta concurrente", channel: "manual" });
+  const rs = await Promise.all([mk(), mk(), mk(), mk(), mk()]);
+  assert.ok(rs.every((r) => r.status === 201), JSON.stringify(rs.map((r) => r.body)));
+  const keys = rs.map((r) => r.body.key);
+  assert.equal(new Set(keys).size, 5);
+  assert.equal((await api("agentA", "POST", "/api/desk/tickets", { accountId: accB, type: "question", title: "No debe", channel: "manual" })).status, 404);
+  assert.equal((await api("l1", "POST", "/api/desk/tickets", { accountId: accB, type: "question", title: "L1 global ok", channel: "manual" })).status, 201);
+});
+
+test("tickets: severity and transition rules enforced by API", { skip: !run }, async () => {
+  assert.equal((await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Con severidad", severity: "P1" })).status, 400);
+  assert.equal((await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "incident", title: "P0 sin cuestionario", severity: "P0" })).status, 400);
+  const t = await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "incident", title: "Caída parcial", severity: "P1" });
+  assert.equal(t.status, 201);
+  assert.equal(t.body.status, "new");
+  const id = t.body.id;
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "closed" })).status, 400);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "in_progress" })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "resolved" })).status, 400, "P1 needs RCA");
+  const rca = { cause: "bug", fix: "patch", prevention: "test", kind: "code" };
+  const ok = await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "resolved", rca });
+  assert.equal(ok.status, 200);
+  assert.ok(ok.body.resolvedAt);
+  const d = await api("owner", "GET", `/api/desk/tickets/${id}`);
+  assert.deepEqual(d.body.events.map((e: any) => e.kind), ["created", "status_changed", "status_changed"]);
+});
+
+test("tickets: first response only from a public human comment, not the auto-ack", { skip: !run }, async () => {
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "service_request", title: "Alta de usuario", requesterContactId: contactIds.c1 })).body;
+  assert.equal(t.firstResponseAt, null);
+  await api("owner", "POST", `/api/desk/tickets/${t.id}/comments`, { body: "nota interna", visibility: "internal" });
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.ticket.firstResponseAt, null);
+  await api("owner", "POST", `/api/desk/tickets/${t.id}/comments`, { body: "respuesta al cliente", visibility: "public" });
+  assert.ok((await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.ticket.firstResponseAt);
+});
+
+test("tickets: agent_l1/time entry validation", { skip: !run }, async () => {
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Horas" })).body;
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/time`, { minutes: 0, workDate: "2026-11-08" })).status, 400);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/time`, { minutes: 90, workDate: "2026-11-08" })).status, 201);
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.totalMinutes, 90);
+  assert.equal((await api("nobody", "POST", `/api/desk/tickets/${t.id}/time`, { minutes: 5, workDate: "2026-11-08" })).status, 403);
+});
+
+test("portal: magic token is single use and unauthenticated access is refused", { skip: !run }, async () => {
+  assert.equal((await papi("anon", "GET", "/api/portal/tickets")).status, 401);
+  const token = await portalLogin("c1", "c1@a.test");
+  const again = await fetch(base + "/api/portal/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+  assert.equal(again.status, 401);
+  const unknown = await fetch(base + "/api/portal/auth/request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "nadie@nowhere.test" }) });
+  assert.equal(unknown.status, 200);
+  const { db } = await import("../db");
+  const { sdPortalTokens } = await import("@shared/schema");
+  const expired = `exp-${"y".repeat(30)}`;
+  const { hashToken } = await import("./portalAuth");
+  await db.insert(sdPortalTokens).values({ email: "c1@a.test", tokenHash: hashToken(expired), expiresAt: new Date(Date.now() - 1000) });
+  const ex = await fetch(base + "/api/portal/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: expired }) });
+  assert.equal(ex.status, 401);
+});
+
+test("portal: contacts only see their own / shared / (admin) account tickets, never internal notes or other accounts", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test"); await portalLogin("c2", "c2@a.test"); await portalLogin("adm", "adm@a.test"); await portalLogin("cb", "cb@b.test");
+  const created = await papi("c1", "POST", "/api/portal/tickets", { accountId: accA, type: "incident", title: "No carga el reporte", description: "detalle", perceivedSeverity: "P0" });
+  assert.equal(created.status, 201);
+  const id = created.body.id;
+  const d = (await api("owner", "GET", `/api/desk/tickets/${id}`)).body;
+  assert.equal(d.ticket.severity, null, "customer cannot set real severity");
+  assert.equal(d.ticket.perceivedSeverity, "P0");
+  assert.equal(d.ticket.channel, "portal");
+  await api("owner", "POST", `/api/desk/tickets/${id}/comments`, { body: "SECRETO-INTERNO", visibility: "internal" });
+  await api("owner", "POST", `/api/desk/tickets/${id}/comments`, { body: "hola cliente", visibility: "public" });
+  const mine = await papi("c1", "GET", `/api/portal/tickets/${id}`);
+  assert.equal(mine.status, 200);
+  assert.ok(!mine.raw.includes("SECRETO-INTERNO"));
+  assert.ok(mine.raw.includes("hola cliente"));
+  assert.equal((await papi("c2", "GET", `/api/portal/tickets/${id}`)).status, 404);
+  assert.ok(!(await papi("c2", "GET", "/api/portal/tickets")).body.some((t: any) => t.id === id));
+  assert.equal((await papi("adm", "GET", `/api/portal/tickets/${id}`)).status, 200);
+  assert.equal((await papi("cb", "GET", `/api/portal/tickets/${id}`)).status, 404);
+  assert.equal((await papi("cb", "POST", `/api/portal/tickets/${id}/comments`, { body: "intruso" })).status, 404);
+  assert.equal((await papi("cb", "POST", "/api/portal/tickets", { accountId: accA, type: "question", title: "En otra cuenta" })).status, 404);
+  await api("owner", "PATCH", `/api/desk/tickets/${id}`, { sharedWithAccount: true });
+  assert.equal((await papi("c2", "GET", `/api/portal/tickets/${id}`)).status, 200);
+  assert.equal((await papi("cb", "GET", `/api/portal/tickets/${id}`)).status, 404);
+});
+
+test("portal: customer reply resumes a waiting_customer ticket", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test");
+  const id = (await papi("c1", "POST", "/api/portal/tickets", { accountId: accA, type: "question", title: "¿Cómo exporto?" })).body.id;
+  await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "triage" });
+  await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "waiting_customer" });
+  assert.equal((await papi("c1", "POST", `/api/portal/tickets/${id}/comments`, { body: "aquí va la info" })).status, 201);
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${id}`)).body.ticket.status, "in_progress");
+});
+
+test("attachments: allow-list, size, and isolation", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  const id = (await papi("c1", "POST", "/api/portal/tickets", { accountId: accA, type: "question", title: "Con adjunto" })).body.id;
+  const up = (who: string, mime: string, body: Buffer, p = `/api/portal/tickets/${id}/attachments?filename=a.png`) =>
+    fetch(base + p, { method: "POST", headers: { "content-type": mime, cookie: jars[who] }, body });
+  assert.equal((await up("c1", "text/html", Buffer.from("<script>"))).status, 400);
+  const ok = await up("c1", "image/png", Buffer.from([137, 80, 78, 71]));
+  assert.equal(ok.status, 201);
+  const aid = (await ok.json()).id;
+  const dl = async (who: string, path: string) => (await fetch(base + path, { headers: { cookie: jars[who] } })).status;
+  assert.equal(await dl("c1", `/api/portal/attachments/${aid}`), 200);
+  assert.equal(await dl("cb", `/api/portal/attachments/${aid}`), 404);
+  assert.equal((await up("cb", "image/png", Buffer.from([1]))).status, 404);
+  assert.equal(await dl("agentA", `/api/desk/attachments/${aid}`), 200);
+});
+
+test("ticket events are immutable while the ticket exists", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Inmutable" })).body;
+  await assert.rejects(db.execute(sql`UPDATE sd_ticket_events SET kind = 'x' WHERE ticket_id = ${t.id}`));
+  await assert.rejects(db.execute(sql`DELETE FROM sd_ticket_events WHERE ticket_id = ${t.id}`));
 });

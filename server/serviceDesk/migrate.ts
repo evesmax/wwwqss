@@ -54,21 +54,21 @@ const STATEMENTS: string[] = [
      updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, first_response_at timestamp, resolved_at timestamp,
      closed_at timestamp, CONSTRAINT sd_tickets_account_seq UNIQUE (account_id, seq))`,
   `CREATE TABLE IF NOT EXISTS sd_ticket_events (
-     id bigserial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id),
+     id bigserial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE,
      at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, actor_type text NOT NULL, actor_id integer,
      kind text NOT NULL, detail jsonb NOT NULL DEFAULT '{}')`,
   `CREATE TABLE IF NOT EXISTS sd_ticket_comments (
-     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id), visibility text NOT NULL DEFAULT 'public',
+     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE, visibility text NOT NULL DEFAULT 'public',
      author_type text NOT NULL, author_id integer, body text NOT NULL, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS sd_time_entries (
-     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id), user_id integer NOT NULL REFERENCES users(id),
+     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE, user_id integer NOT NULL REFERENCES users(id),
      minutes integer NOT NULL, billable boolean NOT NULL DEFAULT true, work_date text NOT NULL, note text NOT NULL DEFAULT '',
      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS sd_portal_tokens (
      id serial PRIMARY KEY, email text NOT NULL, token_hash text NOT NULL UNIQUE, expires_at timestamp NOT NULL,
      used_at timestamp, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS sd_ticket_attachments (
-     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id), visibility text NOT NULL DEFAULT 'public',
+     id serial PRIMARY KEY, ticket_id integer NOT NULL REFERENCES sd_tickets(id) ON DELETE CASCADE, visibility text NOT NULL DEFAULT 'public',
      filename text NOT NULL, mime text NOT NULL, size integer NOT NULL, data bytea NOT NULL,
      uploader_type text NOT NULL, uploader_id integer, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_sd_ticket_attachments_ticket ON sd_ticket_attachments(ticket_id)`,
@@ -78,7 +78,11 @@ const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sd_time_entries_ticket ON sd_time_entries(ticket_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sd_portal_tokens_email ON sd_portal_tokens(email, created_at)`,
   `CREATE OR REPLACE FUNCTION sd_events_immutable() RETURNS trigger AS $$
-     BEGIN RAISE EXCEPTION 'sd_ticket_events is append-only'; END; $$ LANGUAGE plpgsql`,
+     BEGIN
+       -- Immutable while its ticket exists; a cascade from deleting the ticket (parent already gone) is allowed.
+       IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM sd_tickets WHERE id = OLD.ticket_id) THEN RETURN OLD; END IF;
+       RAISE EXCEPTION 'sd_ticket_events is append-only';
+     END; $$ LANGUAGE plpgsql`,
   `DROP TRIGGER IF EXISTS sd_ticket_events_no_change ON sd_ticket_events`,
   `CREATE TRIGGER sd_ticket_events_no_change BEFORE UPDATE OR DELETE ON sd_ticket_events
      FOR EACH ROW EXECUTE FUNCTION sd_events_immutable()`,

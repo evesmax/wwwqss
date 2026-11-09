@@ -16,6 +16,7 @@ import { registerCatalogRoutes } from "./catalogRoutes";
 import { registerPipelineRoutes } from "./pipelineRoutes";
 import { registerSalesAgentRoutes } from "./salesAgentRoutes";
 import { registerDeskRoutes } from "./serviceDesk/routes";
+import { registerPortalRoutes } from "./serviceDesk/portalRoutes";
 
 declare module "express-session" {
   interface SessionData {
@@ -23,6 +24,7 @@ declare module "express-session" {
     pendingUserId?: number;
     pendingAt?: number;
     totpSetupSecret?: string;
+    portalEmail?: string;
   }
 }
 
@@ -106,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCatalogRoutes(app, requireAuth);
   registerPipelineRoutes(app, requireAuth);
   registerSalesAgentRoutes(app);
-  if (process.env.SD_ENABLED === "true") registerDeskRoutes(app, requireAuth);
+  if (process.env.SD_ENABLED === "true") { registerDeskRoutes(app, requireAuth); registerPortalRoutes(app); }
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
