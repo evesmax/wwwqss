@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, bigserial, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, bigserial, unique, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -201,6 +201,7 @@ export const sdAccounts = pgTable("sd_accounts", {
   clienteId: integer("cliente_id").notNull().unique().references(() => clientes.id),
   accountType: text("account_type").notNull().default("suscripcion"),
   ticketPrefix: text("ticket_prefix").notNull().unique(),
+  ticketSeq: integer("ticket_seq").notNull().default(0),
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at"),
 });
@@ -267,4 +268,88 @@ export const sdAuditLog = pgTable("sd_audit_log", {
   entity: text("entity").notNull(),
   entityId: text("entity_id"),
   detail: jsonb("detail").notNull().default({}),
+});
+
+export const sdTickets = pgTable("sd_tickets", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id),
+  seq: integer("seq").notNull(),
+  key: text("key").notNull().unique(),
+  type: text("type").notNull(),
+  productId: integer("product_id").references(() => sdProducts.id),
+  instanceId: integer("instance_id").references(() => sdInstances.id),
+  requesterContactId: integer("requester_contact_id").references(() => sdContacts.id),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  severity: text("severity"),
+  perceivedSeverity: text("perceived_severity"),
+  priorityInternal: integer("priority_internal").notNull().default(3),
+  status: text("status").notNull(),
+  assigneeUserId: integer("assignee_user_id").references(() => users.id),
+  channel: text("channel").notNull().default("manual"),
+  environment: text("environment").notNull().default("prod"),
+  moduleArea: text("module_area").notNull().default(""),
+  sharedWithAccount: boolean("shared_with_account").notNull().default(false),
+  slaApplicable: boolean("sla_applicable").notNull().default(true),
+  rca: jsonb("rca"),
+  receivedAt: ts("received_at"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+  firstResponseAt: timestamp("first_response_at"),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+}, (t) => ({ uq: unique("sd_tickets_account_seq").on(t.accountId, t.seq) }));
+
+export const sdTicketEvents = pgTable("sd_ticket_events", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  at: timestamp("at", { precision: 3 }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  actorType: text("actor_type").notNull(),
+  actorId: integer("actor_id"),
+  kind: text("kind").notNull(),
+  detail: jsonb("detail").notNull().default({}),
+});
+
+export const sdTicketComments = pgTable("sd_ticket_comments", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  visibility: text("visibility").notNull().default("public"),
+  authorType: text("author_type").notNull(),
+  authorId: integer("author_id"),
+  body: text("body").notNull(),
+  createdAt: ts("created_at"),
+});
+
+export const sdTimeEntries = pgTable("sd_time_entries", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  minutes: integer("minutes").notNull(),
+  billable: boolean("billable").notNull().default(true),
+  workDate: text("work_date").notNull(),
+  note: text("note").notNull().default(""),
+  createdAt: ts("created_at"),
+});
+
+export const sdPortalTokens = pgTable("sd_portal_tokens", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: ts("created_at"),
+});
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+export const sdTicketAttachments = pgTable("sd_ticket_attachments", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => sdTickets.id),
+  visibility: text("visibility").notNull().default("public"),
+  filename: text("filename").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  data: bytea("data").notNull(),
+  uploaderType: text("uploader_type").notNull(),
+  uploaderId: integer("uploader_id"),
+  createdAt: ts("created_at"),
 });

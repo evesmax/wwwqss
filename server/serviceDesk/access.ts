@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { users, sdRoleAssignments } from "@shared/schema";
+import { users, sdRoleAssignments, sdAccounts, sdContracts, sdInstances } from "@shared/schema";
 
 export type Scope = { global: boolean; productIds: Set<number>; accountIds: Set<number> };
 export type Actor = { userId: number; roles: string[]; scope: Scope };
@@ -35,4 +35,20 @@ export async function loadActor(userId: number): Promise<Actor | null> {
     roles: Array.from(new Set(rows.map((r) => r.role))),
     scope: resolveScope(rows),
   };
+}
+
+export async function accountProductMap(): Promise<Map<number, number[]>> {
+  const map = new Map<number, Set<number>>();
+  const add = (a: number, p: number) => { if (!map.has(a)) map.set(a, new Set()); map.get(a)!.add(p); };
+  for (const c of await db.select({ a: sdContracts.accountId, p: sdContracts.productId }).from(sdContracts)) add(c.a, c.p);
+  for (const i of await db.select({ a: sdInstances.accountId, p: sdInstances.productId }).from(sdInstances)) add(i.a, i.p);
+  return new Map(Array.from(map.entries()).map(([a, s]) => [a, Array.from(s)]));
+}
+
+export async function visibleAccountIds(actor: Actor): Promise<number[]> {
+  if (!actor.roles.length) return [];
+  const all = await db.select({ id: sdAccounts.id }).from(sdAccounts);
+  if (actor.scope.global) return all.map((a) => a.id);
+  const pm = await accountProductMap();
+  return all.filter((a) => canAccessAccount(actor, a.id, pm.get(a.id) ?? [])).map((a) => a.id);
 }

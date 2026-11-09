@@ -5,7 +5,9 @@ import { db } from "../db";
 import {
   users, clientes, sdProducts, sdAccounts, sdInstances, sdContracts, sdContacts, sdRoleAssignments,
 } from "@shared/schema";
-import { loadActor, canAccessAccount, hasRole, type Actor } from "./access";
+import { loadActor, hasRole, visibleAccountIds, accountProductMap } from "./access";
+import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
+import { registerTicketRoutes } from "./ticketRoutes";
 import { writeAudit } from "./audit";
 import { getSmtpPublic, saveSmtpConfig } from "./settings";
 import { sendEmail } from "./emailService";
@@ -16,43 +18,6 @@ const ACCOUNT_TYPES = ["suscripcion", "proyecto", "bolsa_horas", "demo", "intern
 const WRITERS = ["owner", "support_manager"];
 // Role gates (hasRole) ignore scope, so these roles must never be scoped.
 const GLOBAL_ONLY_ROLES: string[] = ["owner", "support_manager"];
-
-type Req = Request & { actor: Actor };
-
-async function accountProductMap(): Promise<Map<number, number[]>> {
-  const map = new Map<number, Set<number>>();
-  const add = (a: number, p: number) => { if (!map.has(a)) map.set(a, new Set()); map.get(a)!.add(p); };
-  for (const c of await db.select({ a: sdContracts.accountId, p: sdContracts.productId }).from(sdContracts)) add(c.a, c.p);
-  for (const i of await db.select({ a: sdInstances.accountId, p: sdInstances.productId }).from(sdInstances)) add(i.a, i.p);
-  return new Map(Array.from(map.entries()).map(([a, s]) => [a, Array.from(s)]));
-}
-
-async function visibleAccountIds(actor: Actor): Promise<number[]> {
-  if (!actor.roles.length) return [];
-  const all = await db.select({ id: sdAccounts.id }).from(sdAccounts);
-  if (actor.scope.global) return all.map((a) => a.id);
-  const pm = await accountProductMap();
-  return all.filter((a) => canAccessAccount(actor, a.id, pm.get(a.id) ?? [])).map((a) => a.id);
-}
-
-// Out-of-scope and non-existent accounts are indistinguishable: 404 either way.
-async function accountOr404(actor: Actor, accountId: number, res: Response): Promise<boolean> {
-  if (!Number.isInteger(accountId) || !(await visibleAccountIds(actor)).includes(accountId)) {
-    res.status(404).json({ message: "No encontrado" });
-    return false;
-  }
-  return true;
-}
-
-const wrap = (fn: (req: Req, res: Response) => Promise<unknown>): RequestHandler => (req, res, next) =>
-  fn(req as Req, res).catch((e) => {
-    if (e instanceof z.ZodError) return res.status(400).json({ message: "Datos inválidos", issues: e.issues });
-    console.error("desk route error:", e);
-    next(e);
-  });
-
-const requireRole = (...roles: string[]): RequestHandler => (req, res, next) =>
-  hasRole((req as Req).actor, ...roles) ? next() : void res.status(403).json({ message: "Sin permiso" });
 
 export const assignSchema = z.object({
   assignments: z.array(z.object({
@@ -101,6 +66,8 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     const r = await sendEmail({ to, subject: "Prueba de correo — QSS Soporte", html: "<p>Si recibes este mensaje, la configuración SMTP funciona.</p>" });
     res.json(r);
   }));
+
+  registerTicketRoutes(app, auth);
 
   // ---- Products ----
   const productSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), active: z.boolean().default(true) });
