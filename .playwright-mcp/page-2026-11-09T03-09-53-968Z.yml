@@ -1,0 +1,128 @@
+- generic [ref=f8e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=f8e5]:
+    - complementary [ref=f8e6]:
+      - img "QSoftware Solutions" [ref=f8e8]
+      - navigation [ref=f8e9]:
+        - button "Pipeline de Ventas" [ref=f8e10] [cursor=pointer]
+        - button "Seguimiento de KPIs" [ref=f8e13] [cursor=pointer]
+        - button "Tickets" [ref=f8e17] [cursor=pointer]
+        - button "Catálogo de soporte" [ref=f8e21] [cursor=pointer]
+        - button "Correo saliente" [ref=f8e30] [cursor=pointer]
+        - button "Seguridad" [ref=f8e35] [cursor=pointer]
+        - button "Catálogos" [ref=f8e41] [cursor=pointer]
+        - generic [ref=f8e47]:
+          - button "Roles y Permisos" [ref=f8e48] [cursor=pointer]
+          - button "Alta de Usuarios" [ref=f8e52] [cursor=pointer]
+      - generic [ref=f8e59]:
+        - button "Minimizar" [ref=f8e60] [cursor=pointer]
+        - button "Cambiar contraseña" [ref=f8e64] [cursor=pointer]
+        - generic [ref=f8e70]:
+          - generic [ref=f8e71]: T
+          - generic [ref=f8e73]:
+            - paragraph [ref=f8e74]: tmpv_owner
+            - paragraph
+        - button "Cerrar sesión" [ref=f8e75] [cursor=pointer]
+    - generic [ref=f8e80]:
+      - banner [ref=f8e81]:
+        - button "Asistente IA" [ref=f8e82] [cursor=pointer]
+      - main [ref=f8e86]:
+        - generic [ref=f8e87]:
+          - generic [ref=f8e88]:
+            - heading "Tickets (0)" [level=1] [ref=f8e89]:
+              - text: Tickets
+              - generic [ref=f8e90]: (0)
+            - button "Nuevo ticket" [active] [ref=f8e91] [cursor=pointer]
+          - generic [ref=f8e92]:
+            - textbox "Buscar folio o título" [ref=f8e93]
+            - combobox [ref=f8e94]:
+              - option "Todos los estados" [selected]
+              - option "Nuevo"
+              - option "Triage"
+              - option "En progreso"
+              - option "Esperando cliente"
+              - option "Esperando tercero"
+              - option "Resuelto"
+              - option "Cerrado"
+              - option "Duplicado"
+              - option "Cancelado"
+              - option "Rechazado"
+              - option "Solicitado"
+              - option "En revisión"
+              - option "Cotizado"
+              - option "Aprobado"
+              - option "Planificado"
+              - option "En desarrollo"
+              - option "En pruebas"
+              - option "Liberado"
+              - option "Diferido"
+              - option "Bloqueado"
+            - combobox [ref=f8e95]:
+              - option "Todos los tipos" [selected]
+              - option "Incidente"
+              - option "Solicitud de servicio"
+              - option "Nueva función"
+              - option "Consulta"
+              - option "Tarea interna"
+            - combobox [ref=f8e96]:
+              - option "Cualquier responsable" [selected]
+              - option "Asignados a mí"
+              - option "Sin asignar"
+            - generic [ref=f8e97]:
+              - checkbox "Solo abiertos" [checked] [ref=f8e98]
+              - text: Solo abiertos
+            - button "Buscar" [ref=f8e99] [cursor=pointer]
+          - generic [ref=f8e100]: No se pudieron cargar los tickets (¿rol de soporte y MFA activo?)
+          - table [ref=f8e102]:
+            - rowgroup [ref=f8e103]:
+              - row [ref=f8e104]:
+                - columnheader "Folio" [ref=f8e105]
+                - columnheader "Título" [ref=f8e106]
+                - columnheader "Cliente" [ref=f8e107]
+                - columnheader "Tipo" [ref=f8e108]
+                - columnheader "Sev." [ref=f8e109]
+                - columnheader "Estado" [ref=f8e110]
+                - columnheader "Actualizado" [ref=f8e111]
+            - rowgroup [ref=f8e112]:
+              - row [ref=f8e113]:
+                - cell "Sin tickets" [ref=f8e114]
+          - generic [ref=f8e116]:
+            - heading "Nuevo ticket" [level=2] [ref=f8e117]
+            - generic [ref=f8e118]:
+              - combobox [ref=f8e119]:
+                - option "Cuenta…" [selected]
+                - option "[DEMO] Transportes Suscripción"
+                - option "[DEMO] Manufactura Proyecto"
+                - option "[DEMO] Escuela Bolsa de Horas"
+                - option "TMPV Cliente Demo"
+              - combobox [ref=f8e120]:
+                - option "Incidente" [selected]
+                - option "Solicitud de servicio"
+                - option "Nueva función"
+                - option "Consulta"
+                - option "Tarea interna"
+              - combobox [ref=f8e121]:
+                - option "Solicitante (opcional)" [selected]
+              - combobox [ref=f8e122]:
+                - option "Instancia (opcional)" [selected]
+              - combobox [ref=f8e123]:
+                - option "manual" [selected]
+                - option "email"
+                - option "api"
+                - option "portal"
+                - option "widget"
+              - combobox [ref=f8e124]:
+                - option "Producción" [selected]
+                - option "Staging"
+            - textbox "Título" [ref=f8e125]
+            - textbox "Descripción" [ref=f8e126]
+            - combobox [ref=f8e128]:
+              - option "Severidad (definir en triage)" [selected]
+              - option "P0"
+              - option "P1"
+              - option "P2"
+              - option "P3"
+            - generic [ref=f8e129]:
+              - button "Cancelar" [ref=f8e130] [cursor=pointer]
+              - button "Crear" [ref=f8e131] [cursor=pointer]

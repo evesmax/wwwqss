@@ -20,6 +20,7 @@ import {
   Kanban,
   Lock,
   LifeBuoy,
+  Ticket,
   Mail,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
@@ -102,6 +103,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {renderMenuItem({ path: "/pipeline", label: "Pipeline de Ventas", icon: Kanban })}
           {renderMenuItem({ path: "/kpi-tracking", label: "Seguimiento de KPIs", icon: BarChart3 })}
+          {user.deskEnabled && renderMenuItem({ path: "/soporte/tickets", label: "Tickets", icon: Ticket })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/catalogo", label: "Catálogo de soporte", icon: LifeBuoy })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/correo", label: "Correo saliente", icon: Mail })}
           {renderMenuItem({ path: "/security", label: "Seguridad", icon: Lock })}

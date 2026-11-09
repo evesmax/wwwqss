@@ -14,6 +14,8 @@ import KpiTrackingPage from "./KpiTrackingPage";
 import SecurityPage from "./desk/SecurityPage";
 import SmtpSettingsPage from "./desk/SmtpSettingsPage";
 import SupportCatalogPage from "./desk/SupportCatalogPage";
+import TicketsPage from "./desk/TicketsPage";
+import TicketDetailPage from "./desk/TicketDetailPage";
 
 export default function AdminApp() {
   const [user, setUser] = useState<any>(null);
@@ -56,6 +58,10 @@ export default function AdminApp() {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
+        <Route path="/soporte/tickets/:id">
+          {(params) => <TicketDetailPage id={params.id} user={user} />}
+        </Route>
+        <Route path="/soporte/tickets" component={TicketsPage} />
         <Route path="/soporte/catalogo">
           <SupportCatalogPage user={user} />
         </Route>

@@ -1,0 +1,30 @@
+- generic [ref=f7e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=f7e81]:
+    - complementary [ref=f7e82]:
+      - img "QSoftware Solutions" [ref=f7e84]
+      - navigation [ref=f7e85]:
+        - button "Pipeline de Ventas" [ref=f7e86] [cursor=pointer]
+        - button "Seguimiento de KPIs" [ref=f7e89] [cursor=pointer]
+        - button "Tickets" [ref=f7e93] [cursor=pointer]
+        - button "Catálogo de soporte" [ref=f7e97] [cursor=pointer]
+        - button "Correo saliente" [ref=f7e106] [cursor=pointer]
+        - button "Seguridad" [ref=f7e111] [cursor=pointer]
+        - button "Catálogos" [ref=f7e117] [cursor=pointer]
+        - generic [ref=f7e123]:
+          - button "Roles y Permisos" [ref=f7e124] [cursor=pointer]
+          - button "Alta de Usuarios" [ref=f7e128] [cursor=pointer]
+      - generic [ref=f7e135]:
+        - button "Minimizar" [ref=f7e136] [cursor=pointer]
+        - button "Cambiar contraseña" [ref=f7e140] [cursor=pointer]
+        - generic [ref=f7e146]:
+          - generic [ref=f7e147]: T
+          - generic [ref=f7e149]:
+            - paragraph [ref=f7e150]: tmpv_owner
+            - paragraph
+        - button "Cerrar sesión" [ref=f7e151] [cursor=pointer]
+    - generic [ref=f7e156]:
+      - banner [ref=f7e157]:
+        - button "Asistente IA" [ref=f7e158] [cursor=pointer]
+      - main [ref=f7e162]

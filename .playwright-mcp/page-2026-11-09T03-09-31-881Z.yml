@@ -1,0 +1,37 @@
+- generic [ref=f7e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=f7e5]:
+    - generic [ref=f7e11]:
+      - img "QSoftware Solutions" [ref=f7e14]
+      - generic [ref=f7e15]:
+        - generic [ref=f7e16]:
+          - heading "Impulsamos la transformación digital de tu negocio." [level=1] [ref=f7e17]: Impulsamos latransformación digitalde tu negocio.
+          - paragraph [ref=f7e18]: Desarrollamos soluciones de software innovadoras que optimizan operaciones, impulsan el crecimiento y generan valor real para nuestros clientes.
+        - generic [ref=f7e19]:
+          - generic [ref=f7e26]:
+            - paragraph [ref=f7e27]: Software SaaS
+            - paragraph [ref=f7e28]: Productos escalables y robustos
+          - generic [ref=f7e33]:
+            - paragraph [ref=f7e34]: Innovación
+            - paragraph [ref=f7e35]: Tecnología de vanguardia
+          - generic [ref=f7e41]:
+            - paragraph [ref=f7e42]: Impacto Global
+            - paragraph [ref=f7e43]: Desde Guadalajara al mundo
+          - generic [ref=f7e51]:
+            - paragraph [ref=f7e52]: Consultoría
+            - paragraph [ref=f7e53]: Acompañamiento estratégico
+      - generic [ref=f7e54]:
+        - generic [ref=f7e55]: 5+ Productos SaaS
+        - generic [ref=f7e63]: Seguridad empresarial
+    - generic [ref=f7e69]:
+      - generic [ref=f7e70]:
+        - img "QSoftware Solutions" [ref=f7e72]
+        - heading "Panel de Administración" [level=1] [ref=f7e73]
+        - paragraph [ref=f7e74]: Ingresa el código de tu app de autenticación
+      - generic [ref=f7e75]:
+        - generic [ref=f7e76]:
+          - generic [ref=f7e77]: Código de verificación
+          - textbox "000000" [active] [ref=f7e78]
+        - button "Iniciar Sesión" [ref=f7e79] [cursor=pointer]
+      - paragraph [ref=f7e80]: QSoftware Solutions · Guadalajara, México
