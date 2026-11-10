@@ -16,6 +16,7 @@ import SmtpSettingsPage from "./desk/SmtpSettingsPage";
 import SlaConfigPage from "./desk/SlaConfigPage";
 import ImportPage from "./desk/ImportPage";
 import SdkPage from "./desk/SdkPage";
+import AvailabilityPage from "./desk/AvailabilityPage";
 import SupportCatalogPage from "./desk/SupportCatalogPage";
 import TicketsPage from "./desk/TicketsPage";
 import TicketDetailPage from "./desk/TicketDetailPage";
@@ -72,6 +73,7 @@ export default function AdminApp() {
         <Route path="/soporte/sla" component={SlaConfigPage} />
         <Route path="/soporte/importar" component={ImportPage} />
         <Route path="/soporte/sdk" component={SdkPage} />
+        <Route path="/soporte/disponibilidad" component={AvailabilityPage} />
         <Route path="/security">
           <SecurityPage user={user} onChanged={(p) => setUser({ ...user, ...p })} />
         </Route>

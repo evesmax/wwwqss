@@ -114,6 +114,8 @@ after(async () => {
   await db.delete(s.sdEmailLog).where(inArray(s.sdEmailLog.toAddress, TEST_EMAILS));
   if (ids.accounts.length) await db.delete(s.sdAccounts).where(inArray(s.sdAccounts.id, ids.accounts));
   if (ids.clientes.length) await db.delete(s.clientes).where(inArray(s.clientes.id, ids.clientes));
+  if (ids.product) await db.delete(s.sdPlatformIncidents).where(eq(s.sdPlatformIncidents.productId, ids.product));
+  if (ids.product) await db.delete(s.sdMaintenance).where(eq(s.sdMaintenance.productId, ids.product));
   if (ids.product) await db.delete(s.sdSdkKeys).where(eq(s.sdSdkKeys.productId, ids.product));
   if (ids.product) await db.delete(s.sdProducts).where(eq(s.sdProducts.id, ids.product));
   if (ids.users.length) {
@@ -511,4 +513,54 @@ test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, sco
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, O)).status, 401); // old secret no longer valid
   await api("owner", "PUT", `/api/desk/sdk/keys/${k.body.id}`, { name: "TMPT key", allowedOrigins: [], active: false });
   assert.equal((await call("POST", "/api/v1/sdk/tickets", signJwt({ sub: "u", email: "a@b.co", tenant: "TMPT Planta", iat: now, exp: now + 60 }, rot.body.secret, k.body.keyId), good, O)).status, 401);
+});
+
+test("availability: monitors, 2-location down minutes, public status page, incidents and maintenance", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const sc = await import("@shared/schema");
+  const [inst] = await db.insert(sc.sdInstances).values({ accountId: accA, productId: ids.product, name: "TMPT Mon" }).returning();
+  const mon = { instanceId: inst.id, name: "TMPT Plataforma", url: "https://example.com/health/deep", isPublic: true };
+  assert.equal((await api("l1", "POST", "/api/desk/monitors", mon)).status, 403);
+  assert.equal((await api("agentA", "POST", "/api/desk/monitors", mon)).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/monitors", { ...mon, url: "http://example.com/h" })).status, 400);
+  assert.equal((await api("owner", "POST", "/api/desk/monitors", { ...mon, url: "https://169.254.169.254/x" })).status, 400);
+  const m = await api("owner", "POST", "/api/desk/monitors", mon);
+  assert.equal(m.status, 201);
+  const base0 = Math.floor(Date.now() / 60000) * 60000 - 90 * 60000;
+  const rows: any[] = [];
+  for (let i = 0; i < 60; i++) {
+    const down = i >= 10 && i < 20, single = i >= 30 && i < 35;
+    rows.push({ monitorId: m.body.id, minute: new Date(base0 + i * 60000), location: "us-central1", ok: !(down || single) });
+    rows.push({ monitorId: m.body.id, minute: new Date(base0 + i * 60000), location: "us-east1", ok: !down });
+  }
+  await db.insert(sc.sdProbeResults).values(rows);
+  const now = new Date();
+  const mx = new Date(now.toLocaleString("en-US", { timeZone: "America/Mexico_City" }));
+  const av = await api("l1", "GET", `/api/desk/availability?year=${mx.getFullYear()}&month=${mx.getMonth() + 1}`);
+  assert.equal(av.status, 200);
+  const row = av.body.monitors.find((x: any) => x.monitorId === m.body.id);
+  assert.equal(row.downMinutes, 10);          // only minutes failing from 2 locations
+  assert.equal(row.unconfirmedMinutes, 0);    // a failure seen from one location while the other is ok does not count as down
+  assert.ok(row.pct < 100 && row.pct > 0);
+  const st = await fetch(base + "/api/status").then((r) => r.json());
+  const prod = st.products.find((p: any) => p.components.some((c: any) => c.name === "TMPT Plataforma"));
+  assert.ok(prod);
+  assert.equal(prod.components[0].days.length, 90);
+  assert.ok(!JSON.stringify(st).includes("TMPT Mon") && !JSON.stringify(st).includes("example.com"));
+  assert.equal((await fetch(base + "/api/internal/probe?loc=test", { method: "POST" })).status, 401);
+  assert.equal((await api("l1", "POST", "/api/desk/platform-incidents", { productId: ids.product, title: "Caída", body: "Investigando" })).status, 403);
+  const inc = await api("owner", "POST", "/api/desk/platform-incidents", { productId: ids.product, title: "TMPT caída parcial", impact: "major", body: "Estamos investigando" });
+  assert.equal(inc.status, 201);
+  assert.equal((await api("owner", "POST", `/api/desk/platform-incidents/${inc.body.id}/updates`, { status: "resolved", body: "Resuelto" })).status, 400);
+  const st2 = await fetch(base + "/api/status").then((r) => r.json());
+  assert.equal(st2.products.find((p: any) => p.name === "TMPT product").status, "degraded");
+  const ok = await api("owner", "POST", `/api/desk/platform-incidents/${inc.body.id}/updates`, { status: "resolved", body: "Resuelto", rca: { cause: "c", fix: "f", prevention: "p" } });
+  assert.equal(ok.status, 200);
+  const soon = new Date(Date.now() + 3 * 3600_000).toISOString(), later = new Date(Date.now() + 72 * 3600_000).toISOString();
+  const short = await api("owner", "POST", "/api/desk/maintenance", { productId: ids.product, title: "TMPT corto aviso", startsAt: soon, endsAt: new Date(Date.now() + 4 * 3600_000).toISOString() });
+  assert.equal(short.status, 201);
+  assert.ok(short.body.warning);
+  const long = await api("owner", "POST", "/api/desk/maintenance", { productId: ids.product, title: "TMPT anunciado", startsAt: later, endsAt: new Date(Date.now() + 73 * 3600_000).toISOString() });
+  assert.equal(long.body.warning, null);
+  assert.equal((await api("owner", "POST", "/api/desk/maintenance", { productId: ids.product, title: "x largo", startsAt: later, endsAt: new Date(Date.now() + 200 * 3600_000).toISOString() })).status, 400);
 });

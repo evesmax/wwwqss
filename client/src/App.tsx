@@ -15,6 +15,7 @@ import HolaKuraPage from "@/pages/HolaKuraPage";
 import AuranubaPage from "@/pages/AuranubaPage";
 import AdminApp from "@/pages/admin/AdminApp";
 import PortalApp from "@/pages/portal/PortalApp";
+import StatusPage from "@/pages/status/StatusPage";
 import { ChatWidgetProvider } from "@/lib/chatWidgetContext";
 import SalesAgentChat from "@/components/SalesAgentChat";
 
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/productos/auranuba" component={AuranubaPage} />
       <Route path="/admin" nest component={AdminApp} />
       <Route path="/portal" nest component={PortalApp} />
+      <Route path="/status" component={StatusPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -39,7 +41,7 @@ function Router() {
 
 function App() {
   const [location] = useLocation();
-  const isAdminRoute = location.startsWith("/admin") || location.startsWith("/portal");
+  const isAdminRoute = location.startsWith("/admin") || location.startsWith("/portal") || location.startsWith("/status");
 
   return (
     <QueryClientProvider client={queryClient}>

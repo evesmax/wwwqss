@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -165,4 +166,14 @@ export async function ticketsWithoutSla() {
     .from(sdTickets).where(and(eq(sdTickets.slaApplicable, true), notInArray(sdTickets.type, ["internal_task", "feature_request"]),
       sql`NOT EXISTS (SELECT 1 FROM sd_sla_instances i WHERE i.ticket_id = ${sdTickets.id})`));
   return rows;
+}
+
+/** Shared secret for cron endpoints (Cloud Scheduler). Only the sha256 is stored. */
+export const cronTokenHash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
+export async function verifyCronToken(given: string): Promise<boolean> {
+  if (!given) return false;
+  const [row] = await db.select().from(sdSettings).where(eq(sdSettings.key, "sla.tickTokenHash"));
+  if (!row) return false;
+  const a = Buffer.from(cronTokenHash(given)), b = Buffer.from(String(row.value));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

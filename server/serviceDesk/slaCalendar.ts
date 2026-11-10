@@ -25,7 +25,7 @@ function offsetMs(ms: number, tz: string) {
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000;
 }
 // Local wall-clock (y,m,d,h,min) in tz -> epoch ms.
-function zonedToMs(y: number, m: number, d: number, h: number, min: number, tz: string) {
+export function zonedToMs(y: number, m: number, d: number, h: number, min: number, tz: string) {
   const guess = Date.UTC(y, m - 1, d, h, min);
   let ms = guess - offsetMs(guess, tz);
   ms = guess - offsetMs(ms, tz);

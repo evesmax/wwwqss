@@ -419,3 +419,52 @@ export const sdSdkKeys = pgTable("sd_sdk_keys", {
   createdAt: ts("created_at"),
   lastUsedAt: timestamp("last_used_at"),
 });
+
+export const sdMonitors = pgTable("sd_monitors", {
+  id: serial("id").primaryKey(),
+  instanceId: integer("instance_id").notNull().references(() => sdInstances.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  expectedStatus: integer("expected_status").notNull().default(200),
+  isPublic: boolean("is_public").notNull().default(false),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at"),
+});
+export const sdProbeResults = pgTable("sd_probe_results", {
+  monitorId: integer("monitor_id").notNull().references(() => sdMonitors.id, { onDelete: "cascade" }),
+  minute: timestamp("minute").notNull(),
+  location: text("location").notNull(),
+  ok: boolean("ok").notNull(),
+  status: integer("status"),
+  latencyMs: integer("latency_ms"),
+}, (t) => ({ uq: unique("sd_probe_results_pk").on(t.monitorId, t.minute, t.location) }));
+export const sdPlatformIncidents = pgTable("sd_platform_incidents", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => sdProducts.id),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("investigating"),
+  impact: text("impact").notNull().default("minor"),
+  isPublic: boolean("is_public").notNull().default(true),
+  auto: boolean("auto").notNull().default(false),
+  startedAt: ts("started_at"),
+  resolvedAt: timestamp("resolved_at"),
+  rca: jsonb("rca"),
+  createdBy: integer("created_by"),
+});
+export const sdPlatformIncidentUpdates = pgTable("sd_platform_incident_updates", {
+  id: serial("id").primaryKey(),
+  incidentId: integer("incident_id").notNull().references(() => sdPlatformIncidents.id, { onDelete: "cascade" }),
+  at: ts("at"),
+  status: text("status").notNull(),
+  body: text("body").notNull(),
+});
+export const sdMaintenance = pgTable("sd_maintenance", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => sdProducts.id),
+  title: text("title").notNull(),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  noticeOk: boolean("notice_ok").notNull().default(false),
+  createdAt: ts("created_at"),
+  createdBy: integer("created_by"),
+});

@@ -48,3 +48,13 @@ jobs:
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --quiet
+
+      - name: Update second probe location (if it exists)
+        run: |
+          if gcloud run services describe wwwqss-probe-east --region=us-east1 --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+            gcloud run deploy wwwqss-probe-east \
+              --image=${{ env.IMAGE }}:${{ github.sha }} \
+              --region=us-east1 \
+              --project=${{ env.PROJECT_ID }} \
+              --quiet
+          fi

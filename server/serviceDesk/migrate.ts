@@ -108,6 +108,24 @@ const STATEMENTS: string[] = [
      id serial PRIMARY KEY, key_id text NOT NULL UNIQUE, product_id integer NOT NULL REFERENCES sd_products(id), name text NOT NULL,
      secret_enc text NOT NULL, allowed_origins jsonb NOT NULL DEFAULT '[]', active boolean NOT NULL DEFAULT true,
      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at timestamp)`,
+  `CREATE TABLE IF NOT EXISTS sd_monitors (
+     id serial PRIMARY KEY, instance_id integer NOT NULL REFERENCES sd_instances(id) ON DELETE CASCADE, name text NOT NULL, url text NOT NULL,
+     expected_status integer NOT NULL DEFAULT 200, is_public boolean NOT NULL DEFAULT false, active boolean NOT NULL DEFAULT true,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_probe_results (
+     monitor_id integer NOT NULL REFERENCES sd_monitors(id) ON DELETE CASCADE, minute timestamp NOT NULL, location text NOT NULL,
+     ok boolean NOT NULL, status integer, latency_ms integer, CONSTRAINT sd_probe_results_pk UNIQUE (monitor_id, minute, location))`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_probe_minute ON sd_probe_results(minute)`,
+  `CREATE TABLE IF NOT EXISTS sd_platform_incidents (
+     id serial PRIMARY KEY, product_id integer NOT NULL REFERENCES sd_products(id), title text NOT NULL, status text NOT NULL DEFAULT 'investigating',
+     impact text NOT NULL DEFAULT 'minor', is_public boolean NOT NULL DEFAULT true, auto boolean NOT NULL DEFAULT false,
+     started_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at timestamp, rca jsonb, created_by integer)`,
+  `CREATE TABLE IF NOT EXISTS sd_platform_incident_updates (
+     id serial PRIMARY KEY, incident_id integer NOT NULL REFERENCES sd_platform_incidents(id) ON DELETE CASCADE,
+     at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, status text NOT NULL, body text NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS sd_maintenance (
+     id serial PRIMARY KEY, product_id integer NOT NULL REFERENCES sd_products(id), title text NOT NULL, starts_at timestamp NOT NULL, ends_at timestamp NOT NULL,
+     notice_ok boolean NOT NULL DEFAULT false, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by integer)`,
   `CREATE TABLE IF NOT EXISTS sd_sla_policies (
      id serial PRIMARY KEY, name text NOT NULL, position integer NOT NULL DEFAULT 100, filters jsonb NOT NULL DEFAULT '{}',
      calendar_kind text NOT NULL DEFAULT 'business', first_response_min integer, update_min integer, resolution_min integer,

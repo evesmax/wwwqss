@@ -8,7 +8,7 @@ import { hasRole, visibleAccountIds } from "./access";
 import { wrap, requireRole, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
 import {
-  EXCLUSION_REASONS, computeForTicket, getCalendarSettings, getEscalation, recalcAll, refreshTicketSla, setSetting, slaTick, ticketsWithoutSla,
+  EXCLUSION_REASONS, computeForTicket, cronTokenHash, verifyCronToken, getCalendarSettings, getEscalation, recalcAll, refreshTicketSla, setSetting, slaTick, ticketsWithoutSla,
 } from "./slaService";
 import { SEVERITIES, TICKET_TYPES } from "./ticketRules";
 
@@ -31,7 +31,7 @@ const calendarSchema = z.object({
 }).refine((c) => c.start < c.end, "La hora de inicio debe ser menor que la de fin");
 const escalationSchema = z.record(z.record(z.array(z.enum(["assignee", "manager", "owner"]))));
 
-const tokenHash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
+const tokenHash = cronTokenHash;
 
 export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   const workers = requireRole(...WORKERS), managers = requireRole(...MANAGERS);
@@ -161,11 +161,7 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   }));
   app.post("/api/internal/sla/tick", async (req, res) => {
     try {
-      const [row] = await db.select().from(sdSettings).where(eq(sdSettings.key, "sla.tickTokenHash"));
-      const given = String(req.headers["x-tick-token"] ?? "");
-      if (!row || !given) return res.status(401).json({ message: "No autorizado" });
-      const a = Buffer.from(tokenHash(given)), b = Buffer.from(String(row.value));
-      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(401).json({ message: "No autorizado" });
+      if (!(await verifyCronToken(String(req.headers["x-tick-token"] ?? "")))) return res.status(401).json({ message: "No autorizado" });
       res.json(await slaTick());
     } catch (e: any) { console.error("sla tick route error:", e.message); res.status(500).json({ message: "Error" }); }
   });
