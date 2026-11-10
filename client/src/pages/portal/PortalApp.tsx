@@ -14,7 +14,7 @@ function Shell({ children, email, onLogout }: { children: React.ReactNode; email
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b"><div className="max-w-4xl mx-auto p-4 flex items-center justify-between">
         <Link href="/"><img src={qssLogo} alt="QSoftware Solutions" className="h-9" /></Link>
-        {email && <div className="text-sm text-gray-600"><Link href="/reports" className="text-[#0088c2] mr-3">Informes</Link>{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
+        {email && <div className="text-sm text-gray-600"><Link href="/features" className="text-[#0088c2] mr-3">Funcionalidades</Link><Link href="/reports" className="text-[#0088c2] mr-3">Informes</Link>{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
       </div></header>
       <main className="max-w-4xl mx-auto p-4">{children}</main>
     </div>
@@ -185,6 +185,46 @@ function Reports() {
     </div>);
 }
 
+const FST: Record<string, string> = { evaluating: "En evaluación", quoted: "Cotización disponible", approved: "Aprobada", in_development: "En desarrollo", uat: "Pruebas de aceptación", released: "Liberada", rejected: "Rechazada", deferred: "Diferida" };
+function Features() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [msg, setMsg] = useState("");
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const load = () => apiRequest("GET", "/api/portal/features").then((r) => r.json()).then(setRows).catch(() => setRows([]));
+  useEffect(() => { load(); }, []);
+  const act = async (path: string, body: unknown) => {
+    setMsg("");
+    try { await apiRequest("POST", path, body); await load(); } catch (e: any) { try { setMsg(JSON.parse(String(e.message).replace(/^\d+: /, "")).message); } catch { setMsg("No se pudo completar"); } }
+  };
+  return (
+    <div className="space-y-3">
+      <Link href="/" className="text-sm text-[#0088c2]">← Mis tickets</Link>
+      <h1 className="text-xl font-bold">Funcionalidades solicitadas</h1>
+      {msg && <div className="text-sm p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">{msg}</div>}
+      {rows && rows.length === 0 && <p className="text-sm text-gray-500">No hay funcionalidades en seguimiento.</p>}
+      {rows?.map((f) => <div key={f.id} className="bg-white border rounded-xl p-4 space-y-2 text-sm">
+        <div className="flex justify-between gap-2"><b>{f.title}</b><span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{FST[f.status] ?? f.status}</span></div>
+        {f.targetDate && <p className="text-xs text-gray-600">Fecha comprometida: {f.targetDate}</p>}
+        {f.quotes.filter((q: any) => q.state !== "superseded").map((q: any) => <div key={q.id} className="border rounded-lg p-3 space-y-1">
+          <p><b>Cotización v{q.version}</b> · {q.hours} h · {q.cost.toLocaleString()} {q.currency} · vigente hasta {q.validUntil} {q.state === "expired" && <span className="text-red-600">(vencida)</span>}</p>
+          <p className="whitespace-pre-wrap text-xs">{q.scope}</p>{q.assumptions && <p className="text-xs text-gray-600">Supuestos: {q.assumptions}</p>}
+          {q.state !== "sent" && <p className="text-xs text-gray-600">{q.state === "approved" ? "Aprobada" : q.state === "rejected" ? `Rechazada${q.decisionNote ? `: ${q.decisionNote}` : ""}` : ""}</p>}
+          {q.canDecide && <div className="flex flex-wrap gap-2 items-center"><button className="px-3 py-1.5 bg-green-600 text-white rounded-lg" onClick={() => act(`/api/portal/quotes/${q.id}/decision`, { decision: "approved" })}>Aprobar</button>
+            <input className="border rounded-lg px-2 py-1 text-xs" placeholder="Motivo si rechazas" value={notes[`q${q.id}`] ?? ""} onChange={(e) => setNotes({ ...notes, [`q${q.id}`]: e.target.value })} />
+            <button className="px-3 py-1.5 border rounded-lg text-red-600" onClick={() => act(`/api/portal/quotes/${q.id}/decision`, { decision: "rejected", note: notes[`q${q.id}`] ?? "" })}>Rechazar</button></div>}
+        </div>)}
+        {f.uat.length > 0 && <div className="space-y-2"><b>Pruebas de aceptación</b>
+          {f.uat.map((u: any) => <div key={u.id} className="border rounded-lg p-3 space-y-1">
+            <p><b>Qué hace:</b> {u.what}</p><p className="text-xs"><b>Cómo probarlo:</b> {u.how || "—"}</p>
+            {u.status !== "pending" && <p className="text-xs">{u.status === "go" ? "Go" : "No Go"}{u.tacit ? " (aceptación tácita)" : ""}{u.comment ? ` · ${u.comment}` : ""}</p>}
+            {u.canDecide && <div className="flex flex-wrap gap-2 items-center"><button className="px-3 py-1.5 bg-green-600 text-white rounded-lg" onClick={() => act(`/api/portal/uat/${u.id}/decision`, { status: "go" })}>Go</button>
+              <input className="border rounded-lg px-2 py-1 text-xs" placeholder="Motivo si es No Go" value={notes[`u${u.id}`] ?? ""} onChange={(e) => setNotes({ ...notes, [`u${u.id}`]: e.target.value })} />
+              <button className="px-3 py-1.5 border rounded-lg text-red-600" onClick={() => act(`/api/portal/uat/${u.id}/decision`, { status: "no_go", comment: notes[`u${u.id}`] ?? "" })}>No Go</button></div>}
+          </div>)}</div>}
+      </div>)}
+    </div>);
+}
+
 export default function PortalApp() {
   const [me, setMe] = useState<any>(undefined);
   const loadMe = () => apiRequest("GET", "/api/portal/me").then((r) => r.json()).then(setMe).catch(() => setMe(null));
@@ -196,7 +236,7 @@ export default function PortalApp() {
       <Route>
         {me === undefined ? <Shell>{null}</Shell> : me === null ? <Login /> : (
           <Shell email={me.email} onLogout={logout}>
-            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route path="/reports"><Reports /></Route><Route><TicketList me={me} /></Route></Switch>
+            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route path="/reports"><Reports /></Route><Route path="/features"><Features /></Route><Route><TicketList me={me} /></Route></Switch>
           </Shell>)}
       </Route>
     </Switch>

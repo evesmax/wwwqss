@@ -109,6 +109,7 @@ after(async () => {
   await db.delete(s.sdSettings).where(eq(s.sdSettings.key, "sla.tickTokenHash"));
   if (prevTick) await db.insert(s.sdSettings).values(prevTick);
   if (ids.users.length) await db.delete(s.sdSlaChanges).where(inArray(s.sdSlaChanges.userId, ids.users));
+  if (ids.product) await db.delete(s.sdFeatures).where(eq(s.sdFeatures.productId, ids.product));
   if (ids.accounts.length) await db.delete(s.sdTickets).where(inArray(s.sdTickets.accountId, ids.accounts));
   await db.delete(s.sdPortalTokens).where(inArray(s.sdPortalTokens.email, TEST_EMAILS));
   await db.delete(s.sdEmailLog).where(inArray(s.sdEmailLog.toAddress, TEST_EMAILS));
@@ -609,4 +610,101 @@ test("reports: generate, immutable snapshot, approval flow, versions, portal vis
   assert.equal((await papi("c1", "GET", `/api/portal/reports/${g.body.id}`)).status, 404);
   assert.equal((await papi("cb", "GET", `/api/portal/reports/${g.body.id}`)).status, 404);
   assert.equal((await fetch(base + "/api/internal/reports/run", { method: "POST" })).status, 401);
+});
+
+test("features: consolidation, quotes, UAT Go/No-Go, tacit acceptance, hours bank", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const mk = async (who: string, accountId: number, title: string) => (await api(who, "POST", "/api/desk/tickets", { accountId, type: "feature_request", title, channel: "manual" })).body;
+  const ta = await mk("owner", accA, "TMPT exportar a Excel"), tb = await mk("owner", accB, "TMPT excel export");
+  const inc = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "TMPT una pregunta", channel: "manual" })).body;
+  assert.equal((await api("l1", "POST", "/api/desk/features", { title: "TMPT Exportación", ticketIds: [ta.id] })).status, 403);
+  assert.equal((await api("agentA", "POST", "/api/desk/features", { title: "TMPT Exportación", ticketIds: [ta.id] })).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/features", { title: "TMPT Exportación", ticketIds: [inc.id] })).status, 400); // not a feature request
+  const f = await api("owner", "POST", "/api/desk/features", { title: "TMPT Exportación", productId: ids.product, ticketIds: [ta.id, tb.id] });
+  assert.equal(f.status, 201);
+  const fid = f.body.id;
+  assert.equal((await api("owner", "POST", "/api/desk/features", { title: "TMPT otra", ticketIds: [ta.id] })).status, 409); // already consolidated
+  await api("owner", "POST", `/api/desk/features/${fid}/requests`, { ticketId: tb.id, weight: 3 });
+  const list = (await api("owner", "GET", "/api/desk/features")).body.find((x: any) => x.id === fid);
+  assert.equal(list.requests, 2); assert.equal(list.accounts, 2); assert.equal(list.weight, 4);
+  // scope: agent of A sees the feature but only its own request
+  const det = await api("agentA", "GET", `/api/desk/features/${fid}`);
+  assert.equal(det.status, 200);
+  assert.equal(det.body.requests.length, 1);
+  assert.ok(!det.raw.includes("TMPT B"));
+  assert.equal((await api("nobody", "GET", `/api/desk/features/${fid}`)).status, 403);
+  // date commitment with history
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/date`, { targetDate: "2027-01-15" })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/date`, { targetDate: "2027-02-15" })).status, 400); // change needs a reason
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/date`, { targetDate: "2027-02-15", reason: "Dependencia externa" })).status, 200);
+  assert.equal((await api("owner", "GET", `/api/desk/features/${fid}`)).body.dates.length, 2);
+  // quote: validation, send, customer decision
+  const q = { accountId: accA, scope: "Exportación a Excel del listado de órdenes", hours: 20, cost: 18000, currency: "MXN", assumptions: "Datos disponibles", validUntil: "2099-01-01", outOfContract: true };
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/quotes`, { ...q, hours: 0 })).status, 400);
+  const qc = await api("owner", "POST", `/api/desk/features/${fid}/quotes`, q);
+  assert.equal(qc.status, 201);
+  await portalLogin("adm", "adm@a.test"); await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  assert.deepEqual((await papi("adm", "GET", "/api/portal/features")).body.map((x: any) => x.quotes.length), [0]); // drafts invisible
+  assert.equal((await api("owner", "POST", `/api/desk/quotes/${qc.body.id}/send`)).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/quotes/${qc.body.id}/send`)).status, 409);
+  assert.equal((await api("owner", "PATCH", `/api/desk/quotes/${qc.body.id}`, q)).status, 409); // sent: immutable
+  const pf = (await papi("adm", "GET", "/api/portal/features")).body[0];
+  assert.equal(pf.status, "quoted"); assert.equal(pf.outOfContract, true);
+  assert.equal(pf.quotes[0].canDecide, true);
+  assert.equal((await papi("c1", "GET", "/api/portal/features")).body[0].quotes[0].canDecide, false);
+  assert.equal((await papi("c1", "POST", `/api/portal/quotes/${qc.body.id}/decision`, { decision: "approved" })).status, 404);
+  assert.equal((await papi("cb", "POST", `/api/portal/quotes/${qc.body.id}/decision`, { decision: "approved" })).status, 404);
+  assert.deepEqual((await papi("cb", "GET", "/api/portal/features")).body.map((x: any) => x.quotes.length), [0]); // B never sees A's quote
+  assert.equal((await papi("adm", "POST", `/api/portal/quotes/${qc.body.id}/decision`, { decision: "rejected" })).status, 400); // reason required
+  assert.equal((await papi("adm", "POST", `/api/portal/quotes/${qc.body.id}/decision`, { decision: "approved" })).status, 200);
+  assert.equal((await papi("adm", "POST", `/api/portal/quotes/${qc.body.id}/decision`, { decision: "rejected", note: "x" })).status, 409); // final
+  assert.equal((await api("owner", "GET", `/api/desk/features/${fid}`)).body.feature.status, "approved");
+  // expired quote cannot be approved
+  const q2 = await api("owner", "POST", `/api/desk/features/${fid}/quotes`, { ...q, validUntil: "2099-01-01" });
+  await api("owner", "POST", `/api/desk/quotes/${q2.body.id}/send`);
+  await db.execute(sql`UPDATE sd_feature_quotes SET valid_until = '2020-01-01' WHERE id = ${q2.body.id}`);
+  assert.equal((await papi("adm", "POST", `/api/portal/quotes/${q2.body.id}/decision`, { decision: "approved" })).status, 409);
+  // UAT: cannot release without a list; No Go makes a child ticket; Go releases
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/uat/start`)).status, 400);
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/release`)).status, 409);
+  assert.equal((await api("owner", "PATCH", `/api/desk/features/${fid}`, { status: "in_development" })).status, 200);
+  const u1 = await api("owner", "POST", `/api/desk/features/${fid}/uat`, { accountId: accA, what: "Botón Exportar en órdenes", how: "Abrir órdenes y pulsar Exportar" });
+  assert.equal(u1.status, 201);
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/uat`, { accountId: accB, what: "Botón Exportar", how: "x" })).status, 201);
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/uat/start`)).status, 200);
+  assert.equal((await papi("adm", "POST", `/api/portal/uat/${u1.body.id}/decision`, { status: "no_go" })).status, 400); // comment required
+  const ng = await papi("adm", "POST", `/api/portal/uat/${u1.body.id}/decision`, { status: "no_go", comment: "Falla con acentos" });
+  assert.equal(ng.status, 200);
+  assert.ok(ng.body.childTicketId);
+  assert.equal((await api("owner", "GET", `/api/desk/features/${fid}`)).body.feature.status, "in_development");
+  const child = await api("owner", "GET", `/api/desk/tickets/${ng.body.childTicketId}`);
+  assert.equal(child.body.ticket.type, "incident");
+  assert.equal((await api("owner", "POST", `/api/desk/features/${fid}/uat/start`)).status, 200); // retest resets No Go to pending
+  const items = (await api("owner", "GET", `/api/desk/features/${fid}`)).body.uat;
+  assert.deepEqual(items.map((i: any) => i.status), ["pending", "pending"]);
+  const go = await papi("adm", "POST", `/api/portal/uat/${items[0].id}/decision`, { status: "go" });
+  assert.equal(go.status, 200); assert.equal(go.body.released, false); // B's item still pending
+  assert.equal((await papi("adm", "POST", `/api/portal/uat/${items[0].id}/decision`, { status: "go" })).status, 409);
+  // tacit acceptance after N days
+  await db.execute(sql`UPDATE sd_features SET uat_started_at = now() - interval '11 days' WHERE id = ${fid}`);
+  const { featureTick } = await import("./featureService");
+  await featureTick();
+  const fin = (await api("owner", "GET", `/api/desk/features/${fid}`)).body;
+  assert.equal(fin.feature.status, "released");
+  assert.equal(fin.feature.releaseKind, "tacit");
+  assert.ok(fin.uat.some((i: any) => i.tacit));
+  // hours bank
+  await db.execute(sql`UPDATE sd_contracts SET hours_bank = 1, extra_hour_rate = 500 WHERE account_id = ${accA}`);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${ta.id}/time`, { minutes: 54, billable: true, workDate: "2026-11-09" })).status, 201);
+  let bank = (await api("owner", "GET", `/api/desk/accounts/${accA}/hours-bank`)).body;
+  assert.equal(bank.level, "warn"); assert.equal(bank.pct, 90);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${ta.id}/time`, { minutes: 90, billable: false, workDate: "2026-11-09" })).status, 201); // non-billable not deducted
+  await api("owner", "POST", `/api/desk/tickets/${ta.id}/time`, { minutes: 66, billable: true, workDate: "2026-11-09" });
+  bank = (await api("owner", "GET", `/api/desk/accounts/${accA}/hours-bank`)).body;
+  assert.equal(bank.level, "over"); assert.equal(bank.consumedHours, 2); assert.equal(bank.extraHours, 1); assert.equal(bank.extraCost, 500);
+  assert.equal((await api("agentA", "GET", `/api/desk/accounts/${accB}/hours-bank`)).status, 404);
+  await new Promise((r) => setTimeout(r, 1500));
+  const alerts = await db.execute(sql`SELECT threshold FROM sd_bank_alerts a JOIN sd_contracts c ON c.id = a.contract_id WHERE c.account_id = ${accA} ORDER BY 1`);
+  assert.deepEqual((alerts.rows as any[]).map((r) => r.threshold), [80, 100]);
 });

@@ -163,6 +163,37 @@ const STATEMENTS: string[] = [
      ) v(name, position, filters, first_response_min, update_min, resolution_min)
      WHERE NOT EXISTS (SELECT 1 FROM sd_sla_policies) AND NOT EXISTS (SELECT 1 FROM sd_settings WHERE key = 'sla.seeded')`,
   `INSERT INTO sd_settings (key, value) VALUES ('sla.seeded', 'true'::jsonb) ON CONFLICT (key) DO NOTHING`,
+  `CREATE TABLE IF NOT EXISTS sd_features (
+     id serial PRIMARY KEY, product_id integer REFERENCES sd_products(id), title text NOT NULL, description text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'evaluating', out_of_contract boolean NOT NULL DEFAULT false, target_date text,
+     uat_started_at timestamp, released_at timestamp, release_kind text, created_by integer,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_feature_requests (
+     id serial PRIMARY KEY, feature_id integer NOT NULL REFERENCES sd_features(id) ON DELETE CASCADE,
+     ticket_id integer NOT NULL UNIQUE REFERENCES sd_tickets(id) ON DELETE CASCADE,
+     account_id integer NOT NULL REFERENCES sd_accounts(id), weight integer NOT NULL DEFAULT 1,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_feature_quotes (
+     id serial PRIMARY KEY, feature_id integer NOT NULL REFERENCES sd_features(id) ON DELETE CASCADE,
+     account_id integer NOT NULL REFERENCES sd_accounts(id), version integer NOT NULL DEFAULT 1, status text NOT NULL DEFAULT 'draft',
+     scope text NOT NULL, hours numeric NOT NULL, cost numeric NOT NULL, currency text NOT NULL DEFAULT 'MXN',
+     assumptions text NOT NULL DEFAULT '', valid_until text NOT NULL, out_of_contract boolean NOT NULL DEFAULT false,
+     created_by integer, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at timestamp,
+     decided_contact_id integer, decided_at timestamp, decision_note text NOT NULL DEFAULT '')`,
+  `CREATE TABLE IF NOT EXISTS sd_feature_dates (
+     id serial PRIMARY KEY, feature_id integer NOT NULL REFERENCES sd_features(id) ON DELETE CASCADE,
+     target_date text, reason text NOT NULL DEFAULT '', changed_by integer, at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_uat_items (
+     id serial PRIMARY KEY, feature_id integer NOT NULL REFERENCES sd_features(id) ON DELETE CASCADE,
+     account_id integer NOT NULL REFERENCES sd_accounts(id), position integer NOT NULL DEFAULT 0,
+     what text NOT NULL, how text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'pending', comment text NOT NULL DEFAULT '',
+     decided_contact_id integer, decided_at timestamp, tacit boolean NOT NULL DEFAULT false, child_ticket_id integer REFERENCES sd_tickets(id) ON DELETE SET NULL)`,
+  `ALTER TABLE sd_contracts ADD COLUMN IF NOT EXISTS extra_hour_rate numeric, ADD COLUMN IF NOT EXISTS extra_currency text NOT NULL DEFAULT 'MXN'`,
+  `CREATE TABLE IF NOT EXISTS sd_bank_alerts (
+     id serial PRIMARY KEY, contract_id integer NOT NULL REFERENCES sd_contracts(id) ON DELETE CASCADE, threshold integer NOT NULL,
+     sent_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (contract_id, threshold))`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_feature_requests_feature ON sd_feature_requests(feature_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_uat_items_feature ON sd_uat_items(feature_id)`,
 ];
 
 export async function ensureServiceDeskSchema() {

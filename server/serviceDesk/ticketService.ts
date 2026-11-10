@@ -129,6 +129,12 @@ export async function addTimeEntry(id: number, userId: number, e: { minutes: num
     const [row] = await tx.insert(sdTimeEntries).values({ ticketId: id, userId, minutes: e.minutes, billable: e.billable, workDate: e.workDate, note: e.note ?? "" }).returning();
     await addEvent(tx, id, { type: "user", id: userId }, "time_logged", { minutes: e.minutes, billable: e.billable });
     return row;
+  }).then(async (row) => {
+    if (e.billable) {
+      const [t] = await db.select({ a: sdTickets.accountId }).from(sdTickets).where(eq(sdTickets.id, id));
+      if (t) void import("./featureService").then((m) => m.checkBankAlerts(t.a)).catch((err) => console.error("bank alert:", err.message));
+    }
+    return row;
   });
 }
 

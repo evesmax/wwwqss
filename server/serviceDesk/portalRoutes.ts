@@ -14,6 +14,9 @@ import { consumeMagicToken, requestMagicLink, normEmail } from "./portalAuth";
 import { addComment, createTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { nextStatuses } from "./ticketRules";
+import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@shared/schema";
+import { decideQuote, decideUat } from "./featureService";
+import { quoteState } from "./featureRules";
 
 type PReq = Request & { contacts: PortalContact[]; email: string };
 const requestThrottle = new LoginThrottle();
@@ -180,5 +183,44 @@ export function registerPortalRoutes(app: Express) {
     res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(a.filename)}"`);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.end(a.data);
+  }));
+
+  // ---- features: quotes and UAT (RF-FEAT-02/03/05) ----
+  const adminAccounts = (req: PReq) => req.contacts.filter((c) => c.role === "account_admin").map((c) => c.accountId);
+  const adminContact = (req: PReq, accountId: number) => req.contacts.find((c) => c.accountId === accountId && c.role === "account_admin");
+
+  app.get("/api/portal/features", portalAuth, handle(async (req, res) => {
+    const ids = Array.from(new Set(req.contacts.map((c) => c.accountId)));
+    const reqs = await db.select().from(sdFeatureRequests).where(inArray(sdFeatureRequests.accountId, ids));
+    const fids = Array.from(new Set(reqs.map((r) => r.featureId)));
+    if (!fids.length) return res.json([]);
+    const feats = await db.select().from(sdFeatures).where(inArray(sdFeatures.id, fids));
+    const quotes = await db.select().from(sdFeatureQuotes).where(and(inArray(sdFeatureQuotes.featureId, fids), inArray(sdFeatureQuotes.accountId, ids), sql`${sdFeatureQuotes.status} <> 'draft'`));
+    const uat = await db.select().from(sdUatItems).where(and(inArray(sdUatItems.featureId, fids), inArray(sdUatItems.accountId, ids)));
+    const admins = adminAccounts(req);
+    res.json(feats.map((f) => ({
+      id: f.id, title: f.title, description: f.description, status: f.status, targetDate: f.targetDate, outOfContract: f.outOfContract, releasedAt: f.releasedAt,
+      quotes: quotes.filter((q) => q.featureId === f.id).map((q) => ({ id: q.id, version: q.version, scope: q.scope, hours: Number(q.hours), cost: Number(q.cost), currency: q.currency,
+        assumptions: q.assumptions, validUntil: q.validUntil, state: quoteState(q), decisionNote: q.decisionNote, canDecide: admins.includes(q.accountId) && quoteState(q) === "sent" })),
+      uat: uat.filter((u) => u.featureId === f.id).sort((a, b) => a.position - b.position).map((u) => ({ id: u.id, what: u.what, how: u.how, status: u.status, comment: u.comment, tacit: u.tacit,
+        canDecide: admins.includes(u.accountId) && f.status === "uat" && u.status === "pending" })),
+    })));
+  }));
+  app.post("/api/portal/quotes/:id/decision", portalAuth, handle(async (req, res) => {
+    const b = z.object({ decision: z.enum(["approved", "rejected"]), note: z.string().max(2000).default("") }).parse(req.body);
+    const id = Number(req.params.id);
+    const [q] = Number.isInteger(id) ? await db.select().from(sdFeatureQuotes).where(eq(sdFeatureQuotes.id, id)) : [];
+    const c = q && adminContact(req, q.accountId);
+    if (!q || !c) return res.status(404).json({ message: "No encontrado" });
+    await decideQuote(id, [q.accountId], c.id, b.decision, b.note);
+    res.json({ ok: true });
+  }));
+  app.post("/api/portal/uat/:id/decision", portalAuth, handle(async (req, res) => {
+    const b = z.object({ status: z.enum(["go", "no_go"]), comment: z.string().max(3000).default("") }).parse(req.body);
+    const id = Number(req.params.id);
+    const [u] = Number.isInteger(id) ? await db.select().from(sdUatItems).where(eq(sdUatItems.id, id)) : [];
+    const c = u && adminContact(req, u.accountId);
+    if (!u || !c) return res.status(404).json({ message: "No encontrado" });
+    res.json(await decideUat(id, [u.accountId], c.id, b.status, b.comment));
   }));
 }

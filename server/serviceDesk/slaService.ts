@@ -93,7 +93,7 @@ export function refreshSoon(ticketId: number) {
   refreshTicketSla(ticketId).catch((e) => console.error("sla refresh error:", e.message));
 }
 
-async function recipients(accountId: number, assigneeId: number | null, targets: string[]): Promise<string[]> {
+export async function recipients(accountId: number, assigneeId: number | null, targets: string[]): Promise<string[]> {
   const out = new Set<string>();
   const us = await db.select({ id: users.id, email: users.email, active: users.active }).from(users);
   const byId = new Map(us.map((u) => [u.id, u]));

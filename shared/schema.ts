@@ -225,6 +225,8 @@ export const sdContracts = pgTable("sd_contracts", {
   calendar: text("calendar").notNull().default("America/Mexico_City"),
   reportRecipients: jsonb("report_recipients").notNull().default([]),
   hoursBank: numeric("hours_bank"),
+  extraHourRate: numeric("extra_hour_rate"),
+  extraCurrency: text("extra_currency").notNull().default("MXN"),
   active: boolean("active").notNull().default(true),
 });
 
@@ -485,3 +487,75 @@ export const sdReports = pgTable("sd_reports", {
   sentAt: timestamp("sent_at"),
   sendLog: jsonb("send_log").notNull().default([]),
 }, (t) => ({ uq: unique("sd_reports_period_version").on(t.accountId, t.periodYear, t.periodMonth, t.version) }));
+
+export const sdFeatures = pgTable("sd_features", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => sdProducts.id),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  status: text("status").notNull().default("evaluating"),
+  outOfContract: boolean("out_of_contract").notNull().default(false),
+  targetDate: text("target_date"),
+  uatStartedAt: timestamp("uat_started_at"),
+  releasedAt: timestamp("released_at"),
+  releaseKind: text("release_kind"),
+  createdBy: integer("created_by"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+});
+export const sdFeatureRequests = pgTable("sd_feature_requests", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => sdFeatures.id, { onDelete: "cascade" }),
+  ticketId: integer("ticket_id").notNull().unique().references(() => sdTickets.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id),
+  weight: integer("weight").notNull().default(1),
+  createdAt: ts("created_at"),
+});
+export const sdFeatureQuotes = pgTable("sd_feature_quotes", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => sdFeatures.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"),
+  scope: text("scope").notNull(),
+  hours: numeric("hours").notNull(),
+  cost: numeric("cost").notNull(),
+  currency: text("currency").notNull().default("MXN"),
+  assumptions: text("assumptions").notNull().default(""),
+  validUntil: text("valid_until").notNull(),
+  outOfContract: boolean("out_of_contract").notNull().default(false),
+  createdBy: integer("created_by"),
+  createdAt: ts("created_at"),
+  sentAt: timestamp("sent_at"),
+  decidedContactId: integer("decided_contact_id"),
+  decidedAt: timestamp("decided_at"),
+  decisionNote: text("decision_note").notNull().default(""),
+});
+export const sdFeatureDates = pgTable("sd_feature_dates", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => sdFeatures.id, { onDelete: "cascade" }),
+  targetDate: text("target_date"),
+  reason: text("reason").notNull().default(""),
+  changedBy: integer("changed_by"),
+  at: ts("at"),
+});
+export const sdUatItems = pgTable("sd_uat_items", {
+  id: serial("id").primaryKey(),
+  featureId: integer("feature_id").notNull().references(() => sdFeatures.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id),
+  position: integer("position").notNull().default(0),
+  what: text("what").notNull(),
+  how: text("how").notNull().default(""),
+  status: text("status").notNull().default("pending"),
+  comment: text("comment").notNull().default(""),
+  decidedContactId: integer("decided_contact_id"),
+  decidedAt: timestamp("decided_at"),
+  tacit: boolean("tacit").notNull().default(false),
+  childTicketId: integer("child_ticket_id").references(() => sdTickets.id, { onDelete: "set null" }),
+});
+export const sdBankAlerts = pgTable("sd_bank_alerts", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => sdContracts.id, { onDelete: "cascade" }),
+  threshold: integer("threshold").notNull(),
+  sentAt: ts("sent_at"),
+});

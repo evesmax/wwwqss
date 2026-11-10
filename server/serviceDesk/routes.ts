@@ -13,6 +13,7 @@ import { registerImportRoutes } from "./importRoutes";
 import { registerSdkRoutes } from "./sdkRoutes";
 import { registerMonitorRoutes } from "./monitorRoutes";
 import { registerReportRoutes } from "./reportRoutes";
+import { registerFeatureRoutes } from "./featureRoutes";
 import { writeAudit } from "./audit";
 import { getSmtpPublic, saveSmtpConfig } from "./settings";
 import { sendEmail } from "./emailService";
@@ -78,6 +79,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   registerSdkRoutes(app, auth);
   registerMonitorRoutes(app, auth);
   registerReportRoutes(app, auth);
+  registerFeatureRoutes(app, auth);
 
   // ---- Products ----
   const productSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), active: z.boolean().default(true) });
@@ -136,7 +138,8 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
       table: sdContracts,
       schema: z.object({ accountId: z.number().int().positive(), productId: z.number().int().positive(), plan: z.string().trim().min(1).default("estandar"),
         slaActiveFrom: z.coerce.date().nullable().default(null), calendar: z.string().trim().default("America/Mexico_City"),
-        reportRecipients: z.array(z.string().email()).default([]), hoursBank: z.coerce.string().nullable().default(null), active: z.boolean().default(true) }),
+        reportRecipients: z.array(z.string().email()).default([]), hoursBank: z.coerce.string().nullable().default(null),
+        extraHourRate: z.coerce.string().nullable().default(null), extraCurrency: z.enum(["MXN", "USD"]).default("MXN"), active: z.boolean().default(true) }),
     },
     contacts: {
       table: sdContacts,

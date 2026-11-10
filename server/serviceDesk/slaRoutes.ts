@@ -162,7 +162,9 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
   app.post("/api/internal/sla/tick", async (req, res) => {
     try {
       if (!(await verifyCronToken(String(req.headers["x-tick-token"] ?? "")))) return res.status(401).json({ message: "No autorizado" });
-      res.json(await slaTick());
+      const r = await slaTick();
+      const f = await import("./featureService").then((m) => m.featureTick()).catch((e) => { console.error("feature tick:", e.message); return null; });
+      res.json({ ...r, features: f });
     } catch (e: any) { console.error("sla tick route error:", e.message); res.status(500).json({ message: "Error" }); }
   });
 }
