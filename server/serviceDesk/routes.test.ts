@@ -695,6 +695,7 @@ test("features: consolidation, quotes, UAT Go/No-Go, tacit acceptance, hours ban
   assert.equal(fin.feature.releaseKind, "tacit");
   assert.ok(fin.uat.some((i: any) => i.tacit));
   // hours bank
+  await db.execute(sql`DELETE FROM sd_time_entries WHERE ticket_id IN (SELECT id FROM sd_tickets WHERE account_id = ${accA})`); // earlier tests log time on this account; the bank is account-wide
   await db.execute(sql`UPDATE sd_contracts SET hours_bank = 1, extra_hour_rate = 500 WHERE account_id = ${accA}`);
   assert.equal((await api("owner", "POST", `/api/desk/tickets/${ta.id}/time`, { minutes: 54, billable: true, workDate: "2026-11-09" })).status, 201);
   let bank = (await api("owner", "GET", `/api/desk/accounts/${accA}/hours-bank`)).body;
