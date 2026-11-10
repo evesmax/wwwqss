@@ -113,6 +113,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           {user.deskEnabled && renderMenuItem({ path: "/soporte/catalogo", label: "Catálogo de soporte", icon: LifeBuoy })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sla", label: "Motor de SLA", icon: Timer })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/disponibilidad", label: "Disponibilidad", icon: Activity })}
+          {user.deskEnabled && renderMenuItem({ path: "/soporte/proyectos", label: "Proyectos", icon: Kanban })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/funcionalidades", label: "Funcionalidades", icon: Rocket })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/informes", label: "Informes mensuales", icon: FileText })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sdk", label: "SDK / Widget", icon: Code2 })}

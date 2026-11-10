@@ -1,3 +1,4 @@
+import GanttChart from "@/pages/admin/desk/GanttChart";
 import { useEffect, useState } from "react";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,7 +15,7 @@ function Shell({ children, email, onLogout }: { children: React.ReactNode; email
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b"><div className="max-w-4xl mx-auto p-4 flex items-center justify-between">
         <Link href="/"><img src={qssLogo} alt="QSoftware Solutions" className="h-9" /></Link>
-        {email && <div className="text-sm text-gray-600"><Link href="/features" className="text-[#0088c2] mr-3">Funcionalidades</Link><Link href="/reports" className="text-[#0088c2] mr-3">Informes</Link>{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
+        {email && <div className="text-sm text-gray-600"><Link href="/projects" className="text-[#0088c2] mr-3">Mi proyecto</Link><Link href="/features" className="text-[#0088c2] mr-3">Funcionalidades</Link><Link href="/reports" className="text-[#0088c2] mr-3">Informes</Link>{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
       </div></header>
       <main className="max-w-4xl mx-auto p-4">{children}</main>
     </div>
@@ -225,6 +226,48 @@ function Features() {
     </div>);
 }
 
+const PST: Record<string, { t: string; c: string }> = { on_track: { t: "En tiempo", c: "bg-green-100 text-green-800" }, at_risk: { t: "En riesgo", c: "bg-amber-100 text-amber-800" }, late: { t: "Atrasado", c: "bg-red-100 text-red-800" } };
+function MyProject() {
+  const [list, setList] = useState<any[] | null>(null);
+  const [d, setD] = useState<any>(null);
+  const [msg, setMsg] = useState("");
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  useEffect(() => { apiRequest("GET", "/api/portal/projects").then((r) => r.json()).then((l) => { setList(l); if (l.length === 1) void open(l[0].id); }).catch(() => setList([])); }, []);
+  const open = async (id: number) => setD(await (await apiRequest("GET", `/api/portal/projects/${id}`)).json());
+  const sign = async (gid: number, result: string) => {
+    setMsg("");
+    try { await apiRequest("POST", `/api/portal/gates/${gid}/signoff`, { result, note: notes[gid] ?? "" }); await open(d.project.id); }
+    catch (e: any) { try { setMsg(JSON.parse(String(e.message).replace(/^\d+: /, "")).message); } catch { setMsg("No se pudo registrar la firma"); } }
+  };
+  const mine = d?.tasks.filter((t: any) => t.owner === "cliente" && t.pct < 100) ?? [];
+  return (
+    <div className="space-y-3">
+      <Link href="/" className="text-sm text-[#0088c2]">← Mis tickets</Link>
+      <h1 className="text-xl font-bold">Mi proyecto</h1>
+      {list && list.length === 0 && <p className="text-sm text-gray-500">No hay proyectos en curso.</p>}
+      {list && list.length > 1 && !d && list.map((p) => <button key={p.id} onClick={() => open(p.id)} className="block w-full text-left bg-white border rounded-xl p-3 text-sm hover:bg-gray-50"><b>{p.name}</b> · {p.actual}%</button>)}
+      {msg && <div className="text-sm p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">{msg}</div>}
+      {d && <>
+        <div className="bg-white border rounded-xl p-4 text-sm flex flex-wrap gap-3 items-center"><b>{d.project.name}</b>
+          <span className={`px-2 py-0.5 rounded text-xs ${PST[d.progress.status].c}`}>{PST[d.progress.status].t}</span>
+          <span>Avance real {d.progress.actual}% · planeado {d.progress.planned}%</span>
+          {d.progress.blockedByClient > 0 && <span className="text-xs text-amber-700">{d.progress.blockedByClient} actividad(es) esperan información del cliente</span>}</div>
+        {mine.length > 0 && <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm"><b>Pendientes de tu parte</b><ul className="list-disc ml-5 mt-1">{mine.map((t: any) => <li key={t.id}>{t.code} {t.name} — fecha límite {t.end}</li>)}</ul></div>}
+        <GanttChart tasks={d.tasks.map((t: any) => ({ ...t, clientSide: t.owner === "cliente" }))} gates={d.gates} holidays={d.holidays} today={d.progress.asOf} />
+        <div className="bg-white border rounded-xl p-4 text-sm space-y-2"><b>Compuertas (gates)</b>
+          {d.gates.map((g: any) => <div key={g.id} className="border rounded-lg p-3 space-y-1">
+            <p><b>{g.code}</b> {g.name} · {g.date} · {g.status === "signed" ? <span className="text-green-700">Firmado ({g.result === "go" ? "Go" : "Go condicionado"})</span> : g.result === "no_go" ? <span className="text-red-700">No Go registrado</span> : "Pendiente de firma"}</p>
+            <ul className="list-disc ml-5 text-xs text-gray-600">{(g.criteria as string[]).map((c, i) => <li key={i}>{c}</li>)}</ul>
+            {d.canSign && g.status !== "signed" && <div className="flex flex-wrap gap-2 items-center"><input className="border rounded-lg px-2 py-1 text-xs flex-1" placeholder="Condiciones / motivo (obligatorio si no es Go)" value={notes[g.id] ?? ""} onChange={(e) => setNotes({ ...notes, [g.id]: e.target.value })} />
+              <button className="px-3 py-1.5 bg-green-600 text-white rounded-lg" onClick={() => sign(g.id, "go")}>Go</button>
+              <button className="px-3 py-1.5 border rounded-lg" onClick={() => sign(g.id, "conditional")}>Go condicionado</button>
+              <button className="px-3 py-1.5 border rounded-lg text-red-600" onClick={() => sign(g.id, "no_go")}>No Go</button></div>}</div>)}
+          {!d.canSign && <p className="text-xs text-gray-500">La firma de compuertas la realiza el administrador de la cuenta.</p>}</div>
+        {d.revisions.length > 1 && <details className="text-xs text-gray-600"><summary>Cambios al plan</summary>{d.revisions.slice(1).map((r: any) => <p key={r.version}>v{r.version} · {r.reason}</p>)}</details>}
+      </>}
+    </div>);
+}
+
 export default function PortalApp() {
   const [me, setMe] = useState<any>(undefined);
   const loadMe = () => apiRequest("GET", "/api/portal/me").then((r) => r.json()).then(setMe).catch(() => setMe(null));
@@ -236,7 +279,7 @@ export default function PortalApp() {
       <Route>
         {me === undefined ? <Shell>{null}</Shell> : me === null ? <Login /> : (
           <Shell email={me.email} onLogout={logout}>
-            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route path="/reports"><Reports /></Route><Route path="/features"><Features /></Route><Route><TicketList me={me} /></Route></Switch>
+            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route path="/reports"><Reports /></Route><Route path="/features"><Features /></Route><Route path="/projects"><MyProject /></Route><Route><TicketList me={me} /></Route></Switch>
           </Shell>)}
       </Route>
     </Switch>

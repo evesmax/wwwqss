@@ -18,6 +18,7 @@ import ImportPage from "./desk/ImportPage";
 import SdkPage from "./desk/SdkPage";
 import ReportsPage from "./desk/ReportsPage";
 import FeaturesPage from "./desk/FeaturesPage";
+import ProjectsPage from "./desk/ProjectsPage";
 import AvailabilityPage from "./desk/AvailabilityPage";
 import SupportCatalogPage from "./desk/SupportCatalogPage";
 import TicketsPage from "./desk/TicketsPage";
@@ -77,6 +78,7 @@ export default function AdminApp() {
         <Route path="/soporte/sdk" component={SdkPage} />
         <Route path="/soporte/informes" component={ReportsPage} />
         <Route path="/soporte/funcionalidades" component={FeaturesPage} />
+        <Route path="/soporte/proyectos" component={ProjectsPage} />
         <Route path="/soporte/disponibilidad" component={AvailabilityPage} />
         <Route path="/security">
           <SecurityPage user={user} onChanged={(p) => setUser({ ...user, ...p })} />
