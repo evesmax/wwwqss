@@ -109,6 +109,7 @@ after(async () => {
   await db.delete(s.sdSettings).where(eq(s.sdSettings.key, "sla.tickTokenHash"));
   if (prevTick) await db.insert(s.sdSettings).values(prevTick);
   if (ids.users.length) await db.delete(s.sdSlaChanges).where(inArray(s.sdSlaChanges.userId, ids.users));
+  if (ids.accounts.length) await db.delete(s.sdProjects).where(inArray(s.sdProjects.accountId, ids.accounts));
   if (ids.product) await db.delete(s.sdFeatures).where(eq(s.sdFeatures.productId, ids.product));
   if (ids.accounts.length) await db.delete(s.sdTickets).where(inArray(s.sdTickets.accountId, ids.accounts));
   await db.delete(s.sdPortalTokens).where(inArray(s.sdPortalTokens.email, TEST_EMAILS));
@@ -708,4 +709,71 @@ test("features: consolidation, quotes, UAT Go/No-Go, tacit acceptance, hours ban
   await new Promise((r) => setTimeout(r, 1500));
   const alerts = await db.execute(sql`SELECT threshold FROM sd_bank_alerts a JOIN sd_contracts c ON c.id = a.contract_id WHERE c.account_id = ${accA} ORDER BY 1`);
   assert.deepEqual((alerts.rows as any[]).map((r) => r.threshold), [80, 100]);
+});
+
+test("projects: template, schedule, plan approval, baseline revisions, gate sign-off, customer view", { skip: !run }, async () => {
+  assert.equal((await api("l1", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT Proyecto", startDate: "2026-11-09", template: "generic" })).status, 403);
+  assert.equal((await api("agentA", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT Proyecto", startDate: "2026-11-09", template: "generic" })).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT Proyecto", startDate: "no", template: "generic" })).status, 400);
+  const c = await api("owner", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT Proyecto", solutionType: "TMS", startDate: "2026-11-07", template: "generic" }); // Saturday: rolls to Monday
+  assert.equal(c.status, 201);
+  const pid = c.body.id;
+  let d = (await api("agentA", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(d.project.startDate, "2026-11-09");
+  assert.equal(d.tasks.length, 14); assert.equal(d.gates.length, 9);
+  const t01 = d.tasks.find((t: any) => t.code === "0.1");
+  assert.equal(t01.startDate, "2026-11-09"); assert.equal(t01.endDate, "2026-11-13"); // 5 business days
+  const t11 = d.tasks.find((t: any) => t.code === "1.1");
+  assert.ok(t11.startDate > t01.endDate); // finish-to-start
+  assert.equal((await api("nobody", "GET", "/api/desk/projects")).status, 403);
+  assert.equal((await api("agentA", "GET", "/api/desk/projects")).body.length >= 1, true);
+  // cannot approve until internal tasks have an owner
+  const a1 = await api("owner", "POST", `/api/desk/projects/${pid}/approve-plan`);
+  assert.equal(a1.status, 409); assert.match(a1.body.message, /responsable/);
+  const ag = (await api("owner", "GET", "/api/desk/agents")).body.find((u: any) => u.username.startsWith("tmpt_owner"));
+  for (const t of d.tasks.filter((t: any) => !t.clientSide)) assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t.id}`, { assigneeUserId: ag.id })).status, 200);
+  // cycles and partial progress rules
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { deps: [t11.id] })).status, 400);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { pct: 50 })).status, 400); // needs a note
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { pct: 50, progressNote: "mitad del levantamiento" })).status, 200);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { pct: 0 })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/approve-plan`)).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/approve-plan`)).status, 409);
+  // schedule changes after baseline need reason + origin and create a revision
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { days: 7 })).status, 400);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { days: 7, reason: "Más entrevistas", origin: "customer" })).status, 200);
+  d = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(d.project.baselineVersion, 2);
+  assert.deepEqual(d.revisions.map((r: any) => r.origin), ["qss", "customer"]);
+  const t01b = d.tasks.find((t: any) => t.id === t01.id);
+  assert.equal(t01b.endDate, "2026-11-17"); assert.deepEqual(t01b.baseline, { start: "2026-11-09", end: "2026-11-13" }); // baseline vs current
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { notes: "solo nota" })).status, 200); // non-schedule edit: no revision
+  assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.baselineVersion, 2);
+  // hide one task and one gate from the customer
+  const t22 = d.tasks.find((t: any) => t.code === "2.2");
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t22.id}`, { clientVisible: false, notes: "NOTA-INTERNA-SECRETA" });
+  const gHidden = d.gates.find((g: any) => g.code === "G3"), gA = d.gates.find((g: any) => g.code === "G0"), gB = d.gates.find((g: any) => g.code === "G1");
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/gates/${gHidden.id}`, { clientVisible: false });
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/gates/${gA.id}`, { evidence: ["acta-firmada.pdf"] });
+  // portal
+  await portalLogin("adm", "adm@a.test"); await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  assert.equal((await papi("cb", "GET", `/api/portal/projects/${pid}`)).status, 404);
+  assert.deepEqual((await papi("cb", "GET", "/api/portal/projects")).body, []);
+  const pv = await papi("c1", "GET", `/api/portal/projects/${pid}`);
+  assert.equal(pv.status, 200); assert.equal(pv.body.canSign, false);
+  assert.ok(!pv.raw.includes("NOTA-INTERNA-SECRETA") && !pv.raw.includes("hours") && !pv.raw.includes("warnings") && !pv.raw.includes("assigneeUserId"));
+  assert.ok(!pv.body.tasks.some((t: any) => t.code === "2.2")); assert.ok(!pv.body.gates.some((g: any) => g.code === "G3"));
+  assert.ok(pv.body.tasks.find((t: any) => t.code === "0.2").owner === "cliente");
+  assert.equal((await papi("c1", "POST", `/api/portal/gates/${gA.id}/signoff`, { result: "go" })).status, 404); // only account_admin signs
+  assert.equal((await papi("cb", "POST", `/api/portal/gates/${gA.id}/signoff`, { result: "go" })).status, 404);
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gHidden.id}/signoff`, { result: "go" })).status, 404); // hidden
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gB.id}/signoff`, { result: "conditional" })).status, 400);
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gB.id}/signoff`, { result: "no_go", note: "falta evidencia" })).status, 200);
+  assert.equal((await papi("adm", "GET", `/api/portal/projects/${pid}`)).body.gates.find((g: any) => g.id === gB.id).status, "open"); // No Go keeps it open
+  const ok = await papi("adm", "POST", `/api/portal/gates/${gA.id}/signoff`, { result: "go" });
+  assert.equal(ok.status, 200); assert.match(ok.body.fingerprint, /^[0-9a-f]{64}$/);
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gA.id}/signoff`, { result: "go" })).status, 409);
+  const so = await api("owner", "GET", `/api/desk/projects/${pid}/gates/${gA.id}/signoffs`);
+  assert.equal(so.body.length, 1); assert.equal(so.body[0].signerType, "contact"); assert.ok(so.body[0].ip);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/gates/${gA.id}`, { name: "x" })).status, 409); // signed gates are frozen
 });

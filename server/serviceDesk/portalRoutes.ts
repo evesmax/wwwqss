@@ -16,6 +16,8 @@ import { validateAttachment } from "./attachments";
 import { nextStatuses } from "./ticketRules";
 import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@shared/schema";
 import { decideQuote, decideUat } from "./featureService";
+import { sdProjectGates, sdProjects } from "@shared/schema";
+import { loadProject, signGate } from "./projectService";
 import { quoteState } from "./featureRules";
 
 type PReq = Request & { contacts: PortalContact[]; email: string };
@@ -222,5 +224,30 @@ export function registerPortalRoutes(app: Express) {
     const c = u && adminContact(req, u.accountId);
     if (!u || !c) return res.status(404).json({ message: "No encontrado" });
     res.json(await decideUat(id, [u.accountId], c.id, b.status, b.comment));
+  }));
+
+  // ---- projects: customer view and gate sign-off (RF-PRJ-05/12/17) ----
+  app.get("/api/portal/projects", portalAuth, handle(async (req, res) => {
+    const ids = Array.from(new Set(req.contacts.map((c) => c.accountId)));
+    const ps = await db.select().from(sdProjects).where(and(inArray(sdProjects.accountId, ids), sql`${sdProjects.baselineVersion} >= 1`));
+    const out = [];
+    for (const p of ps) { const v: any = await loadProject(p.id, { client: true }); out.push({ id: p.id, name: p.name, status: v.progress.status, actual: v.progress.actual, planned: v.progress.planned }); }
+    res.json(out);
+  }));
+  app.get("/api/portal/projects/:id", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [p] = Number.isInteger(id) ? await db.select().from(sdProjects).where(eq(sdProjects.id, id)) : [];
+    if (!p || p.baselineVersion < 1 || !req.contacts.some((c) => c.accountId === p.accountId)) return res.status(404).json({ message: "No encontrado" });
+    const v: any = await loadProject(p.id, { client: true });
+    res.json({ ...v, canSign: req.contacts.some((c) => c.accountId === p.accountId && c.role === "account_admin") });
+  }));
+  app.post("/api/portal/gates/:id/signoff", portalAuth, handle(async (req, res) => {
+    const b = z.object({ result: z.enum(["go", "conditional", "no_go"]), note: z.string().max(2000).default("") }).parse(req.body);
+    const id = Number(req.params.id);
+    const [g] = Number.isInteger(id) ? await db.select().from(sdProjectGates).where(eq(sdProjectGates.id, id)) : [];
+    const [p] = g ? await db.select().from(sdProjects).where(eq(sdProjects.id, g.projectId)) : [];
+    const c = p && g?.clientVisible && p.baselineVersion >= 1 ? req.contacts.find((x) => x.accountId === p.accountId && x.role === "account_admin") : null;
+    if (!g || !c) return res.status(404).json({ message: "No encontrado" });
+    res.json(await signGate(g.id, { type: "contact", id: c.id }, String(req.ip), b.result, b.note));
   }));
 }

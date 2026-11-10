@@ -194,6 +194,32 @@ const STATEMENTS: string[] = [
      sent_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (contract_id, threshold))`,
   `CREATE INDEX IF NOT EXISTS idx_sd_feature_requests_feature ON sd_feature_requests(feature_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sd_uat_items_feature ON sd_uat_items(feature_id)`,
+  `CREATE TABLE IF NOT EXISTS sd_projects (
+     id serial PRIMARY KEY, account_id integer NOT NULL REFERENCES sd_accounts(id), name text NOT NULL, solution_type text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'planning', start_date text NOT NULL, baseline_version integer NOT NULL DEFAULT 0, baseline_approved_at timestamp,
+     created_by integer, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_project_phases (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, code text NOT NULL, name text NOT NULL, position integer NOT NULL DEFAULT 0)`,
+  `CREATE TABLE IF NOT EXISTS sd_project_tasks (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, phase_id integer REFERENCES sd_project_phases(id) ON DELETE SET NULL,
+     code text NOT NULL DEFAULT '', name text NOT NULL, kind text NOT NULL DEFAULT 'task', assignee_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+     assignee_contact_id integer REFERENCES sd_contacts(id) ON DELETE SET NULL, start_date text NOT NULL, end_date text NOT NULL, days integer NOT NULL DEFAULT 1,
+     hours numeric, pct integer NOT NULL DEFAULT 0, progress_note text NOT NULL DEFAULT '', fixed_start text, deps jsonb NOT NULL DEFAULT '[]',
+     notes text NOT NULL DEFAULT '', client_visible boolean NOT NULL DEFAULT true, blocked_by_client boolean NOT NULL DEFAULT false, position integer NOT NULL DEFAULT 0,
+     updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sd_project_baselines (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, version integer NOT NULL, reason text NOT NULL DEFAULT '',
+     origin text NOT NULL DEFAULT 'qss', approved_by integer, approved_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, snapshot jsonb NOT NULL,
+     UNIQUE (project_id, version))`,
+  `CREATE TABLE IF NOT EXISTS sd_project_gates (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, phase_id integer REFERENCES sd_project_phases(id) ON DELETE SET NULL,
+     code text NOT NULL, name text NOT NULL, date text NOT NULL, criteria jsonb NOT NULL DEFAULT '[]', evidence jsonb NOT NULL DEFAULT '[]',
+     status text NOT NULL DEFAULT 'open', result text, signed_at timestamp, client_visible boolean NOT NULL DEFAULT true)`,
+  `CREATE TABLE IF NOT EXISTS sd_gate_signoffs (
+     id serial PRIMARY KEY, gate_id integer NOT NULL REFERENCES sd_project_gates(id) ON DELETE CASCADE, signer_type text NOT NULL, signer_id integer NOT NULL,
+     result text NOT NULL, note text NOT NULL DEFAULT '', ip text NOT NULL DEFAULT '', fingerprint text NOT NULL, at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `ALTER TABLE sd_project_tasks ADD COLUMN IF NOT EXISTS client_side boolean NOT NULL DEFAULT false`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_project_tasks_project ON sd_project_tasks(project_id)`,
 ];
 
 export async function ensureServiceDeskSchema() {
