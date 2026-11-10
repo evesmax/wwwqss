@@ -468,3 +468,20 @@ export const sdMaintenance = pgTable("sd_maintenance", {
   createdAt: ts("created_at"),
   createdBy: integer("created_by"),
 });
+
+export const sdReports = pgTable("sd_reports", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => sdAccounts.id, { onDelete: "cascade" }),
+  periodYear: integer("period_year").notNull(),
+  periodMonth: integer("period_month").notNull(),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"),
+  data: jsonb("data").notNull(),
+  note: text("note").notNull().default(""),
+  createdAt: ts("created_at"),
+  createdBy: integer("created_by"),
+  approvedBy: integer("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  sentAt: timestamp("sent_at"),
+  sendLog: jsonb("send_log").notNull().default([]),
+}, (t) => ({ uq: unique("sd_reports_period_version").on(t.accountId, t.periodYear, t.periodMonth, t.version) }));

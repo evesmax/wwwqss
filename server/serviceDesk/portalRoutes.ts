@@ -1,5 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { toCustomerSla } from "./slaCustomer";
+import { reportHtml } from "./reportService";
+import { sdReports } from "@shared/schema";
 import { computeForTicket } from "./slaService";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -133,6 +135,21 @@ export function registerPortalRoutes(app: Express) {
       history: events.map((e) => ({ at: e.at, from: (e.detail as any).from, to: (e.detail as any).to })), // reason omitted: may be internal
       canComment: !["closed", "duplicate", "cancelled", "rejected"].includes(t.status) && nextStatuses(t.type, t.status) !== undefined,
     });
+  }));
+
+  // Monthly reports: only account admins, only delivered (sent) reports of their own accounts (RF-REP-06).
+  const reportAccounts = (req: PReq) => Array.from(new Set(req.contacts.filter((c) => c.role === "account_admin").map((c) => c.accountId)));
+  app.get("/api/portal/reports", portalAuth, handle(async (req, res) => {
+    const ids = reportAccounts(req);
+    if (!ids.length) return void res.json([]);
+    const rows = await db.select().from(sdReports).where(and(inArray(sdReports.accountId, ids), eq(sdReports.status, "sent"))).orderBy(desc(sdReports.periodYear), desc(sdReports.periodMonth), desc(sdReports.version));
+    res.json(rows.map((r) => ({ id: r.id, year: r.periodYear, month: r.periodMonth, version: r.version, sentAt: r.sentAt, note: r.note })));
+  }));
+  app.get("/api/portal/reports/:id", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [r] = Number.isInteger(id) ? await db.select().from(sdReports).where(eq(sdReports.id, id)) : [];
+    if (!r || r.status !== "sent" || !reportAccounts(req).includes(r.accountId)) return void res.status(404).json({ message: "No encontrado" });
+    res.json({ id: r.id, year: r.periodYear, month: r.periodMonth, version: r.version, html: reportHtml(r.data as any) });
   }));
 
   app.post("/api/portal/tickets/:id/comments", portalAuth, handle(async (req, res) => {

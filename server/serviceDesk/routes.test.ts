@@ -564,3 +564,49 @@ test("availability: monitors, 2-location down minutes, public status page, incid
   assert.equal(long.body.warning, null);
   assert.equal((await api("owner", "POST", "/api/desk/maintenance", { productId: ids.product, title: "x largo", startsAt: later, endsAt: new Date(Date.now() + 200 * 3600_000).toISOString() })).status, 400);
 });
+
+test("reports: generate, immutable snapshot, approval flow, versions, portal visibility", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const csv = "Folio;Asunto;Prioridad;Estatus;Fecha de reporte;Fecha de resolución\nR-1;Falla en octubre;Media;Cerrado;05/10/2026 10:00;06/10/2026 10:00\nR-2;Otra de octubre;Baja;Abierto;10/10/2026;\n";
+  const imp = await fetch(base + `/api/desk/import/commit?accountId=${accA}`, { method: "POST", headers: { "content-type": "text/csv", cookie: jars.owner }, body: csv });
+  assert.equal(imp.status, 201);
+  const body = { accountId: accA, year: 2026, month: 10 };
+  assert.equal((await api("l1", "POST", "/api/desk/reports", body)).status, 403);
+  assert.equal((await api("agentA", "POST", "/api/desk/reports", body)).status, 403);
+  assert.equal((await api("owner", "POST", "/api/desk/reports", { ...body, year: 2099, month: 1 })).status, 400);
+  const g = await api("owner", "POST", "/api/desk/reports", body);
+  assert.equal(g.status, 201);
+  assert.equal(g.body.version, 1);
+  assert.equal((await api("owner", "POST", "/api/desk/reports", body)).status, 409); // draft already exists
+  const v = await api("agentA", "GET", `/api/desk/reports/${g.body.id}`);
+  assert.equal(v.status, 200);
+  assert.ok(v.body.html.includes("Informe mensual de servicio") && v.body.html.includes("N/D") && v.body.html.includes("octubre de 2026"));
+  assert.ok(v.body.html.includes("Falla en octubre"));
+  assert.equal((await api("owner", "GET", `/api/desk/reports?accountId=${accB}`)).status, 200);
+  assert.equal((await api("agentA", "GET", `/api/desk/reports?accountId=${accB}`)).status, 404);
+  assert.equal((await api("owner", "POST", `/api/desk/reports/${g.body.id}/send`)).status, 409); // not approved
+  assert.equal((await api("owner", "POST", `/api/desk/reports/${g.body.id}/approve`)).status, 200);
+  assert.equal((await api("owner", "DELETE", `/api/desk/reports/${g.body.id}`)).status, 409);
+  await assert.rejects(db.execute(sql`UPDATE sd_reports SET data = '{}'::jsonb WHERE id = ${g.body.id}`));
+  const sent = await api("owner", "POST", `/api/desk/reports/${g.body.id}/send`);
+  assert.equal(sent.status, 200);
+  assert.equal(sent.body.recipients, 1); // adm@a.test (account_admin)
+  await db.execute(sql`UPDATE sd_reports SET status = 'sent', sent_at = now() WHERE id = ${g.body.id}`);
+  assert.equal((await api("owner", "POST", "/api/desk/reports", body)).status, 400); // new version needs a correction note
+  const v2 = await api("owner", "POST", "/api/desk/reports", { ...body, note: "Corrección de horas" });
+  assert.equal(v2.status, 201);
+  assert.equal(v2.body.version, 2);
+  assert.equal((await api("owner", "DELETE", `/api/desk/reports/${v2.body.id}`)).status, 200);
+  await portalLogin("adm", "adm@a.test"); await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  const list = await papi("adm", "GET", "/api/portal/reports");
+  assert.equal(list.body.length, 1);
+  assert.equal(list.body[0].id, g.body.id);
+  const view = await papi("adm", "GET", `/api/portal/reports/${g.body.id}`);
+  assert.equal(view.status, 200);
+  assert.ok(view.body.html.includes("octubre de 2026"));
+  assert.deepEqual((await papi("c1", "GET", "/api/portal/reports")).body, []);
+  assert.equal((await papi("c1", "GET", `/api/portal/reports/${g.body.id}`)).status, 404);
+  assert.equal((await papi("cb", "GET", `/api/portal/reports/${g.body.id}`)).status, 404);
+  assert.equal((await fetch(base + "/api/internal/reports/run", { method: "POST" })).status, 401);
+});

@@ -26,6 +26,7 @@ import {
   Upload,
   Code2,
   Activity,
+  FileText,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -111,6 +112,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           {user.deskEnabled && renderMenuItem({ path: "/soporte/catalogo", label: "Catálogo de soporte", icon: LifeBuoy })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sla", label: "Motor de SLA", icon: Timer })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/disponibilidad", label: "Disponibilidad", icon: Activity })}
+          {user.deskEnabled && renderMenuItem({ path: "/soporte/informes", label: "Informes mensuales", icon: FileText })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sdk", label: "SDK / Widget", icon: Code2 })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/importar", label: "Importar tickets", icon: Upload })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/correo", label: "Correo saliente", icon: Mail })}

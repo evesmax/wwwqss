@@ -73,12 +73,13 @@ export async function maintenanceWindows(productId: number, fromMs: number, toMs
   return rows.filter((r) => !onlyAnnounced || r.noticeOk).map((r) => ({ startMs: +r.startsAt, endMs: +r.endsAt }));
 }
 
-export async function monthlyAvailability(year: number, month: number, now = new Date()) {
+export async function monthlyAvailability(year: number, month: number, now = new Date(), instanceIds?: number[]) {
   const { monthRange } = await import("./availability");
   const { fromMs, toMs } = monthRange(year, month, TZ);
   const mons = await db.select({ id: sdMonitors.id, name: sdMonitors.name, instanceId: sdMonitors.instanceId, productId: sdInstances.productId, instance: sdInstances.name })
     .from(sdMonitors).innerJoin(sdInstances, eq(sdInstances.id, sdMonitors.instanceId));
   const out = [];
+  if (instanceIds) for (let k = mons.length - 1; k >= 0; k--) if (!instanceIds.includes(mons[k].instanceId)) mons.splice(k, 1);
   for (const m of mons) {
     const probes = await loadProbes([m.id], fromMs, toMs);
     const maint = await maintenanceWindows(m.productId, fromMs, toMs);

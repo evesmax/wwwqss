@@ -126,6 +126,15 @@ const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS sd_maintenance (
      id serial PRIMARY KEY, product_id integer NOT NULL REFERENCES sd_products(id), title text NOT NULL, starts_at timestamp NOT NULL, ends_at timestamp NOT NULL,
      notice_ok boolean NOT NULL DEFAULT false, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by integer)`,
+  `CREATE TABLE IF NOT EXISTS sd_reports (
+     id serial PRIMARY KEY, account_id integer NOT NULL REFERENCES sd_accounts(id) ON DELETE CASCADE, period_year integer NOT NULL, period_month integer NOT NULL,
+     version integer NOT NULL DEFAULT 1, status text NOT NULL DEFAULT 'draft', data jsonb NOT NULL, note text NOT NULL DEFAULT '',
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by integer, approved_by integer, approved_at timestamp, sent_at timestamp,
+     send_log jsonb NOT NULL DEFAULT '[]', CONSTRAINT sd_reports_period_version UNIQUE (account_id, period_year, period_month, version))`,
+  `CREATE OR REPLACE FUNCTION sd_reports_snapshot_immutable() RETURNS trigger AS $$
+     BEGIN IF NEW.data IS DISTINCT FROM OLD.data THEN RAISE EXCEPTION 'sd_reports.data is an immutable snapshot (issue a new version)'; END IF; RETURN NEW; END; $$ LANGUAGE plpgsql`,
+  `DROP TRIGGER IF EXISTS sd_reports_no_data_change ON sd_reports`,
+  `CREATE TRIGGER sd_reports_no_data_change BEFORE UPDATE ON sd_reports FOR EACH ROW EXECUTE FUNCTION sd_reports_snapshot_immutable()`,
   `CREATE TABLE IF NOT EXISTS sd_sla_policies (
      id serial PRIMARY KEY, name text NOT NULL, position integer NOT NULL DEFAULT 100, filters jsonb NOT NULL DEFAULT '{}',
      calendar_kind text NOT NULL DEFAULT 'business', first_response_min integer, update_min integer, resolution_min integer,

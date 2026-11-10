@@ -14,7 +14,7 @@ function Shell({ children, email, onLogout }: { children: React.ReactNode; email
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b"><div className="max-w-4xl mx-auto p-4 flex items-center justify-between">
         <Link href="/"><img src={qssLogo} alt="QSoftware Solutions" className="h-9" /></Link>
-        {email && <div className="text-sm text-gray-600">{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
+        {email && <div className="text-sm text-gray-600"><Link href="/reports" className="text-[#0088c2] mr-3">Informes</Link>{email} · <button onClick={onLogout} className="text-[#0088c2]">Salir</button></div>}
       </div></header>
       <main className="max-w-4xl mx-auto p-4">{children}</main>
     </div>
@@ -163,6 +163,28 @@ function TicketView({ id }: { id: string }) {
   );
 }
 
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+function Reports() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [open, setOpen] = useState<any>(null);
+  useEffect(() => { apiRequest("GET", "/api/portal/reports").then((r) => r.json()).then(setRows).catch(() => setRows([])); }, []);
+  const view = async (id: number) => setOpen(await (await apiRequest("GET", `/api/portal/reports/${id}`)).json());
+  if (open) return (
+    <div className="space-y-3">
+      <div className="flex justify-between"><button className="text-sm text-[#0088c2]" onClick={() => setOpen(null)}>← Informes</button>
+        <button className="text-sm text-[#0088c2]" onClick={() => { const w = window.open("", "_blank"); if (w) { w.document.write(open.html); w.document.close(); w.focus(); w.print(); } }}>Imprimir / guardar PDF</button></div>
+      <iframe title="Informe" sandbox="" srcDoc={open.html} className="w-full bg-white border rounded-xl" style={{ height: "80vh" }} />
+    </div>);
+  return (
+    <div className="space-y-3">
+      <Link href="/" className="text-sm text-[#0088c2]">← Mis tickets</Link>
+      <h1 className="text-xl font-bold">Informes mensuales</h1>
+      {rows && rows.length === 0 && <p className="text-sm text-gray-500">Aún no hay informes entregados. Los informes mensuales están disponibles para los administradores de cuenta.</p>}
+      {rows?.map((r) => <button key={r.id} onClick={() => view(r.id)} className="block w-full text-left bg-white border rounded-xl p-3 hover:bg-gray-50 text-sm">
+        <b>{MONTHS[r.month - 1]} de {r.year}</b>{r.version > 1 && <span className="ml-2 text-xs text-amber-700">v{r.version} · {r.note}</span>}</button>)}
+    </div>);
+}
+
 export default function PortalApp() {
   const [me, setMe] = useState<any>(undefined);
   const loadMe = () => apiRequest("GET", "/api/portal/me").then((r) => r.json()).then(setMe).catch(() => setMe(null));
@@ -174,7 +196,7 @@ export default function PortalApp() {
       <Route>
         {me === undefined ? <Shell>{null}</Shell> : me === null ? <Login /> : (
           <Shell email={me.email} onLogout={logout}>
-            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route><TicketList me={me} /></Route></Switch>
+            <Switch><Route path="/tickets/:id">{(p) => <TicketView id={p.id} />}</Route><Route path="/reports"><Reports /></Route><Route><TicketList me={me} /></Route></Switch>
           </Shell>)}
       </Route>
     </Switch>
