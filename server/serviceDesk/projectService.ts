@@ -98,8 +98,25 @@ export async function approvePlan(projectId: number, userId: number) {
 export async function scheduleChange(projectId: number, userId: number, rev: Rev, apply: () => Promise<void>) {
   const [p] = await db.select().from(sdProjects).where(eq(sdProjects.id, projectId));
   if (p.baselineVersion >= 1 && (!rev || rev.reason.trim().length < 3 || !(ORIGINS as readonly string[]).includes(rev.origin))) throw new TicketError("Con la línea base aprobada indica el motivo y el origen del cambio (qss, customer, third_party, force_majeure)");
-  await apply();
-  await reschedule(projectId);
+  // The change and the recompute are not one DB transaction (http driver), so a rejected recompute
+  // (cycle, bad dependency) must restore the previous rows instead of leaving a half-applied change.
+  const prevTasks = await db.select().from(sdProjectTasks).where(eq(sdProjectTasks.projectId, projectId));
+  const prevGates = await db.select().from(sdProjectGates).where(eq(sdProjectGates.projectId, projectId));
+  try {
+    await apply();
+    await reschedule(projectId);
+  } catch (e) {
+    const nowTasks = await db.select({ id: sdProjectTasks.id }).from(sdProjectTasks).where(eq(sdProjectTasks.projectId, projectId));
+    const keep = new Set(prevTasks.map((t) => t.id));
+    for (const t of nowTasks) if (!keep.has(t.id)) await db.delete(sdProjectTasks).where(eq(sdProjectTasks.id, t.id));
+    const have = new Set(nowTasks.map((t) => t.id));
+    for (const t of prevTasks) {
+      if (have.has(t.id)) await db.update(sdProjectTasks).set(t).where(eq(sdProjectTasks.id, t.id));
+      else await db.insert(sdProjectTasks).values(t);
+    }
+    for (const g of prevGates) await db.update(sdProjectGates).set(g).where(eq(sdProjectGates.id, g.id));
+    throw e;
+  }
   if (p.baselineVersion >= 1) {
     const v = p.baselineVersion + 1;
     await db.insert(sdProjectBaselines).values({ projectId, version: v, reason: rev!.reason.trim(), origin: rev!.origin, approvedBy: userId, snapshot: await snapshot(projectId) });

@@ -17,6 +17,7 @@ const taskFields = {
   assigneeUserId: z.number().int().positive().nullable(), assigneeContactId: z.number().int().positive().nullable(), notes: z.string().max(5000),
   clientVisible: z.boolean(), clientSide: z.boolean(), blockedByClient: z.boolean(), pct: z.number().int().min(0).max(100), progressNote: z.string().max(1000),
 };
+function stripRev(o: any) { const { reason: _r, origin: _o, ...rest } = o ?? {}; return rest; }
 const SCHEDULE_KEYS = ["days", "deps", "fixedStart"];
 
 export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
@@ -85,7 +86,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const p = await projectOr404(req, res); if (!p) return;
     const raw = req.body ?? {};
     const r = rev.parse({ reason: raw.reason, origin: raw.origin });
-    const b = z.object(taskFields).partial().required({ name: true }).parse({ ...raw, reason: undefined, origin: undefined });
+    const b = z.object(taskFields).partial().required({ name: true }).parse(stripRev(raw));
     await checkRefs(p, b);
     let created: any;
     await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => {
@@ -108,7 +109,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const c = await taskOr404(req, res); if (!c) return;
     const raw = req.body ?? {};
     const r = rev.parse({ reason: raw.reason, origin: raw.origin });
-    const b = z.object(taskFields).partial().strict().parse({ ...raw, reason: undefined, origin: undefined });
+    const b = z.object(taskFields).partial().strict().parse(stripRev(raw));
     if (b.deps?.includes(c.t.id)) throw new TicketError("Una tarea no puede depender de sí misma");
     await checkRefs(c.p, { ...b, pct: b.pct, progressNote: b.progressNote ?? (b.pct != null ? c.t.progressNote : undefined) });
     const set: any = { ...b, updatedAt: new Date() };
@@ -146,7 +147,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const [g] = Number.isInteger(gid) ? await db.select().from(sdProjectGates).where(and(eq(sdProjectGates.id, gid), eq(sdProjectGates.projectId, p.id))) : [];
     if (!g) return void res.status(404).json({ message: "No encontrado" });
     if (g.status === "signed") return void res.status(409).json({ message: "El gate ya fue firmado" });
-    const b = z.object({ name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30), evidence: z.array(z.string().trim().min(1).max(500)).max(30), clientVisible: z.boolean() }).partial().strict().parse({ ...req.body, reason: undefined, origin: undefined });
+    const b = z.object({ name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30), evidence: z.array(z.string().trim().min(1).max(500)).max(30), clientVisible: z.boolean() }).partial().strict().parse(stripRev(req.body));
     const r = rev.parse({ reason: req.body?.reason, origin: req.body?.origin });
     if (b.date !== undefined && b.date !== g.date) await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => { await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id)); });
     else await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id));
