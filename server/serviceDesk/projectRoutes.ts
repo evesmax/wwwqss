@@ -8,7 +8,7 @@ import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
 import { TicketError } from "./ticketService";
 import { ORIGINS, TEMPLATES, approvePlan, createProject, loadProject, reschedule, scheduleChange } from "./projectService";
-import { loadProjectFull, pauseSlaForProject } from "./projectItemService";
+import { auditVisibility, loadProjectFull, pauseSlaForProject } from "./projectItemService";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const rev = z.object({ reason: z.string().max(500), origin: z.enum(ORIGINS) }).partial();
@@ -55,7 +55,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const b = z.object({ accountId: z.number().int().positive(), name: z.string().trim().min(3).max(200), solutionType: z.string().trim().max(60).default(""), startDate: date, template: z.enum(["generic"]).optional(), pauseSla: z.boolean().default(true) }).parse(req.body);
     if (!(await visibleAccountIds(req.actor)).includes(b.accountId)) return void res.status(404).json({ message: "No encontrado" });
     const p = await createProject(b, req.actor.userId);
-    if (b.template && b.pauseSla) await pauseSlaForProject(b.accountId); // support SLA does not run during implementation (RF-PRJ-16)
+    if (b.template && b.pauseSla) await pauseSlaForProject(b.accountId, p.id); // support SLA does not run during implementation (RF-PRJ-16)
     await writeAudit({ actorUserId: req.actor.userId, action: "project.create", entity: "project", entityId: String(p.id) });
     res.status(201).json(p);
   }));
@@ -115,6 +115,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const b = z.object(taskFields).partial().strict().parse(stripRev(raw));
     if (b.deps?.includes(c.t.id)) throw new TicketError("Una tarea no puede depender de sí misma");
     await checkRefs(c.p, { ...b, pct: b.pct, progressNote: b.progressNote ?? (b.pct != null ? c.t.progressNote : undefined) });
+    if (b.clientVisible !== undefined && b.clientVisible !== c.t.clientVisible) await auditVisibility(c.p.id, req.actor.userId, "task", c.t.id, c.t.clientVisible, b.clientVisible);
     const set: any = { ...b, updatedAt: new Date() };
     if (b.hours !== undefined) set.hours = b.hours != null ? String(b.hours) : null;
     if (b.pct === 0 || b.pct === 100) set.progressNote = b.progressNote ?? c.t.progressNote;
@@ -141,7 +142,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     await checkRefs(p, b);
     const r = rev.parse({ reason: req.body?.reason, origin: req.body?.origin });
     let row: any;
-    await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => { [row] = await db.insert(sdProjectGates).values({ projectId: p.id, ...b }).returning(); });
+    await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => { [row] = await db.insert(sdProjectGates).values({ projectId: p.id, ...b, dateLocked: true }).returning(); }); // a manager-set date is not overwritten by the phase end
     res.status(201).json(row);
   }));
   app.patch("/api/desk/projects/:id/gates/:gid", ...auth, mgr, wrap(async (req, res) => {
@@ -152,6 +153,8 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     if (g.status === "signed") return void res.status(409).json({ message: "El gate ya fue firmado" });
     const b = z.object({ name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30), evidence: z.array(z.string().trim().min(1).max(500)).max(30), clientVisible: z.boolean(), kind: z.enum(["normal", "handoff", "close"]) }).partial().strict().parse(stripRev(req.body));
     const r = rev.parse({ reason: req.body?.reason, origin: req.body?.origin });
+    if (b.clientVisible !== undefined) await auditVisibility(p.id, req.actor.userId, "gate", g.id, g.clientVisible, b.clientVisible);
+    if (b.date !== undefined) (b as any).dateLocked = true;
     if (b.date !== undefined && b.date !== g.date) await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => { await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id)); });
     else await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id));
     res.json({ ok: true });

@@ -29,7 +29,7 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
   async function itemOr404<T extends { projectId: number }>(req: Req, res: any, tbl: any): Promise<T | null> {
     const id = Number(req.params.iid);
     const [row] = Number.isInteger(id) ? await db.select().from(tbl).where(eq(tbl.id, id)) : [];
-    if (!row || !(await projectOr404(req, res, (row as any).projectId))) return null;
+    if (!row || (row as any).projectId !== Number(req.params.id) || !(await projectOr404(req, res, (row as any).projectId))) { if (!res.headersSent) res.status(404).json({ message: "No encontrado" }); return null; }
     return row as T;
   }
 
@@ -41,7 +41,7 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
     res.status(201).json(await createDoc(p.id, req.actor.userId, b as any));
   }));
   app.patch("/api/desk/projects/:id/docs/:iid", ...auth, mgr, wrap(async (req, res) => {
-    const d = await itemOr404<typeof sdProjectDocs.$inferSelect>(req, res, sdProjectDocs); if (!d || d.projectId !== Number(req.params.id)) return void (res.headersSent || res.status(404).json({ message: "No encontrado" }));
+    const d = await itemOr404<typeof sdProjectDocs.$inferSelect>(req, res, sdProjectDocs); if (!d) return;
     const b = docBody.partial().extend({ status: z.enum(DOC_STATUSES), files: z.array(z.string().max(500)).max(30), comment: z.string().max(2000) }).partial().strict().parse(req.body);
     await updateDoc(d.id, { type: "user", id: req.actor.userId }, b as any); res.json({ ok: true });
   }));
@@ -63,8 +63,9 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
   }));
   app.post("/api/desk/projects/:id/decisions/:iid/decide", ...auth, mgr, wrap(async (req, res) => {
     const d = await itemOr404<typeof sdProjectDecisions.$inferSelect>(req, res, sdProjectDecisions); if (!d) return;
-    const b = z.object({ decision: z.string().trim().min(1).max(1000), impact: z.string().max(1000).default("") }).parse(req.body);
-    await decide(d.id, { type: "user", id: req.actor.userId }, b.decision, b.impact); res.json({ ok: true });
+    const b = z.object({ decision: z.string().trim().min(1).max(1000), impact: z.string().max(1000).default(""), evidence: z.string().trim().min(5).max(1000) }).parse(req.body);
+    await decide(d.id, { type: "user", id: req.actor.userId }, b.decision, b.impact, b.evidence); // proxy for the customer: evidence is mandatory and audited
+    res.json({ ok: true });
   }));
   app.post("/api/desk/projects/:id/decisions/:iid/accept-default", ...auth, mgr, wrap(async (req, res) => {
     const d = await itemOr404<typeof sdProjectDecisions.$inferSelect>(req, res, sdProjectDecisions); if (!d) return;
@@ -107,7 +108,8 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
   }));
   app.patch("/api/desk/projects/:id/modules/:iid", ...auth, mgr, wrap(async (req, res) => {
     const m = await itemOr404<typeof sdProjectModules.$inferSelect>(req, res, sdProjectModules); if (!m) return;
-    const b = z.object({ name: z.string().trim().min(2).max(120), description: z.string().max(1000), status: z.string() }).partial().strict().parse(req.body);
+    const b = z.object({ name: z.string().trim().min(2).max(120), description: z.string().max(1000), status: z.string(), clientVisible: z.boolean() }).partial().strict().parse(req.body);
+    if (b.clientVisible !== undefined) await auditVisibility(m.projectId, req.actor.userId, "module", m.id, m.clientVisible, b.clientVisible);
     const { status, ...rest } = b;
     if (Object.keys(rest).length) await db.update(sdProjectModules).set(rest).where(eq(sdProjectModules.id, m.id));
     if (status) await setModuleStatus(m.id, req.actor.userId, status);
@@ -129,6 +131,7 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
   app.patch("/api/desk/projects/:id/payments/:iid", ...auth, mgr, wrap(async (req, res) => {
     const x = await itemOr404<typeof sdProjectPayments.$inferSelect>(req, res, sdProjectPayments); if (!x) return;
     const b = payBody.partial().strict().parse(req.body);
+    if (b.gateId) { const { sdProjectGates } = await import("@shared/schema"); const [g] = await db.select().from(sdProjectGates).where(and(eq(sdProjectGates.id, b.gateId), eq(sdProjectGates.projectId, x.projectId))); if (!g) throw new TicketError("Gate inválido"); }
     const set: any = { ...b }; if (b.amount !== undefined) set.amount = String(b.amount);
     if (b.clientVisible !== undefined) await auditVisibility(x.projectId, req.actor.userId, "payment", x.id, x.clientVisible, b.clientVisible);
     await db.update(sdProjectPayments).set(set).where(eq(sdProjectPayments.id, x.id)); res.json({ ok: true });
@@ -205,7 +208,7 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
     const b = impBody.extend({ name: z.string().trim().min(3).max(200), solutionType: z.string().trim().max(60).default(""), pauseSla: z.boolean().default(true) }).parse(req.body);
     if (!(await visibleAccountIds(req.actor)).includes(b.accountId)) return void res.status(404).json({ message: "No encontrado" });
     const r = await importSchedule(b, req.actor.userId);
-    if (b.pauseSla) await (await import("./projectItemService")).pauseSlaForProject(b.accountId);
+    if (b.pauseSla) await (await import("./projectItemService")).pauseSlaForProject(b.accountId, r.id);
     res.status(201).json(r);
   }));
 }

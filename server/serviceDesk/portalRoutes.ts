@@ -312,7 +312,7 @@ export function registerPortalRoutes(app: Express) {
   // Module catalog of the customer's accounts: feeds the "module" field of the ticket form.
   app.get("/api/portal/modules", portalAuth, handle(async (req, res) => {
     const ids = Array.from(new Set(req.contacts.map((c) => c.accountId)));
-    const out = []; for (const id of ids) out.push(...(await moduleCatalog(id)).map((m) => ({ accountId: id, code: m.code, name: m.name, status: m.status })));
+    const out = []; for (const id of ids) out.push(...(await moduleCatalog(id, { clientOnly: true })).map((m) => ({ accountId: id, code: m.code, name: m.name, status: m.status })));
     res.json(out);
   }));
 }

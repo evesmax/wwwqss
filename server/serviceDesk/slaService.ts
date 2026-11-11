@@ -52,6 +52,8 @@ export type TicketSlaView = { policy: { id: number; name: string } | null; appli
 // During parallel/hypercare the policy is configurable: "best_effort" (default) keeps tickets out of SLA compliance; "own" measures them.
 async function parallelBestEffort() { const [r] = await db.select().from(sdSettings).where(eq(sdSettings.key, "project.parallelSla")); return (r?.value != null ? String(r.value) : "best_effort") !== "own"; }
 
+import { lifecycleAt, type LifecycleEntry } from "./projectItemRules";
+
 export async function computeForTicket(ticketId: number, now = new Date()): Promise<TicketSlaView | null> {
   const [t] = await db.select().from(sdTickets).where(eq(sdTickets.id, ticketId));
   if (!t) return null;
@@ -59,19 +61,20 @@ export async function computeForTicket(ticketId: number, now = new Date()): Prom
   const events: SlaEvent[] = evs.map((e) => ({ at: e.at, kind: e.kind, actorType: e.actorType, detail: (e.detail ?? {}) as Record<string, unknown> }));
   const contracts = t.productId
     ? await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, t.accountId), eq(sdContracts.productId, t.productId), eq(sdContracts.active, true)))
-    : [];
+    : await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, t.accountId), eq(sdContracts.active, true))).orderBy(asc(sdContracts.id)).limit(1);
   const contract = contracts[0];
   const policies = (await db.select().from(sdSlaPolicies).where(eq(sdSlaPolicies.active, true)).orderBy(asc(sdSlaPolicies.position), asc(sdSlaPolicies.id))).map(toPolicy);
   const pol = selectPolicy(policies, { type: t.type, severity: t.severity, accountId: t.accountId, productId: t.productId, plan: contract?.plan ?? null });
   if (!pol) return { policy: null, applicable: false, excludedReason: null, metrics: [] };
   const cal = await buildCalendar(pol.calendarKind, t.accountId, t.createdAt.getFullYear() - 1, now.getFullYear() + 1);
-  const lifecycleOff = !!contract && (contract.lifecycle === "discovery" || contract.lifecycle === "implementation" || (contract.lifecycle === "parallel" && (await parallelBestEffort())));
+  const lc = contract ? lifecycleAt((contract.lifecycleLog as LifecycleEntry[]) ?? [], contract.lifecycle, t.createdAt) : "operation";
+  const lifecycleOff = lc === "discovery" || lc === "implementation" || (lc === "parallel" && (await parallelBestEffort()));
   const beforeActive = (!!contract?.slaActiveFrom && t.createdAt < contract.slaActiveFrom) || lifecycleOff;
   const r = computeTicketSla({
     ticket: { type: t.type, severity: t.severity, slaApplicable: t.slaApplicable && !beforeActive, createdAt: t.createdAt },
     events, policy: pol, calendar: cal, now,
   });
-  return { policy: { id: pol.id, name: pol.name }, applicable: r.applicable, excludedReason: t.slaExclusionReason ?? (lifecycleOff ? `lifecycle_${contract!.lifecycle}` : beforeActive ? "before_sla_start" : null), metrics: r.metrics };
+  return { policy: { id: pol.id, name: pol.name }, applicable: r.applicable, excludedReason: t.slaExclusionReason ?? (lifecycleOff ? `lifecycle_${lc}` : beforeActive ? "before_sla_start" : null), metrics: r.metrics };
 }
 
 export async function refreshTicketSla(ticketId: number, now = new Date(), opts: { alert?: boolean } = {}) {

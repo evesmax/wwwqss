@@ -228,6 +228,7 @@ export const sdContracts = pgTable("sd_contracts", {
   extraHourRate: numeric("extra_hour_rate"),
   extraCurrency: text("extra_currency").notNull().default("MXN"),
   lifecycle: text("lifecycle").notNull().default("operation"), // discovery | implementation | parallel | operation
+  lifecycleLog: jsonb("lifecycle_log").notNull().default([]), // [{lifecycle, from}] so SLA is decided by each ticket's creation time
   active: boolean("active").notNull().default(true),
 });
 
@@ -571,6 +572,7 @@ export const sdProjects = pgTable("sd_projects", {
   baselineVersion: integer("baseline_version").notNull().default(0),
   baselineApprovedAt: timestamp("baseline_approved_at"),
   handoffAt: timestamp("handoff_at"),
+  pausesSla: boolean("pauses_sla").notNull().default(false),
   createdBy: integer("created_by"),
   createdAt: ts("created_at"),
 });
@@ -701,6 +703,7 @@ export const sdProjectModules = pgTable("sd_project_modules", {
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   status: text("status").notNull().default("planned"), // planned | in_dev | uat | released
+  clientVisible: boolean("client_visible").notNull().default(true),
   releasedAt: timestamp("released_at"),
 }, (t) => ({ uq: unique("sd_project_modules_code").on(t.projectId, t.code) }));
 export const sdProjectPayments = pgTable("sd_project_payments", {

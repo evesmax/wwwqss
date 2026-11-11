@@ -10,6 +10,8 @@ export const DOC_STATUSES = ["pendiente", "parcial", "recibido", "validado", "re
 export const DOC_PRIORITIES = ["A", "B"] as const;
 const OUTSTANDING = ["pendiente", "parcial", "rechazado"];
 
+// Calendar date in America/Mexico_City (fixed UTC-6 since DST was abolished), the same clock as `today` in the tick.
+export const mxDate = (d: Date) => new Date(d.getTime() - 6 * 3600000).toISOString().slice(0, 10);
 export const docOverdue = (d: { status: string; dueDate: string }, today: string) => OUTSTANDING.includes(d.status) && d.dueDate < today;
 export const daysBetween = (a: string, b: string) => Math.round((toUtc(b) - toUtc(a)) / DAY);
 // Which reminder is due today: 2 days ahead, overdue, or escalate to the sponsor after `escalateAfter` days late.
@@ -73,4 +75,20 @@ export function nextCode(prefix: string, existing: string[]): string {
   let max = 0;
   for (const c of existing) { const m = new RegExp(`^${prefix}-(\\d+)$`).exec(c); if (m) max = Math.max(max, Number(m[1])); }
   return `${prefix}-${String(max + 1).padStart(2, "0")}`;
+}
+
+// ---------- contract lifecycle (RF-PRJ-16) ----------
+export type LifecycleEntry = { lifecycle: string; from: string };
+// The lifecycle in force when a ticket was created: SLA is decided per ticket, so a later change never revives or drops old tickets.
+export function lifecycleAt(log: LifecycleEntry[], current: string, at: Date): string {
+  if (!log.length) return current;
+  let r = log[0].lifecycle;
+  for (const e of log) if (new Date(e.from).getTime() <= at.getTime()) r = e.lifecycle;
+  return r;
+}
+// Account-level lifecycle after one project hands off or closes, given the other active projects that pause SLA.
+export function nextLifecycle(event: "handoff" | "close", others: { handedOff: boolean }[]): "implementation" | "parallel" | "operation" {
+  if (others.some((o) => !o.handedOff)) return "implementation";
+  if (others.length || event === "handoff") return "parallel";
+  return "operation";
 }

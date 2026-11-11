@@ -38,7 +38,7 @@ export async function collectReport(accountId: number, year: number, month: numb
   const te = ids.length ? await db.select({ m: sdTimeEntries.minutes }).from(sdTimeEntries).where(and(inArray(sdTimeEntries.ticketId, ids), eq(sdTimeEntries.billable, true), sql`${sdTimeEntries.workDate} >= ${firstDay} AND ${sdTimeEntries.workDate} <= ${lastDay}`)) : [];
   const contracts = await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, accountId), eq(sdContracts.active, true)));
   const banks = contracts.map((c) => c.hoursBank).filter((x): x is string => x != null).map(Number);
-  const mods = await db.select({ code: sdProjectModules.code, name: sdProjectModules.name, status: sdProjectModules.status, releasedAt: sdProjectModules.releasedAt }).from(sdProjectModules).innerJoin(sdProjects, eq(sdProjects.id, sdProjectModules.projectId)).where(eq(sdProjects.accountId, accountId));
+  const mods = await db.select({ code: sdProjectModules.code, name: sdProjectModules.name, status: sdProjectModules.status, releasedAt: sdProjectModules.releasedAt }).from(sdProjectModules).innerJoin(sdProjects, eq(sdProjects.id, sdProjectModules.projectId)).where(and(eq(sdProjects.accountId, accountId), eq(sdProjectModules.clientVisible, true)));
   const lifecycle = contracts.some((c) => c.lifecycle === "implementation" || c.lifecycle === "discovery") ? "implementation" : contracts.some((c) => c.lifecycle === "parallel") ? "parallel" : null;
   return buildReport({
     modules: mods, lifecycle,

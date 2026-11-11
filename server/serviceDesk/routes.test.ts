@@ -20,8 +20,10 @@ const contactIds: Record<string, number> = {};
 const TEST_EMAILS = ["c1@a.test", "c2@a.test", "adm@a.test", "cb@b.test"];
 
 async function api(who: string, method: string, path: string, body?: unknown) {
+  const t0 = Date.now(); if (process.env.TRACE_API) console.error(">>", method, path);
   const r = await fetch(base + path, { method, headers: { "content-type": "application/json", cookie: jars[who] ?? "" }, body: body ? JSON.stringify(body) : undefined });
   const text = await r.text();
+  if (process.env.TRACE_API) console.error("<<", r.status, Date.now() - t0, "ms");
   let parsed: any = null; try { parsed = text ? JSON.parse(text) : null; } catch { /* non-JSON body (CSV export) */ }
   return { status: r.status, body: parsed, raw: text };
 }
@@ -818,6 +820,7 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   assert.equal(det.tasks.find((t: any) => t.id === t11.id).blockedByClient, false); // delivered: unblocked
   assert.equal(det.docs.find((d: any) => d.id === d1.id).status, "recibido");
   assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/docs/${d1.id}`, { status: "validado" })).status, 200);
+  assert.equal((await papi("c1", "PATCH", `/api/portal/docs/${d1.id}`, { status: "parcial", files: ["otro"] })).status, 409); // the customer cannot regress a validated document
 
   // P-xx
   const p1 = (await api("owner", "POST", `/api/desk/projects/${pid}/decisions`, { question: "¿Formato de folio?", options: ["A", "B"], defaultDecision: "A", deadline: "2020-01-02" })).body;
@@ -827,6 +830,10 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   assert.equal((await papi("c1", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "MXN" })).status, 404); // only account_admin
   assert.equal((await papi("adm", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "USD" })).status, 200);
   assert.equal((await papi("adm", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "MXN" })).status, 409); // already decided
+  const p3 = (await api("owner", "POST", `/api/desk/projects/${pid}/decisions`, { question: "¿Sede de capacitación?", defaultDecision: "Cliente", deadline: "2099-02-02" })).body;
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/decisions/${p3.id}/decide`, { decision: "Proveedor" })).status, 400); // a proxy decision needs evidence
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/decisions/${p3.id}/decide`, { decision: "Proveedor", evidence: "Correo del director de TI del 10/11" })).status, 200);
+  assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_project_audit WHERE project_id = ${pid} AND action = 'decided_by_proxy'`)).rows as any[])[0].n), 1);
   assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/decisions/${p1.id}/accept-default`)).status, 200);
   det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
   const dd = det.decisions.find((d: any) => d.id === p1.id); assert.equal(dd.status, "defaulted"); assert.equal(dd.decision, "A");
@@ -865,7 +872,7 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   const pv = await papi("c1", "GET", `/api/portal/projects/${pid}`);
   assert.equal(pv.status, 200);
   assert.deepEqual(pv.body.risks.map((r: any) => r.code), ["R-02"]);
-  assert.ok(pv.body.docs.length === 2 && pv.body.decisions.length === 2 && pv.body.modules.length === 1);
+  assert.ok(pv.body.docs.length === 2 && pv.body.decisions.length === 3 && pv.body.modules.length === 1);
   assert.equal(pv.body.payments.length, 0);
   assert.ok(!pv.raw.includes("Rotación del equipo") && !pv.raw.includes("warnings") && !pv.raw.includes("payment_before_gate") && !pv.raw.includes("1000"));
   // visibility changes are audited (RF-PRJ-19)
@@ -874,6 +881,7 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_project_audit WHERE project_id = ${pid} AND action = 'visibility'`)).rows as any[])[0].n), 1);
 
   // handoff: signing the handoff gate starts the SLA; the close gate closes the project
+  await db.execute(sql`UPDATE sd_projects SET pauses_sla = false WHERE account_id = ${accA} AND id <> ${pid}`); // other test projects must not hold the account in implementation
   const gh = det.gates.find((g: any) => g.kind === "handoff"), gc = det.gates.find((g: any) => g.kind === "close");
   assert.equal(gh.code, "G6"); assert.equal(gc.code, "G8");
   assert.equal((await papi("adm", "POST", `/api/portal/gates/${gh.id}/signoff`, { result: "no_go", note: "aún no" })).status, 200);
@@ -882,14 +890,17 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   const after = await lc(); assert.equal(after.lifecycle, "parallel"); assert.ok(after.sla_active_from);
   assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.status, "parallel");
   const sla2 = (await api("owner", "GET", `/api/desk/tickets/${tk.id}/sla`)).body;
-  assert.equal(sla2.excludedReason, "lifecycle_parallel"); assert.ok(sla2.metrics.every((m: any) => m.state === "excluded")); // parallel = best effort by default
-  await db.execute(sql`INSERT INTO sd_settings (key, value) VALUES ('project.parallelSla', '"own"') ON CONFLICT (key) DO UPDATE SET value = '"own"'`);
+  assert.equal(sla2.excludedReason, "lifecycle_implementation"); assert.ok(sla2.metrics.every((m: any) => m.state === "excluded")); // created while implementing: stays out of SLA
   const tk2 = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, instanceId: inst.id, type: "incident", title: "TMPT en paralelo", severity: "P2", channel: "manual" })).body;
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${tk2.id}/sla`)).body.excludedReason, "lifecycle_parallel"); // parallel = best effort by default
+  await db.execute(sql`INSERT INTO sd_settings (key, value) VALUES ('project.parallelSla', '"own"') ON CONFLICT (key) DO UPDATE SET value = '"own"'`);
   const sla3 = (await api("owner", "GET", `/api/desk/tickets/${tk2.id}/sla`)).body; assert.equal(sla3.excludedReason, null); assert.ok(sla3.metrics.some((m: any) => m.state !== "excluded")); // own SLA during parallel
   await db.execute(sql`DELETE FROM sd_settings WHERE key = 'project.parallelSla'`);
   assert.equal((await papi("adm", "POST", `/api/portal/gates/${gc.id}/signoff`, { result: "go" })).status, 200);
   assert.equal((await lc()).lifecycle, "operation");
   assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.status, "closed");
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${tk.id}/sla`)).body.excludedReason, "lifecycle_implementation"); // closing the project does not revive tickets from the implementation era
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${tk2.id}/sla`)).body.excludedReason, "lifecycle_parallel"); // created during best-effort parallel: not revived either
 
   // tick: reminders run without error (SMTP is not configured in tests: nothing is sent) and escalate overdue docs once
   const tick = await api("owner", "POST", "/api/internal/sla/tick", {});
@@ -897,6 +908,11 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   const { projectTick } = await import("./projectItemService");
   await projectTick();
 });
+
+async function generateCutBefore(pid: number) {
+  const { generateCut } = await import("./projectP2bService");
+  try { await generateCut(pid, null, "2020-01-01"); return 200; } catch (e: any) { return e.status ?? 500; }
+}
 
 test("project P2b: change control, status cuts, schedule importer, CSV export", { skip: !run }, async () => {
   const { db } = await import("../db");
@@ -946,6 +962,30 @@ test("project P2b: change control, status cuts, schedule importer, CSV export", 
   assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch2.id}/apply`)).status, 409);
   assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.baselineVersion, det.project.baselineVersion);
 
+  // concurrency: a double click on "Aprobar" applies the change once; parallel date edits each leave their own revision
+  const ch3 = (await api("owner", "POST", `/api/desk/projects/${pid}/changes`, { title: "Cambio con doble clic", daysImpact: 1, taskSpec: { name: "Tarea doble clic" } })).body;
+  await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch3.id}/propose`);
+  const vBefore = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.baselineVersion;
+  const dbl = await Promise.all([1, 2].map(() => papi("adm", "POST", `/api/portal/changes/${ch3.id}/decide`, { decision: "approve" })));
+  assert.deepEqual(dbl.map((x) => x.status).sort(), [200, 409]);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(det.tasks.filter((t: any) => t.code === ch3.code).length, 1);
+  assert.equal(det.project.baselineVersion, vBefore + 1);
+  const t01 = det.tasks.find((t: any) => t.code === "0.1");
+  const par = await Promise.all([3, 4].map((days) => api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { days, reason: `edición paralela ${days}`, origin: "qss" })));
+  assert.ok(par.every((x) => x.status === 200), JSON.stringify(par.map((x) => x.body)));
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(det.project.baselineVersion, vBefore + 3);
+  assert.equal(new Set(det.revisions.map((r: any) => r.version)).size, det.revisions.length); // distinct versions, one revision per change
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { clientVisible: false });
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t01.id}`, { clientVisible: true });
+  assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_project_audit WHERE project_id = ${pid} AND entity = 'task' AND action = 'visibility'`)).rows as any[])[0].n), 2);
+  const hid = det.tasks.find((t: any) => t.code === "1.1");
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${hid.id}`, { clientVisible: false });
+  const pvd = (await papi("c1", "GET", `/api/portal/projects/${pid}`)).body;
+  assert.ok(!pvd.tasks.some((t: any) => (t.deps as number[]).includes(hid.id))); // hidden task ids never leak as dependencies
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${hid.id}`, { clientVisible: true });
+
   // ---- status cuts ----
   const cut = await api("owner", "POST", `/api/desk/projects/${pid}/cuts`);
   assert.equal(cut.status, 201); assert.equal(cut.body.status, "draft");
@@ -963,6 +1003,7 @@ test("project P2b: change control, status cuts, schedule importer, CSV export", 
   const sent = await api("owner", "POST", `/api/desk/projects/${pid}/cuts/${cut.body.id}/send`);
   assert.equal(sent.status, 200); assert.ok(sent.body.recipients >= 1);
   const { cutTick } = await import("./projectP2bService");
+  assert.equal(await generateCutBefore(pid), 409); // a cut dated before the plan existed is refused
   const t1 = await cutTick(); const t2 = await cutTick(); assert.equal(t2.created, 0); assert.ok(t1.created >= 0);
 
   // ---- importer ----
@@ -988,6 +1029,12 @@ test("project P2b: change control, status cuts, schedule importer, CSV export", 
   assert.equal(d2.gates[0].date, "2026-11-05"); assert.ok(d2.warnings.some((w: any) => w.code === "phase_after_gate")); // the file's inconsistency is surfaced, not smoothed over
   assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_holidays WHERE account_id = ${accA} AND date = '2026-11-27'`)).rows as any[])[0].n), 1);
   assert.deepEqual((await papi("c1", "GET", "/api/portal/projects")).body.map((p: any) => p.id).includes(id2), false); // not visible until the plan is approved
+  // hidden/draft items never produce customer emails; placeholder modules are hidden from the customer
+  const { projectTick } = await import("./projectItemService");
+  await projectTick();
+  const rem = (await db.execute(sql`SELECT (SELECT count(*)::int FROM sd_project_docs WHERE project_id = ${id2} AND last_reminder IS NOT NULL) d, (SELECT count(*)::int FROM sd_project_decisions WHERE project_id = ${id2} AND (notified_at IS NOT NULL OR status <> 'open')) p`)).rows as any[];
+  assert.deepEqual([Number(rem[0].d), Number(rem[0].p)], [0, 0]); // the draft import's hidden overdue DOC/P were neither reminded nor auto-defaulted
+  assert.ok(!(await papi("c1", "GET", "/api/portal/modules")).body.some((m: any) => m.name.includes("importado")));
 
   // ---- CSV export ----
   const ex = await api("owner", "GET", `/api/desk/projects/${pid}/export.csv`);

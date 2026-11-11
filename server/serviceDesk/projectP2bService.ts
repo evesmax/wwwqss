@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { escapeHtml as esc } from "./emailTemplates";
 import { db } from "../db";
 import {
   sdHolidays, sdProjectChanges, sdProjectCuts, sdProjectDecisions, sdProjectDocs, sdProjectGates, sdProjectModules, sdProjectPayments, sdProjectPhases, sdProjectRisks, sdProjects, sdProjectTasks, sdContacts, users,
@@ -44,11 +45,12 @@ export async function proposeChange(id: number, userId: number) {
   const [c] = await db.select().from(sdProjectChanges).where(eq(sdProjectChanges.id, id));
   if (!c) throw new TicketError("No encontrado", 404);
   if (!changeNext(c.status, "propose")) throw new TicketError("El cambio ya fue propuesto", 409);
-  await db.update(sdProjectChanges).set({ status: "proposed", proposedAt: new Date() }).where(eq(sdProjectChanges.id, id));
+  const up = await db.update(sdProjectChanges).set({ status: "proposed", proposedAt: new Date() }).where(and(eq(sdProjectChanges.id, id), eq(sdProjectChanges.status, "draft"))).returning({ id: sdProjectChanges.id });
+  if (!up.length) throw new TicketError("El cambio ya fue propuesto", 409);
   await audit(c.projectId, userId, "change", id, "proposed", {});
   const [p] = await db.select().from(sdProjects).where(eq(sdProjects.id, c.projectId));
   const to = (await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, p.accountId), eq(sdContacts.role, "account_admin")))).map((x) => x.email);
-  if (to.length) await sendEmail({ to, subject: `Cambio ${c.code} por aprobar: ${c.title}`, html: `<p>Se propone un cambio al alcance del proyecto <b>${p.name}</b>: ${c.title}.</p><p>Impacto: ${c.daysImpact} día(s) hábiles y ${Number(c.costImpact).toLocaleString("es-MX")} ${c.currency}.</p><p><a href="${base()}/portal/project">Revisar y decidir en el portal</a></p>` }).catch(() => {});
+  if (to.length) await sendEmail({ to, subject: `Cambio ${c.code} por aprobar: ${c.title}`, html: `<p>Se propone un cambio al alcance del proyecto <b>${esc(p.name)}</b>: ${esc(c.title)}.</p><p>Impacto: ${c.daysImpact} día(s) hábiles y ${esc(Number(c.costImpact).toLocaleString("es-MX"))} ${esc(c.currency)}.</p><p><a href="${base()}/portal/project">Revisar y decidir en el portal</a></p>` }).catch(() => {});
 }
 // Only the customer's account_admin decides. Approval applies the change as a baseline revision; only approved changes move the plan.
 export async function decideChange(id: number, contactId: number, decision: "approve" | "reject", note: string) {
@@ -57,7 +59,8 @@ export async function decideChange(id: number, contactId: number, decision: "app
   const nxt = changeNext(c.status, decision);
   if (!nxt) throw new TicketError("El cambio no está pendiente de decisión", 409);
   if (decision === "reject" && !note.trim()) throw new TicketError("Indica el motivo del rechazo");
-  await db.update(sdProjectChanges).set({ status: nxt, decidedByContactId: contactId, decidedAt: new Date(), decisionNote: note.trim() }).where(eq(sdProjectChanges.id, id));
+  const claimed = await db.update(sdProjectChanges).set({ status: nxt, decidedByContactId: contactId, decidedAt: new Date(), decisionNote: note.trim() }).where(and(eq(sdProjectChanges.id, id), eq(sdProjectChanges.status, c.status))).returning({ id: sdProjectChanges.id });
+  if (!claimed.length) throw new TicketError("El cambio ya fue decidido", 409); // double click / concurrent decision
   await audit(c.projectId, null, "change", id, nxt, { contactId, note: note.trim() });
   if (nxt === "approved") await applyChange(id, null);
 }
@@ -65,7 +68,11 @@ export async function applyChange(id: number, userId: number | null) {
   const [c] = await db.select().from(sdProjectChanges).where(eq(sdProjectChanges.id, id));
   if (!c) throw new TicketError("No encontrado", 404);
   if (!changeNext(c.status, "apply")) throw new TicketError("Solo un cambio aprobado por el cliente puede aplicarse al plan", 409);
+  // claim approved -> applied first so two concurrent applies cannot both add the task; undo the claim if applying fails
+  const claim = await db.update(sdProjectChanges).set({ status: "applied", appliedAt: new Date() }).where(and(eq(sdProjectChanges.id, id), eq(sdProjectChanges.status, "approved"))).returning({ id: sdProjectChanges.id });
+  if (!claim.length) throw new TicketError("El cambio ya fue aplicado", 409);
   const spec = c.taskSpec as { name?: string; phaseId?: number | null } | null;
+  try {
   await scheduleChange(c.projectId, userId ?? 0, { reason: `Cambio ${c.code} aprobado por el cliente: ${c.title}`, origin: "customer" }, async () => {
     if (!spec?.name) return;
     const phases = await db.select().from(sdProjectPhases).where(eq(sdProjectPhases.projectId, c.projectId)).orderBy(asc(sdProjectPhases.position));
@@ -74,8 +81,9 @@ export async function applyChange(id: number, userId: number | null) {
     const [p] = await db.select().from(sdProjects).where(eq(sdProjects.id, c.projectId));
     await db.insert(sdProjectTasks).values({ projectId: c.projectId, phaseId: phase?.id ?? null, code: c.code, name: spec.name, days: Math.max(1, c.daysImpact), hours: c.hoursImpact, deps: [], startDate: p.startDate, endDate: p.startDate, position: n });
   });
+  } catch (e) { await db.update(sdProjectChanges).set({ status: "approved", appliedAt: null }).where(eq(sdProjectChanges.id, id)); throw e; }
   const [p] = await db.select().from(sdProjects).where(eq(sdProjects.id, c.projectId));
-  await db.update(sdProjectChanges).set({ status: "applied", appliedAt: new Date(), appliedBaselineVersion: p.baselineVersion }).where(eq(sdProjectChanges.id, id));
+  await db.update(sdProjectChanges).set({ appliedBaselineVersion: p.baselineVersion }).where(eq(sdProjectChanges.id, id));
   await audit(c.projectId, userId, "change", id, "applied", { baselineVersion: p.baselineVersion });
 }
 // A feature request in an account with an active plan becomes a draft change request (RF-PRJ-10). Idempotent per ticket.
@@ -116,6 +124,7 @@ export async function generateCut(projectId: number, userId: number | null, asOf
   const [p] = await db.select().from(sdProjects).where(eq(sdProjects.id, projectId));
   if (!p) throw new TicketError("No encontrado", 404);
   if (p.baselineVersion < 1) throw new TicketError("Aprueba el plan (línea base) antes de emitir cortes de estatus", 409);
+  if (p.baselineApprovedAt && asOf < new Date(p.baselineApprovedAt.getTime() - 6 * 3600000).toISOString().slice(0, 10)) throw new TicketError("La fecha del corte es anterior a la aprobación del plan", 409);
   const [ex] = await db.select().from(sdProjectCuts).where(and(eq(sdProjectCuts.projectId, projectId), eq(sdProjectCuts.cutDate, asOf)));
   if (ex && !force) return ex;
   if (ex && ex.status !== "draft") throw new TicketError("El corte de esa fecha ya fue aprobado: es inmutable", 409);
@@ -154,7 +163,7 @@ export async function cutTick(now = new Date()) {
     if (p.baselineVersion < 1) continue;
     const [ex] = await db.select({ id: sdProjectCuts.id }).from(sdProjectCuts).where(and(eq(sdProjectCuts.projectId, p.id), eq(sdProjectCuts.cutDate, date)));
     if (ex) continue;
-    await generateCut(p.id, null, date).then(() => { created++; }).catch((e) => console.error("cut:", e.message));
+    await generateCut(p.id, null, date).then(() => { created++; }).catch((e) => { if (!/anterior a la aprobaci/.test(e.message)) console.error("cut:", e.message); });
   }
   return { created, date };
 }
@@ -194,7 +203,7 @@ export async function importSchedule(i: { accountId: number; name: string; solut
   for (const code of need("doc")) { const t = r.tasks.find((x) => x.refs.doc.includes(code))!; const [d] = await db.insert(sdProjectDocs).values({ projectId: p.id, code, name: `${code} (importado — completar)`, dueDate: t.start, clientVisible: false }).returning(); docId.set(code, d.id); }
   for (const code of need("decision")) { const t = r.tasks.find((x) => x.refs.decision.includes(code))!; await db.insert(sdProjectDecisions).values({ projectId: p.id, code, question: `${code} (importado — completar la pregunta)`, defaultDecision: "Por definir", deadline: t.end, clientVisible: false }); }
   for (const code of need("risk")) await db.insert(sdProjectRisks).values({ projectId: p.id, code, title: `${code} (importado — completar)`, probability: 2, impact: 2 });
-  for (const code of need("module")) await db.insert(sdProjectModules).values({ projectId: p.id, code, name: `${code} (importado — completar)` });
+  for (const code of need("module")) await db.insert(sdProjectModules).values({ projectId: p.id, code, name: `${code} (importado — completar)`, clientVisible: false });
   let pos = 0;
   for (const t of r.tasks) {
     const asg = t.clientSide ? null : us.find((u) => norm(u.username) === norm(t.assignee));

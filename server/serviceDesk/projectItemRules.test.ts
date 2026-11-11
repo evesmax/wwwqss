@@ -61,3 +61,27 @@ test("document and code validation", () => {
   assert.equal(nextCode("DOC", ["DOC-01", "DOC-07", "DOC-3", "X-9"]), "DOC-08");
   assert.equal(nextCode("P", []), "P-01");
 });
+
+import { lifecycleAt, nextLifecycle, mxDate } from "./projectItemRules";
+test("Mexico City calendar day (a 19:00 local send is already the next UTC day)", () => {
+  assert.equal(mxDate(new Date("2026-11-12T01:00:00Z")), "2026-11-11");
+  assert.equal(mxDate(new Date("2026-11-11T05:59:00Z")), "2026-11-10");
+  assert.equal(mxDate(new Date("2026-11-11T06:00:00Z")), "2026-11-11");
+});
+test("lifecycle is decided by the ticket's creation time against the stored periods", () => {
+  const log = [{ lifecycle: "operation", from: "1970-01-01T00:00:00.000Z" }, { lifecycle: "implementation", from: "2026-11-01T00:00:00.000Z" }, { lifecycle: "parallel", from: "2026-12-01T00:00:00.000Z" }, { lifecycle: "operation", from: "2027-01-15T00:00:00.000Z" }];
+  assert.equal(lifecycleAt(log, "operation", new Date("2026-10-31T12:00:00Z")), "operation"); // tickets before the project keep their SLA
+  assert.equal(lifecycleAt(log, "operation", new Date("2026-11-20T12:00:00Z")), "implementation");
+  assert.equal(lifecycleAt(log, "operation", new Date("2026-12-05T12:00:00Z")), "parallel");
+  assert.equal(lifecycleAt(log, "operation", new Date("2027-02-01T12:00:00Z")), "operation"); // an implementation-era ticket is NOT revived later
+  assert.equal(lifecycleAt([], "operation", new Date()), "operation");
+  assert.equal(lifecycleAt([], "implementation", new Date()), "implementation"); // legacy row without a log
+});
+test("account lifecycle after a handoff/close depends on the other active projects", () => {
+  assert.equal(nextLifecycle("handoff", []), "parallel");
+  assert.equal(nextLifecycle("handoff", [{ handedOff: false }]), "implementation"); // another project is still implementing
+  assert.equal(nextLifecycle("handoff", [{ handedOff: true }]), "parallel");
+  assert.equal(nextLifecycle("close", []), "operation");
+  assert.equal(nextLifecycle("close", [{ handedOff: false }]), "implementation");
+  assert.equal(nextLifecycle("close", [{ handedOff: true }]), "parallel");
+});

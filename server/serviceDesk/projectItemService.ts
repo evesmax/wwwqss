@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "../db";
 import {
   sdContacts, sdContracts, sdProjectAudit, sdProjectDecisions, sdProjectDocs, sdProjectGates, sdProjectModules, sdProjectPayments, sdProjectRisks, sdProjects, sdProjectTasks, sdSettings, users,
@@ -6,7 +6,7 @@ import {
 import { TicketError } from "./ticketService";
 import { sendEmail } from "./emailService";
 import { recipients } from "./slaService";
-import { DOC_STATUSES, decisionState, docOverdue, docReminder, nextCode, paymentWarnings, resourceLoad, riskLevel, tasksBlockedByDocs, validateDoc, validateRisk } from "./projectItemRules";
+import { DOC_STATUSES, mxDate, nextLifecycle, decisionState, docOverdue, docReminder, nextCode, paymentWarnings, resourceLoad, riskLevel, tasksBlockedByDocs, validateDoc, validateRisk } from "./projectItemRules";
 import { holidaysFor } from "./projectService";
 
 const todayMx = () => new Date(Date.now() - 6 * 3600000).toISOString().slice(0, 10);
@@ -47,6 +47,7 @@ export async function updateDoc(docId: number, actor: { type: "user" | "contact"
   if (!d) throw new TicketError("No encontrado", 404);
   const set: any = { updatedAt: new Date() };
   if (actor.type === "contact") { // the customer only reports delivery; QSS validates
+    if (!["pendiente", "parcial", "rechazado"].includes(d.status)) throw new TicketError("El documento ya fue recibido o validado", 409);
     if (patch.status && !["parcial", "recibido"].includes(patch.status)) throw new TicketError("El cliente solo puede marcar el documento como parcial o recibido");
     if (patch.status === "recibido" && !(patch.files?.length || (d.files as string[]).length)) throw new TicketError("Indica el archivo o enlace entregado");
     if (patch.status) set.status = patch.status;
@@ -90,20 +91,24 @@ export async function createDecision(projectId: number, userId: number, i: { que
   await audit(projectId, userId, "decision", row.id, "create", { code: row.code });
   return row;
 }
-export async function decide(decisionId: number, actor: { type: "user" | "contact"; id: number }, decision: string, impact = "") {
+export async function decide(decisionId: number, actor: { type: "user" | "contact"; id: number }, decision: string, impact = "", evidence = "") {
+  if (actor.type === "user" && evidence.trim().length < 5) throw new TicketError("Indica la evidencia de la decisión del cliente (quién la comunicó y por qué medio)");
   const [d] = await db.select().from(sdProjectDecisions).where(eq(sdProjectDecisions.id, decisionId));
   if (!d) throw new TicketError("No encontrado", 404);
   if (d.status !== "open") throw new TicketError("La decisión ya fue tomada", 409);
   if (!(decision ?? "").trim()) throw new TicketError("Indica la decisión");
-  await db.update(sdProjectDecisions).set({ status: "decided", decision: decision.trim(), decidedAt: new Date(), decidedByContactId: actor.type === "contact" ? actor.id : null, impact: impact.trim() || d.impact }).where(eq(sdProjectDecisions.id, decisionId));
-  await audit(d.projectId, actor.type === "user" ? actor.id : null, "decision", d.id, "decided", { by: actor.type, decision: decision.trim() });
+  const claimed = await db.update(sdProjectDecisions).set({ status: "decided", decision: decision.trim(), decidedAt: new Date(), decidedByContactId: actor.type === "contact" ? actor.id : null, impact: impact.trim() || d.impact }).where(and(eq(sdProjectDecisions.id, decisionId), eq(sdProjectDecisions.status, "open"))).returning({ id: sdProjectDecisions.id });
+  if (!claimed.length) throw new TicketError("La decisión ya fue tomada", 409);
+  // a decision recorded by QSS is a proxy for the customer: it must say on what evidence (who/how the customer decided)
+  await audit(d.projectId, actor.type === "user" ? actor.id : null, "decision", d.id, actor.type === "user" ? "decided_by_proxy" : "decided", { by: actor.type, decision: decision.trim(), ...(evidence ? { evidence } : {}) });
 }
 // Records the acceptance of the default value once the deadline passed (traceable; only if the contract allows it).
 export async function acceptDefault(decisionId: number, userId: number | null, auto = false) {
   const [d] = await db.select().from(sdProjectDecisions).where(eq(sdProjectDecisions.id, decisionId));
   if (!d) throw new TicketError("No encontrado", 404);
   if (decisionState(d, todayMx()) !== "expired") throw new TicketError("La decisión aún no vence o ya fue tomada", 409);
-  await db.update(sdProjectDecisions).set({ status: "defaulted", decision: d.defaultDecision, decidedAt: new Date() }).where(eq(sdProjectDecisions.id, decisionId));
+  const claimed = await db.update(sdProjectDecisions).set({ status: "defaulted", decision: d.defaultDecision, decidedAt: new Date() }).where(and(eq(sdProjectDecisions.id, decisionId), eq(sdProjectDecisions.status, "open"))).returning({ id: sdProjectDecisions.id });
+  if (!claimed.length) throw new TicketError("La decisión ya fue tomada", 409);
   await audit(d.projectId, userId, "decision", d.id, "defaulted", { auto, decision: d.defaultDecision });
 }
 
@@ -138,9 +143,10 @@ export async function setModuleStatus(moduleId: number, userId: number, status: 
   await audit(m.projectId, userId, "module", m.id, "status", { from: m.status, to: status });
 }
 // The catalog of an account (all its non-closed projects) feeds the ticket "module" field and the monthly report.
-export async function moduleCatalog(accountId: number) {
-  return db.select({ code: sdProjectModules.code, name: sdProjectModules.name, status: sdProjectModules.status, releasedAt: sdProjectModules.releasedAt, projectId: sdProjectModules.projectId })
+export async function moduleCatalog(accountId: number, opts: { clientOnly?: boolean } = {}) {
+  const rows = await db.select({ clientVisible: sdProjectModules.clientVisible, code: sdProjectModules.code, name: sdProjectModules.name, status: sdProjectModules.status, releasedAt: sdProjectModules.releasedAt, projectId: sdProjectModules.projectId })
     .from(sdProjectModules).innerJoin(sdProjects, eq(sdProjects.id, sdProjectModules.projectId)).where(eq(sdProjects.accountId, accountId)).orderBy(asc(sdProjectModules.code));
+  return opts.clientOnly ? rows.filter((m) => m.clientVisible) : rows;
 }
 // Canonical name when the text matches a catalog module (by code or name, case-insensitive); otherwise unchanged.
 export async function canonicalModule(accountId: number, text: string): Promise<string> {
@@ -164,8 +170,25 @@ export async function createPayment(projectId: number, userId: number, i: { name
 }
 
 // ---------- handoff to operation (RF-PRJ-16) ----------
-export async function pauseSlaForProject(accountId: number) {
-  await db.update(sdContracts).set({ lifecycle: "implementation" }).where(and(eq(sdContracts.accountId, accountId), eq(sdContracts.active, true), eq(sdContracts.lifecycle, "operation")));
+// Moves the account's active contracts to a lifecycle and records the period, so SLA is decided by each ticket's creation time.
+export async function setLifecycle(accountId: number, lifecycle: string, at = new Date(), extra: { slaActiveFrom?: Date } = {}) {
+  const cs = await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, accountId), eq(sdContracts.active, true)));
+  for (const c of cs) {
+    if (c.lifecycle === lifecycle) continue;
+    const log = ((c.lifecycleLog as { lifecycle: string; from: string }[]) ?? []).slice();
+    if (!log.length) log.push({ lifecycle: c.lifecycle, from: "1970-01-01T00:00:00.000Z" });
+    log.push({ lifecycle, from: at.toISOString() });
+    await db.update(sdContracts).set({ lifecycle, lifecycleLog: log as any, ...extra }).where(eq(sdContracts.id, c.id));
+  }
+}
+export async function pauseSlaForProject(accountId: number, projectId: number) {
+  await db.update(sdProjects).set({ pausesSla: true }).where(eq(sdProjects.id, projectId));
+  await setLifecycle(accountId, "implementation");
+}
+// Other projects of the same account that still pause SLA decide whether this event can really move the account.
+async function lifecycleAfter(p: typeof sdProjects.$inferSelect, event: "handoff" | "close") {
+  const others = await db.select().from(sdProjects).where(and(eq(sdProjects.accountId, p.accountId), eq(sdProjects.pausesSla, true), ne(sdProjects.status, "closed"), ne(sdProjects.id, p.id)));
+  return nextLifecycle(event, others.map((o) => ({ handedOff: !!o.handoffAt })));
 }
 export async function applyGateEffects(gateId: number, userId: number | null) {
   const [g] = await db.select().from(sdProjectGates).where(eq(sdProjectGates.id, gateId));
@@ -174,12 +197,11 @@ export async function applyGateEffects(gateId: number, userId: number | null) {
   if (g.kind === "handoff") {
     const now = new Date();
     await db.update(sdProjects).set({ handoffAt: now, status: "parallel" }).where(eq(sdProjects.id, p.id));
-    const cs = await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, p.accountId), eq(sdContracts.active, true)));
-    for (const c of cs) await db.update(sdContracts).set({ lifecycle: "parallel", slaActiveFrom: c.slaActiveFrom && c.slaActiveFrom < now ? c.slaActiveFrom : now }).where(eq(sdContracts.id, c.id));
+    if (p.pausesSla) await setLifecycle(p.accountId, await lifecycleAfter(p, "handoff"), now, { slaActiveFrom: now });
     await audit(p.id, userId, "project", p.id, "handoff", { gate: g.code, slaActiveFrom: now.toISOString() });
   } else if (g.kind === "close") {
     await db.update(sdProjects).set({ status: "closed" }).where(eq(sdProjects.id, p.id));
-    await db.update(sdContracts).set({ lifecycle: "operation" }).where(and(eq(sdContracts.accountId, p.accountId), eq(sdContracts.active, true)));
+    if (p.pausesSla) await setLifecycle(p.accountId, await lifecycleAfter(p, "close"));
     await audit(p.id, userId, "project", p.id, "closed", { gate: g.code });
   }
 }
@@ -214,7 +236,7 @@ export async function loadItems(projectId: number, client: boolean) {
     return {
       docs: docs.filter((d) => d.clientVisible).map(docV), decisions: decisions.filter((d) => d.clientVisible).map(decV),
       risks: risks.filter((r) => r.shared).map((r) => ({ id: r.id, code: r.code, title: r.title, level: riskLevel(r.probability, r.impact), mitigation: r.mitigation, status: r.status })),
-      modules: modules.map((m) => ({ id: m.id, code: m.code, name: m.name, description: m.description, status: m.status, releasedAt: m.releasedAt })),
+      modules: modules.filter((m) => m.clientVisible).map((m) => ({ id: m.id, code: m.code, name: m.name, description: m.description, status: m.status, releasedAt: m.releasedAt })),
       payments: payments.filter((x) => x.clientVisible).map((x) => ({ id: x.id, name: x.name, amount: x.amount, currency: x.currency, dueDate: x.dueDate, status: x.status, deliverable: x.deliverable })),
       itemWarnings: [] as { code: string; message: string }[],
     };
@@ -238,12 +260,14 @@ export async function projectTick(now = new Date()) {
   const autoDefault = (await setting("project.autoDefaultDecisions", "false")) === "true";
   const escalateAfter = Number(await setting("project.docEscalateDays", "3")) || 3;
   for (const p of projects) {
-    if (p.status === "closed") continue;
+    if (p.status === "closed" || p.baselineVersion < 1) continue; // drafts are invisible to the customer: no customer emails about them
     const link = `${base()}/portal/project`;
     const docs = await db.select().from(sdProjectDocs).where(eq(sdProjectDocs.projectId, p.id));
     for (const d of docs) {
+      if (!d.clientVisible) continue; // hidden items never produce customer emails
       const kind = docReminder(d, today, escalateAfter);
-      if (!kind || d.lastReminder === kind && d.lastReminderAt && d.lastReminderAt.toISOString().slice(0, 10) === today) continue;
+      const sentToday = !!d.lastReminderAt && mxDate(d.lastReminderAt) === today; // Mexico City day, same clock as `today`
+      if (!kind || (d.lastReminder === kind && sentToday)) continue;
       if (kind === d.lastReminder && kind !== "overdue") continue; // "before" and "escalate" are sent once; "overdue" repeats daily
       const owner = d.ownerContactId ? (await db.select().from(sdContacts).where(eq(sdContacts.id, d.ownerContactId)))[0] : null;
       const sponsors = (await contactsOf(p.accountId, ["account_admin"])).map((c) => c.email);
@@ -259,11 +283,11 @@ export async function projectTick(now = new Date()) {
     const decs = await db.select().from(sdProjectDecisions).where(and(eq(sdProjectDecisions.projectId, p.id), eq(sdProjectDecisions.status, "open"), isNull(sdProjectDecisions.notifiedAt)));
     for (const d of decs) {
       if (decisionState(d, today) !== "expired") continue;
-      const to = Array.from(new Set([...(await contactsOf(p.accountId, ["account_admin"])).map((c) => c.email), ...(await recipients(p.accountId, null, ["manager"]))]));
+      const to = Array.from(new Set([...(d.clientVisible ? (await contactsOf(p.accountId, ["account_admin"])).map((c) => c.email) : []), ...(await recipients(p.accountId, null, ["manager"]))]));
       if (to.length) await sendEmail({ to, subject: `Decisión vencida: ${d.code}`, html: `<p>${esc(d.question)}</p><p>Venció el ${esc(d.deadline)}. Valor por defecto: <b>${esc(d.defaultDecision)}</b>.</p><p><a href="${link}">Ver en el portal</a></p>` });
       await db.update(sdProjectDecisions).set({ notifiedAt: now }).where(eq(sdProjectDecisions.id, d.id));
       out.decisions++;
-      if (autoDefault) { await acceptDefault(d.id, null, true); out.defaulted++; }
+      if (autoDefault && d.clientVisible) { await acceptDefault(d.id, null, true); out.defaulted++; } // never auto-accept a default the customer could not see
     }
   }
   return out;

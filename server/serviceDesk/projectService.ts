@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { sdGateSignoffs, sdHolidays, sdProjectBaselines, sdProjectGates, sdProjectPhases, sdProjects, sdProjectTasks } from "@shared/schema";
 import { mxOfficialHolidays } from "./slaCalendar";
@@ -103,10 +103,18 @@ export async function scheduleChange(projectId: number, userId: number, rev: Rev
   // (cycle, bad dependency) must restore the previous rows instead of leaving a half-applied change.
   const prevTasks = await db.select().from(sdProjectTasks).where(eq(sdProjectTasks.projectId, projectId));
   const prevGates = await db.select().from(sdProjectGates).where(eq(sdProjectGates.projectId, projectId));
+  let bumped = false;
   try {
     await apply();
     await reschedule(projectId);
+    if (p.baselineVersion >= 1) {
+      // atomic version allocation: concurrent edits get distinct versions and each one leaves its revision
+      const [u] = await db.update(sdProjects).set({ baselineVersion: sql`${sdProjects.baselineVersion} + 1` }).where(eq(sdProjects.id, projectId)).returning({ v: sdProjects.baselineVersion });
+      bumped = true;
+      await db.insert(sdProjectBaselines).values({ projectId, version: u.v, reason: rev!.reason.trim(), origin: rev!.origin, approvedBy: userId, snapshot: await snapshot(projectId) });
+    }
   } catch (e) {
+    if (bumped) await db.update(sdProjects).set({ baselineVersion: sql`${sdProjects.baselineVersion} - 1` }).where(eq(sdProjects.id, projectId));
     const nowTasks = await db.select({ id: sdProjectTasks.id }).from(sdProjectTasks).where(eq(sdProjectTasks.projectId, projectId));
     const keep = new Set(prevTasks.map((t) => t.id));
     for (const t of nowTasks) if (!keep.has(t.id)) await db.delete(sdProjectTasks).where(eq(sdProjectTasks.id, t.id));
@@ -117,11 +125,6 @@ export async function scheduleChange(projectId: number, userId: number, rev: Rev
     }
     for (const g of prevGates) await db.update(sdProjectGates).set(g).where(eq(sdProjectGates.id, g.id));
     throw e;
-  }
-  if (p.baselineVersion >= 1) {
-    const v = p.baselineVersion + 1;
-    await db.insert(sdProjectBaselines).values({ projectId, version: v, reason: rev!.reason.trim(), origin: rev!.origin, approvedBy: userId, snapshot: await snapshot(projectId) });
-    await db.update(sdProjects).set({ baselineVersion: v }).where(eq(sdProjects.id, projectId));
   }
 }
 
@@ -151,11 +154,11 @@ export async function loadProject(projectId: number, opt: { client: boolean }) {
     holidays: Array.from(hol).filter((d) => d >= p.startDate).sort().slice(0, 60),
   };
   if (opt.client) { // customer view: only visible items; never hours, internal notes, assignees' identities beyond "QSS/cliente", or warnings
-    tasks = tasks.filter((t) => t.clientVisible); gates = gates.filter((g) => g.clientVisible);
+    tasks = tasks.filter((t) => t.clientVisible); const visibleIds = new Set(tasks.map((t) => t.id)); gates = gates.filter((g) => g.clientVisible);
     return {
       ...view, progress: { actual: prog.actual, planned: prog.planned, status, blockedByClient: prog.blockedByClient, asOf: today },
       phases: phases.map((ph) => ({ id: ph.id, code: ph.code, name: ph.name })),
-      tasks: tasks.map((t) => ({ id: t.id, phaseId: t.phaseId, code: t.code, name: t.name, kind: t.kind, start: t.startDate, end: t.endDate, pct: t.pct, owner: t.clientSide ? "cliente" : "qss", blockedByClient: t.blockedByClient, deps: t.deps, baseline: base.get(t.id) ? { start: base.get(t.id)!.start, end: base.get(t.id)!.end } : null })),
+      tasks: tasks.map((t) => ({ id: t.id, phaseId: t.phaseId, code: t.code, name: t.name, kind: t.kind, start: t.startDate, end: t.endDate, pct: t.pct, owner: t.clientSide ? "cliente" : "qss", blockedByClient: t.blockedByClient, deps: (t.deps as number[]).filter((d) => visibleIds.has(d)), baseline: base.get(t.id) ? { start: base.get(t.id)!.start, end: base.get(t.id)!.end } : null })),
       gates: gates.map((g) => ({ id: g.id, phaseId: g.phaseId, code: g.code, name: g.name, date: g.date, criteria: g.criteria, status: g.status, result: g.result, signedAt: g.signedAt })),
       revisions: baselines.map((b) => ({ version: b.version, reason: b.reason, origin: b.origin, approvedAt: b.approvedAt })),
     };
@@ -174,8 +177,10 @@ export async function signGate(gateId: number, signer: { type: "contact" | "user
   if (g.status === "signed") throw new TicketError("El gate ya fue firmado", 409);
   const fingerprint = signoffHash({ gateId, criteria: g.criteria as string[], evidence: g.evidence as string[] });
   await db.transaction(async (tx) => {
+    // conditional claim: a double click / concurrent sign-off cannot sign (and trigger the gate effects) twice
+    const claimed = await tx.update(sdProjectGates).set(result === "no_go" ? { result, status: "open" } : { result, status: "signed", signedAt: new Date() }).where(and(eq(sdProjectGates.id, gateId), ne(sdProjectGates.status, "signed"))).returning({ id: sdProjectGates.id });
+    if (!claimed.length) throw new TicketError("El gate ya fue firmado", 409);
     await tx.insert(sdGateSignoffs).values({ gateId, signerType: signer.type, signerId: signer.id, result, note: note.trim(), ip, fingerprint });
-    await tx.update(sdProjectGates).set(result === "no_go" ? { result, status: "open" } : { result, status: "signed", signedAt: new Date() }).where(eq(sdProjectGates.id, gateId));
   });
   return { fingerprint };
 }
