@@ -220,6 +220,35 @@ const STATEMENTS: string[] = [
      result text NOT NULL, note text NOT NULL DEFAULT '', ip text NOT NULL DEFAULT '', fingerprint text NOT NULL, at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `ALTER TABLE sd_project_tasks ADD COLUMN IF NOT EXISTS client_side boolean NOT NULL DEFAULT false`,
   `CREATE INDEX IF NOT EXISTS idx_sd_project_tasks_project ON sd_project_tasks(project_id)`,
+  `ALTER TABLE sd_contracts ADD COLUMN IF NOT EXISTS lifecycle text NOT NULL DEFAULT 'operation'`,
+  `ALTER TABLE sd_projects ADD COLUMN IF NOT EXISTS handoff_at timestamp`,
+  `ALTER TABLE sd_project_tasks ADD COLUMN IF NOT EXISTS doc_ids jsonb NOT NULL DEFAULT '[]'`,
+  `ALTER TABLE sd_project_gates ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'normal'`,
+  `CREATE TABLE IF NOT EXISTS sd_project_docs (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, code text NOT NULL, name text NOT NULL, priority text NOT NULL DEFAULT 'A',
+     due_date text NOT NULL, status text NOT NULL DEFAULT 'pendiente', owner_contact_id integer REFERENCES sd_contacts(id) ON DELETE SET NULL, files jsonb NOT NULL DEFAULT '[]',
+     comments jsonb NOT NULL DEFAULT '[]', client_visible boolean NOT NULL DEFAULT true, last_reminder text, last_reminder_at timestamp,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (project_id, code))`,
+  `CREATE TABLE IF NOT EXISTS sd_project_decisions (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, code text NOT NULL, question text NOT NULL, options jsonb NOT NULL DEFAULT '[]',
+     default_decision text NOT NULL DEFAULT '', deadline text NOT NULL, decider text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'open', decision text, decided_at timestamp,
+     decided_by_contact_id integer, impact text NOT NULL DEFAULT '', client_visible boolean NOT NULL DEFAULT true, notified_at timestamp,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (project_id, code))`,
+  `CREATE TABLE IF NOT EXISTS sd_project_risks (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, code text NOT NULL, title text NOT NULL, probability integer NOT NULL DEFAULT 2,
+     impact integer NOT NULL DEFAULT 2, owner_user_id integer REFERENCES users(id) ON DELETE SET NULL, mitigation text NOT NULL DEFAULT '', trigger_text text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'open', task_ids jsonb NOT NULL DEFAULT '[]', shared boolean NOT NULL DEFAULT false, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (project_id, code))`,
+  `CREATE TABLE IF NOT EXISTS sd_project_modules (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, code text NOT NULL, name text NOT NULL, description text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'planned', released_at timestamp, UNIQUE (project_id, code))`,
+  `CREATE TABLE IF NOT EXISTS sd_project_payments (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, name text NOT NULL, amount numeric NOT NULL DEFAULT 0, currency text NOT NULL DEFAULT 'MXN',
+     due_date text NOT NULL, gate_id integer REFERENCES sd_project_gates(id) ON DELETE SET NULL, deliverable text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'pending',
+     client_visible boolean NOT NULL DEFAULT false)`,
+  `CREATE TABLE IF NOT EXISTS sd_project_audit (
+     id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, user_id integer, entity text NOT NULL, entity_id integer, action text NOT NULL,
+     detail jsonb NOT NULL DEFAULT '{}', at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_project_audit_project ON sd_project_audit(project_id)`,
 ];
 
 export async function ensureServiceDeskSchema() {

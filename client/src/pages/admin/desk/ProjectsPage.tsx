@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import GanttChart from "./GanttChart";
+import ProjectItems from "./ProjectItems";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const btn = "px-3 py-1.5 rounded-lg text-sm";
@@ -73,6 +74,7 @@ export default function ProjectsPage() {
             <div className="bg-white border rounded-xl p-4 text-sm space-y-2"><b>Gates</b>
               {sel.gates.map((g: any) => <div key={g.id} className="border rounded-lg p-2 text-xs"><b>{g.code}</b> {g.name} · {g.date} · {g.status === "signed" ? <span className="text-green-700">firmado ({g.result})</span> : g.result === "no_go" ? <span className="text-red-700">No Go del cliente</span> : "abierto"}
                 <div className="text-gray-500">Criterios: {(g.criteria as string[]).join("; ") || "—"}</div></div>)}</div>
+            <ProjectItems d={sel} run={run} />
             {sel.revisions.length > 0 && <div className="bg-white border rounded-xl p-4 text-xs space-y-1"><b className="text-sm">Revisiones de la línea base</b>
               {sel.revisions.map((r: any) => <p key={r.version}>v{r.version} · {ORIG[r.origin]} · {r.reason}</p>)}</div>}
           </>)}

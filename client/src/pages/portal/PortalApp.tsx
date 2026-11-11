@@ -79,15 +79,18 @@ function TicketList({ me }: { me: any }) {
 }
 
 function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; onCreated: () => void }) {
-  const [f, setF] = useState<any>({ accountId: me.accounts[0]?.id, type: "incident", title: "", description: "", perceivedSeverity: "", instanceId: "" });
+  const [f, setF] = useState<any>({ accountId: me.accounts[0]?.id, type: "incident", title: "", description: "", perceivedSeverity: "", instanceId: "", moduleArea: "" });
   const [err, setErr] = useState("");
+  const [mods, setMods] = useState<any[]>([]);
+  useEffect(() => { apiRequest("GET", "/api/portal/modules").then((r) => r.json()).then(setMods).catch(() => {}); }, []);
+  const accMods = mods.filter((m) => m.accountId === Number(f.accountId));
   const acc = me.accounts.find((a: any) => a.id === Number(f.accountId));
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr("");
     try {
       await apiRequest("POST", "/api/portal/tickets", { accountId: Number(f.accountId), type: f.type, title: f.title, description: f.description,
-        perceivedSeverity: f.type === "incident" && f.perceivedSeverity ? f.perceivedSeverity : null, instanceId: f.instanceId ? Number(f.instanceId) : null });
+        perceivedSeverity: f.type === "incident" && f.perceivedSeverity ? f.perceivedSeverity : null, instanceId: f.instanceId ? Number(f.instanceId) : null, moduleArea: f.moduleArea });
       onCreated();
     } catch (e) { setErr(errMsg(e, "No se pudo crear el ticket")); }
   };
@@ -98,6 +101,7 @@ function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; o
         {me.accounts.length > 1 && <select className={inp} value={f.accountId} onChange={set("accountId")}>{me.accounts.map((a: any) => <option key={a.id} value={a.id}>{a.cliente}</option>)}</select>}
         <select className={inp} value={f.type} onChange={set("type")}>{["incident", "service_request", "feature_request", "question"].map((k) => <option key={k} value={k}>{TYPE_LABEL[k]}</option>)}</select>
         {acc?.instances.length > 0 && <select className={inp} value={f.instanceId} onChange={set("instanceId")}><option value="">¿En qué sistema? (opcional)</option>{acc.instances.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>}
+        {accMods.length > 0 && <select className={inp} value={f.moduleArea} onChange={set("moduleArea")}><option value="">¿Qué módulo? (opcional)</option>{accMods.map((m: any) => <option key={m.code} value={m.name}>{m.name}</option>)}</select>}
         <input className={inp} required minLength={3} placeholder="Resumen del problema o solicitud" value={f.title} onChange={set("title")} />
         <textarea className={inp} rows={5} placeholder="Describe qué ocurre, pasos para reproducirlo y a cuántas personas afecta" value={f.description} onChange={set("description")} />
         {f.type === "incident" && <label className="block text-sm">¿Qué tan grave es para ti?
@@ -227,6 +231,34 @@ function Features() {
 }
 
 const PST: Record<string, { t: string; c: string }> = { on_track: { t: "En tiempo", c: "bg-green-100 text-green-800" }, at_risk: { t: "En riesgo", c: "bg-amber-100 text-amber-800" }, late: { t: "Atrasado", c: "bg-red-100 text-red-800" } };
+const ERR = (e: any, dflt: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? dflt; } catch { return dflt; } };
+const MOD_LBL: Record<string, string> = { planned: "Planeado", in_dev: "En desarrollo", uat: "En UAT", released: "Liberado" };
+// Customer view of the project objects: documents to deliver, decisions, risks shared with them, modules and (if shared) payments.
+function ProjectItemsPortal({ d, reload }: { d: any; reload: () => Promise<void> }) {
+  const [msg, setMsg] = useState("");
+  const [link, setLink] = useState<Record<number, string>>({});
+  const [dec, setDec] = useState<Record<number, string>>({});
+  const act = async (fn: () => Promise<any>) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(ERR(e, "No se pudo completar")); } };
+  const open = (d.docs ?? []).filter((x: any) => !["recibido", "validado"].includes(x.status));
+  return (<>
+    {msg && <div className="text-sm p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">{msg}</div>}
+    {(d.docs ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm space-y-2"><b>Documentos solicitados</b>
+      {d.docs.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs space-y-1"><p><b>{x.code}</b> {x.name} · prioridad {x.priority} · fecha compromiso <span className={x.overdue ? "text-red-700 font-semibold" : ""}>{x.dueDate}{x.overdue ? " (vencido)" : ""}</span> · <i>{x.status}</i></p>
+        {open.includes(x) && <div className="flex flex-wrap gap-2"><input className="border rounded-lg px-2 py-1 flex-1" placeholder="Enlace o nombre del archivo entregado" value={link[x.id] ?? ""} onChange={(e) => setLink({ ...link, [x.id]: e.target.value })} />
+          <button className="px-3 py-1 bg-green-600 text-white rounded-lg" onClick={() => act(() => apiRequest("PATCH", `/api/portal/docs/${x.id}`, { status: "recibido", files: [link[x.id] ?? ""].filter(Boolean) }))}>Ya lo entregué</button>
+          <button className="px-3 py-1 border rounded-lg" onClick={() => act(() => apiRequest("PATCH", `/api/portal/docs/${x.id}`, { status: "parcial", files: [link[x.id] ?? ""].filter(Boolean) }))}>Entrega parcial</button></div>}</div>)}</div>}
+    {(d.decisions ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm space-y-2"><b>Decisiones</b>
+      {d.decisions.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs space-y-1"><p><b>{x.code}</b> {x.question} · límite {x.deadline}</p>
+        {x.state === "decided" ? <p className="text-green-700">{x.status === "defaulted" ? "Se aplicó el valor por defecto" : "Decidido"}: {x.decision}</p> : <>
+          <p className="text-gray-600">Por defecto: {x.defaultDecision}{x.options.length > 0 && ` · opciones: ${x.options.join(", ")}`}{x.state === "expired" && <span className="text-red-700"> · vencida</span>}</p>
+          {d.canSign ? <div className="flex gap-2"><input className="border rounded-lg px-2 py-1 flex-1" placeholder="Tu decisión" value={dec[x.id] ?? ""} onChange={(e) => setDec({ ...dec, [x.id]: e.target.value })} />
+            <button className="px-3 py-1 bg-green-600 text-white rounded-lg" onClick={() => act(() => apiRequest("POST", `/api/portal/decisions/${x.id}/decide`, { decision: dec[x.id] ?? "" }))}>Decidir</button></div> : <p className="text-gray-500">La decisión la toma el administrador de la cuenta.</p>}</>}</div>)}</div>}
+    {(d.modules ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Módulos</b><ul className="mt-1 text-xs space-y-0.5">{d.modules.map((m: any) => <li key={m.id}>{m.code} · {m.name} — {MOD_LBL[m.status] ?? m.status}</li>)}</ul></div>}
+    {(d.risks ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Riesgos compartidos</b><ul className="mt-1 text-xs space-y-0.5">{d.risks.map((r: any) => <li key={r.id}>{r.code} · {r.title} ({r.level === "high" ? "alto" : r.level === "medium" ? "medio" : "bajo"}){r.mitigation && ` — ${r.mitigation}`}</li>)}</ul></div>}
+    {(d.payments ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Plan de pagos</b><ul className="mt-1 text-xs space-y-0.5">{d.payments.map((p: any) => <li key={p.id}>{p.name} · {Number(p.amount).toLocaleString("es-MX")} {p.currency} · {p.dueDate} — {p.status === "paid" ? "pagado" : p.status === "invoiced" ? "facturado" : "pendiente"}</li>)}</ul></div>}
+  </>);
+}
+
 function MyProject() {
   const [list, setList] = useState<any[] | null>(null);
   const [d, setD] = useState<any>(null);
@@ -263,6 +295,7 @@ function MyProject() {
               <button className="px-3 py-1.5 border rounded-lg" onClick={() => sign(g.id, "conditional")}>Go condicionado</button>
               <button className="px-3 py-1.5 border rounded-lg text-red-600" onClick={() => sign(g.id, "no_go")}>No Go</button></div>}</div>)}
           {!d.canSign && <p className="text-xs text-gray-500">La firma de compuertas la realiza el administrador de la cuenta.</p>}</div>
+        <ProjectItemsPortal d={d} reload={() => open(d.project.id)} />
         {d.revisions.length > 1 && <details className="text-xs text-gray-600"><summary>Cambios al plan</summary>{d.revisions.slice(1).map((r: any) => <p key={r.version}>v{r.version} · {r.reason}</p>)}</details>}
       </>}
     </div>);

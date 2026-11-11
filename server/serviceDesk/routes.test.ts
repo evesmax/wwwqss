@@ -777,3 +777,122 @@ test("projects: template, schedule, plan approval, baseline revisions, gate sign
   assert.equal(so.body.length, 1); assert.equal(so.body[0].signerType, "contact"); assert.ok(so.body[0].ip);
   assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/gates/${gA.id}`, { name: "x" })).status, 409); // signed gates are frozen
 });
+
+test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation, module catalog", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const sc = await import("@shared/schema");
+  const [inst] = await db.insert(sc.sdInstances).values({ accountId: accA, productId: ids.product, name: "TMPT ImplInst" }).returning();
+  const c = await api("owner", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT Items", startDate: "2026-11-09", template: "generic" });
+  assert.equal(c.status, 201); const pid = c.body.id;
+  const lc = async () => ((await db.execute(sql`SELECT lifecycle, sla_active_from FROM sd_contracts WHERE account_id = ${accA}`)).rows as any[])[0];
+  assert.equal((await lc()).lifecycle, "implementation"); // SLA paused while implementing
+  const tk = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, instanceId: inst.id, type: "incident", title: "TMPT durante implementación", severity: "P2", channel: "manual" })).body;
+  const sla1 = (await api("owner", "GET", `/api/desk/tickets/${tk.id}/sla`)).body;
+  assert.equal(sla1.excludedReason, "lifecycle_implementation"); assert.ok(sla1.metrics.length && sla1.metrics.every((m: any) => m.state === "excluded"));
+
+  // DOC-xx
+  assert.equal((await api("agentA", "POST", `/api/desk/projects/${pid}/docs`, { name: "Layout de facturas", priority: "A", dueDate: "2026-11-20" })).status, 403);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/docs`, { name: "Layout de facturas", priority: "Z", dueDate: "2026-11-20" })).status, 400);
+  const d1 = (await api("owner", "POST", `/api/desk/projects/${pid}/docs`, { name: "Layout de facturas", priority: "A", dueDate: "2020-01-02", ownerContactId: contactIds.c1 })).body;
+  const d2 = (await api("owner", "POST", `/api/desk/projects/${pid}/docs`, { name: "Catálogo de clientes", priority: "B", dueDate: "2099-01-02" })).body;
+  assert.equal(d1.code, "DOC-01"); assert.equal(d2.code, "DOC-02");
+  let det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  const t11 = det.tasks.find((t: any) => t.code === "1.1");
+  assert.equal((await api("owner", "PUT", `/api/desk/projects/${pid}/tasks/${t11.id}/docs`, { docIds: [d1.id] })).status, 200);
+  assert.equal((await api("owner", "PUT", `/api/desk/projects/${pid}/tasks/${t11.id}/docs`, { docIds: [999999999] })).status, 400);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(det.tasks.find((t: any) => t.id === t11.id).blockedByClient, true); // overdue doc blocks the task
+  assert.ok(det.warnings.some((w: any) => w.code === "doc_overdue"));
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/docs/${d1.id}`, { status: "rechazado" })).status, 400); // needs a reason
+  // the customer cannot see anything until the baseline is approved, so approve first
+  for (const t of det.tasks.filter((t: any) => !t.clientSide)) await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t.id}`, { assigneeUserId: (await api("owner", "GET", "/api/desk/agents")).body.find((u: any) => u.username.startsWith("tmpt_owner")).id });
+  const ap = await api("owner", "POST", `/api/desk/projects/${pid}/approve-plan`); assert.equal(ap.status, 200, JSON.stringify(ap.body));
+  await portalLogin("adm", "adm@a.test"); await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  assert.equal((await papi("cb", "PATCH", `/api/portal/docs/${d1.id}`, { status: "recibido", files: ["x"] })).status, 404);
+  assert.equal((await papi("c1", "PATCH", `/api/portal/docs/${d1.id}`, { status: "validado" })).status, 400); // customer cannot validate
+  assert.equal((await papi("c1", "PATCH", `/api/portal/docs/${d1.id}`, { status: "recibido" })).status, 400); // needs a file/link
+  assert.equal((await papi("c1", "PATCH", `/api/portal/docs/${d1.id}`, { status: "recibido", files: ["https://drive.example/layout.xlsx"], comment: "listo" })).status, 200);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(det.tasks.find((t: any) => t.id === t11.id).blockedByClient, false); // delivered: unblocked
+  assert.equal(det.docs.find((d: any) => d.id === d1.id).status, "recibido");
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/docs/${d1.id}`, { status: "validado" })).status, 200);
+
+  // P-xx
+  const p1 = (await api("owner", "POST", `/api/desk/projects/${pid}/decisions`, { question: "¿Formato de folio?", options: ["A", "B"], defaultDecision: "A", deadline: "2020-01-02" })).body;
+  const p2 = (await api("owner", "POST", `/api/desk/projects/${pid}/decisions`, { question: "¿Moneda base?", defaultDecision: "MXN", deadline: "2099-01-02" })).body;
+  assert.equal(p1.code, "P-01"); assert.equal(p2.code, "P-02");
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/decisions/${p2.id}/accept-default`)).status, 409); // not expired yet
+  assert.equal((await papi("c1", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "MXN" })).status, 404); // only account_admin
+  assert.equal((await papi("adm", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "USD" })).status, 200);
+  assert.equal((await papi("adm", "POST", `/api/portal/decisions/${p2.id}/decide`, { decision: "MXN" })).status, 409); // already decided
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/decisions/${p1.id}/accept-default`)).status, 200);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  const dd = det.decisions.find((d: any) => d.id === p1.id); assert.equal(dd.status, "defaulted"); assert.equal(dd.decision, "A");
+  assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_project_audit WHERE project_id = ${pid} AND action = 'defaulted'`)).rows as any[])[0].n), 1);
+
+  // R-xx
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/risks`, { title: "Riesgo X", probability: 4, impact: 1 })).status, 400);
+  const r1 = (await api("owner", "POST", `/api/desk/projects/${pid}/risks`, { title: "Rotación del equipo del cliente", probability: 3, impact: 3, mitigation: "Documentar", taskIds: [t11.id], shared: false })).body;
+  const r2 = (await api("owner", "POST", `/api/desk/projects/${pid}/risks`, { title: "Retraso de proveedor", probability: 1, impact: 1, shared: true, mitigation: "Seguimiento semanal" })).body;
+  assert.equal(r1.level, "high"); assert.equal(r2.code, "R-02");
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/risks`, { title: "Con tarea ajena", probability: 1, impact: 1, taskIds: [999999999] })).status, 400);
+
+  // MOD-xx
+  const m1 = (await api("owner", "POST", `/api/desk/projects/${pid}/modules`, { name: "Facturación" })).body; assert.equal(m1.code, "MOD-01");
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/modules/${m1.id}`, { status: "bogus" })).status, 400);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/modules/${m1.id}`, { status: "released" })).status, 200);
+  assert.deepEqual((await api("agentA", "GET", `/api/desk/accounts/${accA}/modules`)).body.map((m: any) => m.name), ["Facturación"]);
+  assert.equal((await api("agentA", "GET", `/api/desk/accounts/${accB}/modules`)).status, 404);
+  const tm = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "TMPT con módulo", channel: "manual", moduleArea: "facturación" })).body;
+  assert.equal((((await db.execute(sql`SELECT module_area FROM sd_tickets WHERE id = ${tm.id}`)).rows as any[])[0]).module_area, "Facturación"); // canonical name from the catalog
+  assert.deepEqual((await papi("c1", "GET", "/api/portal/modules")).body.map((m: any) => m.code), ["MOD-01"]);
+
+  // payments: internal; gate comparison only for QSS
+  const g0 = det.gates.find((g: any) => g.code === "G0");
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/payments`, { name: "Pago 1", amount: -5, dueDate: "2026-11-01" })).status, 400);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/payments`, { name: "Pago 1", amount: 1000, dueDate: "2000-01-01", gateId: g0.id, status: "paid" })).status, 201);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.ok(det.warnings.some((w: any) => w.code === "payment_before_gate"));
+  assert.equal(det.payments.length, 1);
+
+  // load per resource (internal)
+  const ld = await api("owner", "GET", `/api/desk/projects/${pid}/load`);
+  assert.equal(ld.status, 200); assert.ok(ld.body.rows.length > 0 && ld.body.capacity === 40);
+
+  // customer view: docs/decisions/modules yes; internal risks, payments, hours never
+  const pv = await papi("c1", "GET", `/api/portal/projects/${pid}`);
+  assert.equal(pv.status, 200);
+  assert.deepEqual(pv.body.risks.map((r: any) => r.code), ["R-02"]);
+  assert.ok(pv.body.docs.length === 2 && pv.body.decisions.length === 2 && pv.body.modules.length === 1);
+  assert.equal(pv.body.payments.length, 0);
+  assert.ok(!pv.raw.includes("Rotación del equipo") && !pv.raw.includes("warnings") && !pv.raw.includes("payment_before_gate") && !pv.raw.includes("1000"));
+  // visibility changes are audited (RF-PRJ-19)
+  await api("owner", "PATCH", `/api/desk/projects/${pid}/payments/${det.payments[0].id}`, { clientVisible: true });
+  assert.equal((await papi("c1", "GET", `/api/portal/projects/${pid}`)).body.payments.length, 1);
+  assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_project_audit WHERE project_id = ${pid} AND action = 'visibility'`)).rows as any[])[0].n), 1);
+
+  // handoff: signing the handoff gate starts the SLA; the close gate closes the project
+  const gh = det.gates.find((g: any) => g.kind === "handoff"), gc = det.gates.find((g: any) => g.kind === "close");
+  assert.equal(gh.code, "G6"); assert.equal(gc.code, "G8");
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gh.id}/signoff`, { result: "no_go", note: "aún no" })).status, 200);
+  assert.equal((await lc()).lifecycle, "implementation"); // No Go changes nothing
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gh.id}/signoff`, { result: "go" })).status, 200);
+  const after = await lc(); assert.equal(after.lifecycle, "parallel"); assert.ok(after.sla_active_from);
+  assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.status, "parallel");
+  const sla2 = (await api("owner", "GET", `/api/desk/tickets/${tk.id}/sla`)).body;
+  assert.equal(sla2.excludedReason, "lifecycle_parallel"); assert.ok(sla2.metrics.every((m: any) => m.state === "excluded")); // parallel = best effort by default
+  await db.execute(sql`INSERT INTO sd_settings (key, value) VALUES ('project.parallelSla', '"own"') ON CONFLICT (key) DO UPDATE SET value = '"own"'`);
+  const tk2 = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, instanceId: inst.id, type: "incident", title: "TMPT en paralelo", severity: "P2", channel: "manual" })).body;
+  const sla3 = (await api("owner", "GET", `/api/desk/tickets/${tk2.id}/sla`)).body; assert.equal(sla3.excludedReason, null); assert.ok(sla3.metrics.some((m: any) => m.state !== "excluded")); // own SLA during parallel
+  await db.execute(sql`DELETE FROM sd_settings WHERE key = 'project.parallelSla'`);
+  assert.equal((await papi("adm", "POST", `/api/portal/gates/${gc.id}/signoff`, { result: "go" })).status, 200);
+  assert.equal((await lc()).lifecycle, "operation");
+  assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.status, "closed");
+
+  // tick: reminders run without error (SMTP is not configured in tests: nothing is sent) and escalate overdue docs once
+  const tick = await api("owner", "POST", "/api/internal/sla/tick", {});
+  assert.ok([401, 404].includes(tick.status));
+  const { projectTick } = await import("./projectItemService");
+  await projectTick();
+});

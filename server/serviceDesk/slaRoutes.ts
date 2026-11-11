@@ -164,7 +164,8 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
       if (!(await verifyCronToken(String(req.headers["x-tick-token"] ?? "")))) return res.status(401).json({ message: "No autorizado" });
       const r = await slaTick();
       const f = await import("./featureService").then((m) => m.featureTick()).catch((e) => { console.error("feature tick:", e.message); return null; });
-      res.json({ ...r, features: f });
+      const pj = await import("./projectItemService").then((m) => m.projectTick()).catch((e) => { console.error("project tick:", e.message); return null; });
+      res.json({ ...r, features: f, projects: pj });
     } catch (e: any) { console.error("sla tick route error:", e.message); res.status(500).json({ message: "Error" }); }
   });
 }

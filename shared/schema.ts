@@ -227,6 +227,7 @@ export const sdContracts = pgTable("sd_contracts", {
   hoursBank: numeric("hours_bank"),
   extraHourRate: numeric("extra_hour_rate"),
   extraCurrency: text("extra_currency").notNull().default("MXN"),
+  lifecycle: text("lifecycle").notNull().default("operation"), // discovery | implementation | parallel | operation
   active: boolean("active").notNull().default(true),
 });
 
@@ -569,6 +570,7 @@ export const sdProjects = pgTable("sd_projects", {
   startDate: text("start_date").notNull(),
   baselineVersion: integer("baseline_version").notNull().default(0),
   baselineApprovedAt: timestamp("baseline_approved_at"),
+  handoffAt: timestamp("handoff_at"),
   createdBy: integer("created_by"),
   createdAt: ts("created_at"),
 });
@@ -600,6 +602,7 @@ export const sdProjectTasks = pgTable("sd_project_tasks", {
   clientVisible: boolean("client_visible").notNull().default(true),
   blockedByClient: boolean("blocked_by_client").notNull().default(false),
   clientSide: boolean("client_side").notNull().default(false),
+  docIds: jsonb("doc_ids").notNull().default([]),
   position: integer("position").notNull().default(0),
   updatedAt: ts("updated_at"),
 });
@@ -626,6 +629,7 @@ export const sdProjectGates = pgTable("sd_project_gates", {
   result: text("result"),
   signedAt: timestamp("signed_at"),
   clientVisible: boolean("client_visible").notNull().default(true),
+  kind: text("kind").notNull().default("normal"), // normal | handoff | close
 });
 export const sdGateSignoffs = pgTable("sd_gate_signoffs", {
   id: serial("id").primaryKey(),
@@ -636,5 +640,87 @@ export const sdGateSignoffs = pgTable("sd_gate_signoffs", {
   note: text("note").notNull().default(""),
   ip: text("ip").notNull().default(""),
   fingerprint: text("fingerprint").notNull(),
+  at: ts("at"),
+});
+
+export const sdProjectDocs = pgTable("sd_project_docs", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  name: text("name").notNull(),
+  priority: text("priority").notNull().default("A"),
+  dueDate: text("due_date").notNull(),
+  status: text("status").notNull().default("pendiente"),
+  ownerContactId: integer("owner_contact_id").references(() => sdContacts.id, { onDelete: "set null" }),
+  files: jsonb("files").notNull().default([]),
+  comments: jsonb("comments").notNull().default([]),
+  clientVisible: boolean("client_visible").notNull().default(true),
+  lastReminder: text("last_reminder"),
+  lastReminderAt: timestamp("last_reminder_at"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+}, (t) => ({ uq: unique("sd_project_docs_code").on(t.projectId, t.code) }));
+export const sdProjectDecisions = pgTable("sd_project_decisions", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  question: text("question").notNull(),
+  options: jsonb("options").notNull().default([]),
+  defaultDecision: text("default_decision").notNull().default(""),
+  deadline: text("deadline").notNull(),
+  decider: text("decider").notNull().default(""),
+  status: text("status").notNull().default("open"), // open | decided | defaulted
+  decision: text("decision"),
+  decidedAt: timestamp("decided_at"),
+  decidedByContactId: integer("decided_by_contact_id"),
+  impact: text("impact").notNull().default(""),
+  clientVisible: boolean("client_visible").notNull().default(true),
+  notifiedAt: timestamp("notified_at"),
+  createdAt: ts("created_at"),
+}, (t) => ({ uq: unique("sd_project_decisions_code").on(t.projectId, t.code) }));
+export const sdProjectRisks = pgTable("sd_project_risks", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  title: text("title").notNull(),
+  probability: integer("probability").notNull().default(2),
+  impact: integer("impact").notNull().default(2),
+  ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+  mitigation: text("mitigation").notNull().default(""),
+  triggerText: text("trigger_text").notNull().default(""),
+  status: text("status").notNull().default("open"), // open | mitigated | occurred | closed
+  taskIds: jsonb("task_ids").notNull().default([]),
+  shared: boolean("shared").notNull().default(false),
+  createdAt: ts("created_at"),
+}, (t) => ({ uq: unique("sd_project_risks_code").on(t.projectId, t.code) }));
+export const sdProjectModules = pgTable("sd_project_modules", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  status: text("status").notNull().default("planned"), // planned | in_dev | uat | released
+  releasedAt: timestamp("released_at"),
+}, (t) => ({ uq: unique("sd_project_modules_code").on(t.projectId, t.code) }));
+export const sdProjectPayments = pgTable("sd_project_payments", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  amount: numeric("amount").notNull().default("0"),
+  currency: text("currency").notNull().default("MXN"),
+  dueDate: text("due_date").notNull(),
+  gateId: integer("gate_id").references(() => sdProjectGates.id, { onDelete: "set null" }),
+  deliverable: text("deliverable").notNull().default(""),
+  status: text("status").notNull().default("pending"), // pending | invoiced | paid (mirrored from QFactura Hub)
+  clientVisible: boolean("client_visible").notNull().default(false),
+});
+export const sdProjectAudit = pgTable("sd_project_audit", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  userId: integer("user_id"),
+  entity: text("entity").notNull(),
+  entityId: integer("entity_id"),
+  action: text("action").notNull(),
+  detail: jsonb("detail").notNull().default({}),
   at: ts("at"),
 });

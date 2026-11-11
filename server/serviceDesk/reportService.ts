@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
-  sdAccounts, sdTickets, sdTicketEvents, sdSlaInstances, sdTimeEntries, sdContracts, sdContacts, sdInstances, sdPlatformIncidents, sdMaintenance, sdReports, clientes, sdSettings,
+  sdProjectModules, sdProjects, sdAccounts, sdTickets, sdTicketEvents, sdSlaInstances, sdTimeEntries, sdContracts, sdContacts, sdInstances, sdPlatformIncidents, sdMaintenance, sdReports, clientes, sdSettings,
 } from "@shared/schema";
 import { buildReport, periodLabel, renderReportHtml, type Report, type ReportTicket } from "./reportRules";
 import { monthRange } from "./availability";
@@ -38,7 +38,10 @@ export async function collectReport(accountId: number, year: number, month: numb
   const te = ids.length ? await db.select({ m: sdTimeEntries.minutes }).from(sdTimeEntries).where(and(inArray(sdTimeEntries.ticketId, ids), eq(sdTimeEntries.billable, true), sql`${sdTimeEntries.workDate} >= ${firstDay} AND ${sdTimeEntries.workDate} <= ${lastDay}`)) : [];
   const contracts = await db.select().from(sdContracts).where(and(eq(sdContracts.accountId, accountId), eq(sdContracts.active, true)));
   const banks = contracts.map((c) => c.hoursBank).filter((x): x is string => x != null).map(Number);
+  const mods = await db.select({ code: sdProjectModules.code, name: sdProjectModules.name, status: sdProjectModules.status, releasedAt: sdProjectModules.releasedAt }).from(sdProjectModules).innerJoin(sdProjects, eq(sdProjects.id, sdProjectModules.projectId)).where(eq(sdProjects.accountId, accountId));
+  const lifecycle = contracts.some((c) => c.lifecycle === "implementation" || c.lifecycle === "discovery") ? "implementation" : contracts.some((c) => c.lifecycle === "parallel") ? "parallel" : null;
   return buildReport({
+    modules: mods, lifecycle,
     account: acc.name, period: { year, month, fromMs, toMs }, generatedAt: now, tickets,
     availability: av.monitors.map((m: any) => ({ name: m.name, instance: m.instance, pct: m.pct, downMinutes: m.downMinutes, maintenanceMinutes: m.maintenanceMinutes, coverage: m.coverage })),
     incidents: incidents.map((i) => ({ title: i.title, startedAt: i.startedAt, resolvedAt: i.resolvedAt, impact: i.impact, rca: (i.rca as any) ?? null })),

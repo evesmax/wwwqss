@@ -13,6 +13,9 @@ export type ReportInput = {
   incidents: { title: string; startedAt: Date; resolvedAt: Date | null; impact: string; rca: { cause: string; fix: string; prevention: string } | null }[];
   maintenanceUpcoming: { title: string; startsAt: Date; endsAt: Date }[];
   hoursMinutes: number; hoursBankMinutes: number | null;
+  // Module catalog (MOD-xx) and contract lifecycle from the projects module (optional: accounts without a project).
+  modules?: { code: string; name: string; status: string; releasedAt: Date | null }[];
+  lifecycle?: string | null;
 };
 
 export function percentile(values: number[], p: number): number | null {
@@ -101,12 +104,17 @@ export function buildReport(i: ReportInput) {
   const consumed = r1(i.hoursMinutes / 60), bank = i.hoursBankMinutes == null ? null : r1(i.hoursBankMinutes / 60);
   const hours = { consumedHours: consumed, bankHours: bank, balanceHours: bank == null ? null : r1(bank - consumed) };
   if (bank == null) notes.push("El contrato no define bolsa de horas: saldo N/D.");
+  const lc = i.lifecycle ?? null;
+  if (lc === "implementation" || lc === "discovery") notes.push("N/A — en implementación: el SLA de soporte aún no corre para este servicio; no se muestra un cumplimiento ficticio.");
+  if (lc === "parallel") notes.push("Servicio en periodo paralelo / hypercare: el SLA se mide según la política acordada para esta etapa.");
+  const mods = i.modules ?? [];
+  const delivery = { lifecycle: lc, modulesReleased: mods.filter((m) => m.status === "released" && inP(m.releasedAt)).map((m) => ({ code: m.code, name: m.name })), modulesInProgress: mods.filter((m) => m.status !== "released").map((m) => ({ code: m.code, name: m.name, status: m.status })) };
 
   return {
     version: 1, account: i.account, period: { year: i.period.year, month: i.period.month }, generatedAt: i.generatedAt.toISOString(),
     summary: { slaPct: sla.compliancePct, availabilityPct: availability.pct, ticketsClosed: closed.length, hoursConsumed: consumed },
     sla, tickets: { opened: opened.length, closed: closed.length, reopened: visible.filter((t) => t.reopenedInPeriod).length, byType, bySeverity: bySev, backlog, list },
-    availability, features, hours, csat: { value: null as number | null, note: "N/D: la encuesta de satisfacción aún no está habilitada." },
+    availability, features, delivery, hours, csat: { value: null as number | null, note: "N/D: la encuesta de satisfacción aún no está habilitada." },
     maintenanceUpcoming: i.maintenanceUpcoming.map((m) => ({ title: m.title, startsAt: iso(m.startsAt), endsAt: iso(m.endsAt) })), notes,
   };
 }
@@ -117,6 +125,7 @@ export const periodLabel = (y: number, m: number) => `${MONTHS[m - 1]} de ${y}`;
 const TYPE_LABEL: Record<string, string> = { incident: "Incidente", service_request: "Solicitud", question: "Consulta", feature_request: "Nueva función" };
 const STATUS_LABEL: Record<string, string> = { new: "Nuevo", triage: "Triage", in_progress: "En progreso", waiting_customer: "Esperando cliente", waiting_third_party: "Esperando tercero", resolved: "Resuelto", closed: "Cerrado", duplicate: "Duplicado", cancelled: "Cancelado", rejected: "Rechazado" };
 const EXCL: Record<string, string> = { third_party_declared: "Tercero declarado", customer_no_info: "Cliente no entregó información", mistyped: "Ticket mal tipificado", force_majeure: "Fuerza mayor" };
+const MOD_LABEL: Record<string, string> = { planned: "planeado", in_dev: "en desarrollo", uat: "en UAT", released: "liberado" };
 const METRIC: Record<string, string> = { first_response: "Primera respuesta", resolution: "Resolución" };
 export const GLOSSARY: [string, string][] = [
   ["Primera respuesta", "Tiempo hábil desde que se reporta el ticket hasta el primer mensaje público de una persona del equipo. Los acuses automáticos no cuentan."],
@@ -159,6 +168,7 @@ ${h2("Tickets del periodo")}
 ${r.tickets.list.length ? table(["Ticket", "Título", "Tipo", "Sev.", "Reporte", "Resolución", "Estado", "Horas"], r.tickets.list.map((t: any) => [e(t.key), e(t.title), e(TYPE_LABEL[t.type] ?? t.type), e(t.severity ?? "—"), date(t.createdAt), date(t.resolvedAt), e(STATUS_LABEL[t.status] ?? t.status), num(t.resolutionHours)])) : "<p style='font-size:12px'>Sin tickets en el periodo.</p>"}
 ${h2("Funciones nuevas")}
 <p style="font-size:12px">Entregadas: ${r.features.delivered.length ? r.features.delivered.map((f: any) => e(f.key + " · " + f.title)).join("; ") : "ninguna"}.<br>En curso: ${r.features.inProgress.length ? r.features.inProgress.map((f: any) => e(f.key + " · " + f.title)).join("; ") : "ninguna"}.</p>
+${r.delivery && (r.delivery.modulesReleased.length || r.delivery.modulesInProgress.length) ? `<p style="font-size:12px"><b>Módulos entregados en el periodo:</b> ${r.delivery.modulesReleased.length ? r.delivery.modulesReleased.map((m: any) => e(m.code + " · " + m.name)).join("; ") : "ninguno"}.<br><b>Módulos en curso:</b> ${r.delivery.modulesInProgress.length ? r.delivery.modulesInProgress.map((m: any) => e(m.code + " · " + m.name + " (" + (MOD_LABEL[m.status] ?? m.status) + ")")).join("; ") : "ninguno"}.</p>` : ""}
 ${h2("Horas")}
 <p style="font-size:12px">Consumidas: <b>${r.hours.consumedHours} h</b> · Bolsa contratada: <b>${num(r.hours.bankHours)}${r.hours.bankHours == null ? "" : " h"}</b> · Saldo: <b>${num(r.hours.balanceHours)}${r.hours.balanceHours == null ? "" : " h"}</b></p>
 ${h2("Satisfacción y mantenimientos")}

@@ -49,6 +49,9 @@ const toPolicy = (p: PolicyRow): Policy & { filters: PolicyFilters; calendarKind
 export type TicketSlaView = { policy: { id: number; name: string } | null; applicable: boolean; excludedReason: string | null; metrics: MetricResult[] };
 
 /** Pure-ish: computes the SLA for one ticket from the DB without persisting. */
+// During parallel/hypercare the policy is configurable: "best_effort" (default) keeps tickets out of SLA compliance; "own" measures them.
+async function parallelBestEffort() { const [r] = await db.select().from(sdSettings).where(eq(sdSettings.key, "project.parallelSla")); return (r?.value != null ? String(r.value) : "best_effort") !== "own"; }
+
 export async function computeForTicket(ticketId: number, now = new Date()): Promise<TicketSlaView | null> {
   const [t] = await db.select().from(sdTickets).where(eq(sdTickets.id, ticketId));
   if (!t) return null;
@@ -62,12 +65,13 @@ export async function computeForTicket(ticketId: number, now = new Date()): Prom
   const pol = selectPolicy(policies, { type: t.type, severity: t.severity, accountId: t.accountId, productId: t.productId, plan: contract?.plan ?? null });
   if (!pol) return { policy: null, applicable: false, excludedReason: null, metrics: [] };
   const cal = await buildCalendar(pol.calendarKind, t.accountId, t.createdAt.getFullYear() - 1, now.getFullYear() + 1);
-  const beforeActive = !!contract?.slaActiveFrom && t.createdAt < contract.slaActiveFrom;
+  const lifecycleOff = !!contract && (contract.lifecycle === "discovery" || contract.lifecycle === "implementation" || (contract.lifecycle === "parallel" && (await parallelBestEffort())));
+  const beforeActive = (!!contract?.slaActiveFrom && t.createdAt < contract.slaActiveFrom) || lifecycleOff;
   const r = computeTicketSla({
     ticket: { type: t.type, severity: t.severity, slaApplicable: t.slaApplicable && !beforeActive, createdAt: t.createdAt },
     events, policy: pol, calendar: cal, now,
   });
-  return { policy: { id: pol.id, name: pol.name }, applicable: r.applicable, excludedReason: t.slaExclusionReason ?? (beforeActive ? "before_sla_start" : null), metrics: r.metrics };
+  return { policy: { id: pol.id, name: pol.name }, applicable: r.applicable, excludedReason: t.slaExclusionReason ?? (lifecycleOff ? `lifecycle_${contract!.lifecycle}` : beforeActive ? "before_sla_start" : null), metrics: r.metrics };
 }
 
 export async function refreshTicketSla(ticketId: number, now = new Date(), opts: { alert?: boolean } = {}) {

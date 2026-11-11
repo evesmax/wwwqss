@@ -15,6 +15,7 @@ import { registerMonitorRoutes } from "./monitorRoutes";
 import { registerReportRoutes } from "./reportRoutes";
 import { registerFeatureRoutes } from "./featureRoutes";
 import { registerProjectRoutes } from "./projectRoutes";
+import { registerProjectItemRoutes } from "./projectItemRoutes";
 import { writeAudit } from "./audit";
 import { getSmtpPublic, saveSmtpConfig } from "./settings";
 import { sendEmail } from "./emailService";
@@ -82,6 +83,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   registerReportRoutes(app, auth);
   registerFeatureRoutes(app, auth);
   registerProjectRoutes(app, auth);
+  registerProjectItemRoutes(app, auth);
 
   // ---- Products ----
   const productSchema = z.object({ code: z.string().trim().min(1).max(40), name: z.string().trim().min(1), active: z.boolean().default(true) });

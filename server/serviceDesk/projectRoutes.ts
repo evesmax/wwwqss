@@ -8,6 +8,7 @@ import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
 import { TicketError } from "./ticketService";
 import { ORIGINS, TEMPLATES, approvePlan, createProject, loadProject, reschedule, scheduleChange } from "./projectService";
+import { loadProjectFull, pauseSlaForProject } from "./projectItemService";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const rev = z.object({ reason: z.string().max(500), origin: z.enum(ORIGINS) }).partial();
@@ -15,7 +16,7 @@ const taskFields = {
   phaseId: z.number().int().positive().nullable(), code: z.string().max(20), name: z.string().trim().min(2).max(200), kind: z.enum(["task", "milestone", "deliverable"]),
   days: z.number().int().min(1).max(500), hours: z.number().min(0).max(5000).nullable(), deps: z.array(z.number().int().positive()).max(50), fixedStart: date.nullable(),
   assigneeUserId: z.number().int().positive().nullable(), assigneeContactId: z.number().int().positive().nullable(), notes: z.string().max(5000),
-  clientVisible: z.boolean(), clientSide: z.boolean(), blockedByClient: z.boolean(), pct: z.number().int().min(0).max(100), progressNote: z.string().max(1000),
+  clientVisible: z.boolean(), clientSide: z.boolean(), docIds: z.array(z.number().int().positive()).max(30), blockedByClient: z.boolean(), pct: z.number().int().min(0).max(100), progressNote: z.string().max(1000),
 };
 function stripRev(o: any) { const { reason: _r, origin: _o, ...rest } = o ?? {}; return rest; }
 const SCHEDULE_KEYS = ["days", "deps", "fixedStart"];
@@ -33,6 +34,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
   async function checkRefs(p: typeof sdProjects.$inferSelect, b: any) {
     if (b.phaseId) { const [ph] = await db.select().from(sdProjectPhases).where(and(eq(sdProjectPhases.id, b.phaseId), eq(sdProjectPhases.projectId, p.id))); if (!ph) throw new TicketError("Fase inválida"); }
     if (b.deps?.length) { const ts = await db.select({ id: sdProjectTasks.id }).from(sdProjectTasks).where(and(eq(sdProjectTasks.projectId, p.id), inArray(sdProjectTasks.id, b.deps))); if (ts.length !== new Set(b.deps).size) throw new TicketError("Dependencia inválida"); }
+    if (b.docIds?.length) { const { sdProjectDocs } = await import("@shared/schema"); const ds = await db.select({ id: sdProjectDocs.id }).from(sdProjectDocs).where(and(eq(sdProjectDocs.projectId, p.id), inArray(sdProjectDocs.id, b.docIds))); if (ds.length !== new Set(b.docIds).size) throw new TicketError("Documento inválido"); }
     if (b.assigneeContactId) { const [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.id, b.assigneeContactId), eq(sdContacts.accountId, p.accountId))); if (!c) throw new TicketError("Contacto inválido"); }
     if (b.pct != null && b.pct > 0 && b.pct < 100 && !(b.progressNote ?? "").trim()) throw new TicketError("El avance parcial requiere una nota");
   }
@@ -50,16 +52,17 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
   }));
 
   app.post("/api/desk/projects", ...auth, mgr, wrap(async (req, res) => {
-    const b = z.object({ accountId: z.number().int().positive(), name: z.string().trim().min(3).max(200), solutionType: z.string().trim().max(60).default(""), startDate: date, template: z.enum(["generic"]).optional() }).parse(req.body);
+    const b = z.object({ accountId: z.number().int().positive(), name: z.string().trim().min(3).max(200), solutionType: z.string().trim().max(60).default(""), startDate: date, template: z.enum(["generic"]).optional(), pauseSla: z.boolean().default(true) }).parse(req.body);
     if (!(await visibleAccountIds(req.actor)).includes(b.accountId)) return void res.status(404).json({ message: "No encontrado" });
     const p = await createProject(b, req.actor.userId);
+    if (b.template && b.pauseSla) await pauseSlaForProject(b.accountId); // support SLA does not run during implementation (RF-PRJ-16)
     await writeAudit({ actorUserId: req.actor.userId, action: "project.create", entity: "project", entityId: String(p.id) });
     res.status(201).json(p);
   }));
 
   app.get("/api/desk/projects/:id", ...auth, workers, wrap(async (req, res) => {
     const p = await projectOr404(req, res); if (!p) return;
-    res.json(await loadProject(p.id, { client: false }));
+    res.json(await loadProjectFull(p.id, { client: false }));
   }));
   app.patch("/api/desk/projects/:id", ...auth, mgr, wrap(async (req, res) => {
     const p = await projectOr404(req, res); if (!p) return;
@@ -93,7 +96,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
       const n = (await db.select().from(sdProjectTasks).where(eq(sdProjectTasks.projectId, p.id))).length;
       [created] = await db.insert(sdProjectTasks).values({ projectId: p.id, name: b.name, phaseId: b.phaseId ?? null, code: b.code ?? "", kind: b.kind ?? "task", days: b.days ?? 1,
         hours: b.hours != null ? String(b.hours) : null, deps: b.deps ?? [], fixedStart: b.fixedStart ?? null, assigneeUserId: b.assigneeUserId ?? null, assigneeContactId: b.assigneeContactId ?? null,
-        notes: b.notes ?? "", clientVisible: b.clientVisible ?? true, blockedByClient: b.blockedByClient ?? false, clientSide: b.clientSide ?? false, startDate: p.startDate, endDate: p.startDate, position: n }).returning();
+        notes: b.notes ?? "", clientVisible: b.clientVisible ?? true, blockedByClient: b.blockedByClient ?? false, clientSide: b.clientSide ?? false, docIds: b.docIds ?? [], startDate: p.startDate, endDate: p.startDate, position: n }).returning();
     });
     res.status(201).json(created);
   }));
@@ -134,7 +137,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
   // gates
   app.post("/api/desk/projects/:id/gates", ...auth, mgr, wrap(async (req, res) => {
     const p = await projectOr404(req, res); if (!p) return;
-    const b = z.object({ phaseId: z.number().int().positive().nullable().default(null), code: z.string().trim().min(1).max(20), name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30).default([]) }).parse(req.body);
+    const b = z.object({ phaseId: z.number().int().positive().nullable().default(null), code: z.string().trim().min(1).max(20), name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30).default([]), kind: z.enum(["normal", "handoff", "close"]).default("normal") }).parse(req.body);
     await checkRefs(p, b);
     const r = rev.parse({ reason: req.body?.reason, origin: req.body?.origin });
     let row: any;
@@ -147,7 +150,7 @@ export function registerProjectRoutes(app: Express, auth: RequestHandler[]) {
     const [g] = Number.isInteger(gid) ? await db.select().from(sdProjectGates).where(and(eq(sdProjectGates.id, gid), eq(sdProjectGates.projectId, p.id))) : [];
     if (!g) return void res.status(404).json({ message: "No encontrado" });
     if (g.status === "signed") return void res.status(409).json({ message: "El gate ya fue firmado" });
-    const b = z.object({ name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30), evidence: z.array(z.string().trim().min(1).max(500)).max(30), clientVisible: z.boolean() }).partial().strict().parse(stripRev(req.body));
+    const b = z.object({ name: z.string().trim().min(2).max(200), date, criteria: z.array(z.string().trim().min(1).max(500)).max(30), evidence: z.array(z.string().trim().min(1).max(500)).max(30), clientVisible: z.boolean(), kind: z.enum(["normal", "handoff", "close"]) }).partial().strict().parse(stripRev(req.body));
     const r = rev.parse({ reason: req.body?.reason, origin: req.body?.origin });
     if (b.date !== undefined && b.date !== g.date) await scheduleChange(p.id, req.actor.userId, r.reason && r.origin ? { reason: r.reason, origin: r.origin } : undefined, async () => { await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id)); });
     else await db.update(sdProjectGates).set(b).where(eq(sdProjectGates.id, g.id));

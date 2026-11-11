@@ -49,8 +49,8 @@ export async function createProject(i: { accountId: number; name: string; soluti
           startDate: start, endDate: start, deps: (t.deps ?? []).map((c: string) => idOf.get(c)!).filter(Boolean), clientVisible: true, clientSide: !!t.client, position: pos++ }).returning();
         idOf.set(t.code, row.id);
       }
-      await db.insert(sdProjectGates).values({ projectId: p.id, phaseId: phase.id, code: `G${pi}`, name: ph.gate, date: start, criteria: ph.criteria });
-      if (ph.code === "F7") await db.insert(sdProjectGates).values({ projectId: p.id, phaseId: phase.id, code: "G8", name: "Retiro del sistema anterior (cierre)", date: start, criteria: ["Sistema anterior fuera de operación"] });
+      await db.insert(sdProjectGates).values({ projectId: p.id, phaseId: phase.id, code: `G${pi}`, name: ph.gate, date: start, criteria: ph.criteria, kind: ph.code === "F6" ? "handoff" : "normal" });
+      if (ph.code === "F7") await db.insert(sdProjectGates).values({ projectId: p.id, phaseId: phase.id, code: "G8", name: "Retiro del sistema anterior (cierre)", date: start, criteria: ["Sistema anterior fuera de operación"], kind: "close" });
     }
   }
   await reschedule(p.id);

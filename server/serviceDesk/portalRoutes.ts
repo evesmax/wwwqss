@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { toCustomerSla } from "./slaCustomer";
 import { reportHtml } from "./reportService";
-import { sdReports } from "@shared/schema";
+import { sdReports, sdProjectDocs, sdProjectDecisions } from "@shared/schema";
 import { computeForTicket } from "./slaService";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@sha
 import { decideQuote, decideUat } from "./featureService";
 import { sdProjectGates, sdProjects } from "@shared/schema";
 import { loadProject, signGate } from "./projectService";
+import { applyGateEffects, canonicalModule, decide, loadProjectFull, moduleCatalog, updateDoc } from "./projectItemService";
 import { quoteState } from "./featureRules";
 
 type PReq = Request & { contacts: PortalContact[]; email: string };
@@ -114,7 +115,7 @@ export function registerPortalRoutes(app: Express) {
   const createSchema = z.object({
     accountId: z.number().int().positive(), type: z.enum(PORTAL_TYPES), title: z.string().trim().min(3).max(200),
     description: z.string().max(20000).default(""), instanceId: z.number().int().positive().nullish(), productId: z.number().int().positive().nullish(),
-    perceivedSeverity: z.enum(["P0", "P1", "P2", "P3"]).nullish(), environment: z.enum(["prod", "stg"]).default("prod"),
+    perceivedSeverity: z.enum(["P0", "P1", "P2", "P3"]).nullish(), environment: z.enum(["prod", "stg"]).default("prod"), moduleArea: z.string().trim().max(100).default(""),
   });
   app.post("/api/portal/tickets", portalAuth, handle(async (req, res) => {
     const b = createSchema.parse(req.body);
@@ -238,7 +239,7 @@ export function registerPortalRoutes(app: Express) {
     const id = Number(req.params.id);
     const [p] = Number.isInteger(id) ? await db.select().from(sdProjects).where(eq(sdProjects.id, id)) : [];
     if (!p || p.baselineVersion < 1 || !req.contacts.some((c) => c.accountId === p.accountId)) return res.status(404).json({ message: "No encontrado" });
-    const v: any = await loadProject(p.id, { client: true });
+    const v: any = await loadProjectFull(p.id, { client: true });
     res.json({ ...v, canSign: req.contacts.some((c) => c.accountId === p.accountId && c.role === "account_admin") });
   }));
   app.post("/api/portal/gates/:id/signoff", portalAuth, handle(async (req, res) => {
@@ -248,6 +249,34 @@ export function registerPortalRoutes(app: Express) {
     const [p] = g ? await db.select().from(sdProjects).where(eq(sdProjects.id, g.projectId)) : [];
     const c = p && g?.clientVisible && p.baselineVersion >= 1 ? req.contacts.find((x) => x.accountId === p.accountId && x.role === "account_admin") : null;
     if (!g || !c) return res.status(404).json({ message: "No encontrado" });
-    res.json(await signGate(g.id, { type: "contact", id: c.id }, String(req.ip), b.result, b.note));
+    const r = await signGate(g.id, { type: "contact", id: c.id }, String(req.ip), b.result, b.note);
+    if (b.result !== "no_go") await applyGateEffects(g.id, null); // handoff gate: SLA starts running; close gate: project closes
+    res.json(r);
+  }));
+  // Client documents (DOC-xx): the customer reports delivery; QSS validates.
+  app.patch("/api/portal/docs/:id", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [d] = Number.isInteger(id) ? await db.select().from(sdProjectDocs).where(eq(sdProjectDocs.id, id)) : [];
+    const [p] = d ? await db.select().from(sdProjects).where(eq(sdProjects.id, d.projectId)) : [];
+    const c = p && d.clientVisible && p.baselineVersion >= 1 ? req.contacts.find((x) => x.accountId === p.accountId) : null;
+    if (!d || !c) return res.status(404).json({ message: "No encontrado" });
+    const b = z.object({ status: z.enum(["parcial", "recibido"]), files: z.array(z.string().trim().min(1).max(500)).max(10).default([]), comment: z.string().max(2000).default("") }).parse(req.body);
+    await updateDoc(d.id, { type: "contact", id: c.id }, b); res.json({ ok: true });
+  }));
+  // Decisions (P-xx): only an account_admin decides for the customer.
+  app.post("/api/portal/decisions/:id/decide", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [d] = Number.isInteger(id) ? await db.select().from(sdProjectDecisions).where(eq(sdProjectDecisions.id, id)) : [];
+    const [p] = d ? await db.select().from(sdProjects).where(eq(sdProjects.id, d.projectId)) : [];
+    const c = p && d.clientVisible && p.baselineVersion >= 1 ? req.contacts.find((x) => x.accountId === p.accountId && x.role === "account_admin") : null;
+    if (!d || !c) return res.status(404).json({ message: "No encontrado" });
+    const b = z.object({ decision: z.string().trim().min(1).max(1000) }).parse(req.body);
+    await decide(d.id, { type: "contact", id: c.id }, b.decision); res.json({ ok: true });
+  }));
+  // Module catalog of the customer's accounts: feeds the "module" field of the ticket form.
+  app.get("/api/portal/modules", portalAuth, handle(async (req, res) => {
+    const ids = Array.from(new Set(req.contacts.map((c) => c.accountId)));
+    const out = []; for (const id of ids) out.push(...(await moduleCatalog(id)).map((m) => ({ accountId: id, code: m.code, name: m.name, status: m.status })));
+    res.json(out);
   }));
 }

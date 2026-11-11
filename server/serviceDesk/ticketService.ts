@@ -47,6 +47,7 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
     const [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.id, input.requesterContactId), eq(sdContacts.accountId, input.accountId)));
     if (!c) throw new TicketError("Solicitante inválido para la cuenta");
   }
+  const moduleArea = input.moduleArea ? await import("./projectItemService").then((m) => m.canonicalModule(input.accountId, input.moduleArea!)) : "";
   const now = new Date();
   const ticket = await db.transaction(async (tx) => {
     const [acc] = await tx.update(sdAccounts).set({ ticketSeq: sql`${sdAccounts.ticketSeq} + 1` }).where(eq(sdAccounts.id, input.accountId)).returning();
@@ -56,7 +57,7 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
       productId, instanceId: input.instanceId ?? null, requesterContactId: input.requesterContactId ?? null,
       title: input.title, description: input.description ?? "", severity: input.severity ?? null,
       perceivedSeverity: input.perceivedSeverity ?? null, status: initialStatus(input.type), channel: input.channel,
-      environment: input.environment ?? "prod", moduleArea: input.moduleArea ?? "",
+      environment: input.environment ?? "prod", moduleArea,
       sharedWithAccount: input.sharedWithAccount ?? false, receivedAt: input.receivedAt ?? now, createdAt: now, updatedAt: now,
     }).returning();
     await addEvent(tx, t.id, who, "created", { channel: input.channel, type: input.type, severity: input.severity ?? null, ...(input.p0 ? { p0: input.p0 } : {}) });
