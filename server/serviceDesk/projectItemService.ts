@@ -274,7 +274,9 @@ export async function loadProjectFull(projectId: number, opt: { client: boolean 
   const { loadProject } = await import("./projectService");
   const v: any = await loadProject(projectId, opt);
   const items = await loadItems(projectId, opt.client);
-  if (opt.client) { const { itemWarnings: _w, ...c } = items as any; return { ...v, ...c }; }
+  const { loadChanges } = await import("./projectP2bService");
+  const changes = await loadChanges(projectId, opt.client);
+  if (opt.client) { const { itemWarnings: _w, ...c } = items as any; return { ...v, ...c, changes }; }
   const { itemWarnings, ...rest } = items;
-  return { ...v, ...rest, warnings: [...(v.warnings ?? []), ...itemWarnings] };
+  return { ...v, ...rest, changes, warnings: [...(v.warnings ?? []), ...itemWarnings] };
 }

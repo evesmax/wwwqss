@@ -69,6 +69,7 @@ export async function reschedule(projectId: number) {
   if (p.baselineVersion === 0) { // before the baseline is approved, gates follow the end of their phase
     const gates = await db.select().from(sdProjectGates).where(eq(sdProjectGates.projectId, projectId));
     for (const g of gates) {
+      if (g.dateLocked) continue;
       const ends = tasks.filter((t) => t.phaseId === g.phaseId).map((t) => sched.get(t.id)!.end);
       if (ends.length) { const d = ends.sort().slice(-1)[0]; if (d !== g.date) await db.update(sdProjectGates).set({ date: d }).where(eq(sdProjectGates.id, g.id)); }
     }

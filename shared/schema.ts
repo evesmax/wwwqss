@@ -630,6 +630,7 @@ export const sdProjectGates = pgTable("sd_project_gates", {
   signedAt: timestamp("signed_at"),
   clientVisible: boolean("client_visible").notNull().default(true),
   kind: text("kind").notNull().default("normal"), // normal | handoff | close
+  dateLocked: boolean("date_locked").notNull().default(false), // imported gates keep the file date instead of following their phase end
 });
 export const sdGateSignoffs = pgTable("sd_gate_signoffs", {
   id: serial("id").primaryKey(),
@@ -724,3 +725,40 @@ export const sdProjectAudit = pgTable("sd_project_audit", {
   detail: jsonb("detail").notNull().default({}),
   at: ts("at"),
 });
+
+export const sdProjectChanges = pgTable("sd_project_changes", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  ticketId: integer("ticket_id").references(() => sdTickets.id, { onDelete: "set null" }),
+  hoursImpact: numeric("hours_impact").notNull().default("0"),
+  costImpact: numeric("cost_impact").notNull().default("0"),
+  currency: text("currency").notNull().default("MXN"),
+  daysImpact: integer("days_impact").notNull().default(0),
+  taskSpec: jsonb("task_spec"),
+  status: text("status").notNull().default("draft"), // draft | proposed | approved | rejected | applied
+  proposedAt: timestamp("proposed_at"),
+  decidedByContactId: integer("decided_by_contact_id"),
+  decidedAt: timestamp("decided_at"),
+  decisionNote: text("decision_note").notNull().default(""),
+  appliedAt: timestamp("applied_at"),
+  appliedBaselineVersion: integer("applied_baseline_version"),
+  createdBy: integer("created_by"),
+  createdAt: ts("created_at"),
+}, (t) => ({ uq: unique("sd_project_changes_code").on(t.projectId, t.code) }));
+export const sdProjectCuts = pgTable("sd_project_cuts", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => sdProjects.id, { onDelete: "cascade" }),
+  cutDate: text("cut_date").notNull(),
+  status: text("status").notNull().default("draft"), // draft | approved | sent
+  data: jsonb("data").notNull(),
+  note: text("note").notNull().default(""),
+  createdBy: integer("created_by"),
+  approvedBy: integer("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  sentAt: timestamp("sent_at"),
+  sendLog: jsonb("send_log").notNull().default([]),
+  createdAt: ts("created_at"),
+}, (t) => ({ uq: unique("sd_project_cuts_date").on(t.projectId, t.cutDate) }));

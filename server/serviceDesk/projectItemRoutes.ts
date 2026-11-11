@@ -10,6 +10,10 @@ import {
   acceptDefault, audit, auditVisibility, checkTasks, createDecision, createDoc, createModule, createPayment, decide, loadByResource, moduleCatalog, PAYMENT_STATUSES, riskView, setModuleStatus, syncBlocked, updateDoc,
 } from "./projectItemService";
 import { DOC_PRIORITIES, DOC_STATUSES } from "./projectItemRules";
+import { scheduleCsv } from "./projectP2bRules";
+import { loadProjectFull } from "./projectItemService";
+import { applyChange, approveCut, createChange, cutHtml, generateCut, importSchedule, listCuts, previewSchedule, proposeChange, sendCut, updateChange } from "./projectP2bService";
+import { sdProjectChanges, sdProjectCuts } from "@shared/schema";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -138,5 +142,70 @@ export function registerProjectItemRoutes(app: Express, auth: RequestHandler[]) 
   app.get("/api/desk/projects/:id/load", ...auth, workers, wrap(async (req, res) => {
     const p = await projectOr404(req, res); if (!p) return;
     res.json(await loadByResource(p.id));
+  }));
+
+  // ---- change control (RF-PRJ-10) ----
+  const chBody = z.object({ title: z.string().trim().min(3).max(300), description: z.string().max(4000), hoursImpact: z.number().min(0).max(100000), costImpact: z.number().min(0).max(1e9), currency: z.string().length(3), daysImpact: z.number().int().min(0).max(1000),
+    taskSpec: z.object({ name: z.string().trim().min(2).max(200), phaseId: z.number().int().positive().nullable().optional() }).nullable(), ticketId: z.number().int().positive().nullable() });
+  app.post("/api/desk/projects/:id/changes", ...auth, mgr, wrap(async (req, res) => {
+    const p = await projectOr404(req, res); if (!p) return;
+    const b = chBody.partial().required({ title: true }).parse(req.body);
+    res.status(201).json(await createChange(p.id, req.actor.userId, b as any));
+  }));
+  app.patch("/api/desk/projects/:id/changes/:iid", ...auth, mgr, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectChanges.$inferSelect>(req, res, sdProjectChanges); if (!c) return;
+    await updateChange(c.id, chBody.partial().strict().parse(req.body) as any); res.json({ ok: true });
+  }));
+  app.post("/api/desk/projects/:id/changes/:iid/propose", ...auth, mgr, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectChanges.$inferSelect>(req, res, sdProjectChanges); if (!c) return;
+    await proposeChange(c.id, req.actor.userId); res.json({ ok: true });
+  }));
+  app.post("/api/desk/projects/:id/changes/:iid/apply", ...auth, mgr, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectChanges.$inferSelect>(req, res, sdProjectChanges); if (!c) return;
+    await applyChange(c.id, req.actor.userId); res.json({ ok: true });
+  }));
+
+  // ---- status cuts (RF-PRJ-14) ----
+  app.get("/api/desk/projects/:id/cuts", ...auth, workers, wrap(async (req, res) => {
+    const p = await projectOr404(req, res); if (!p) return;
+    res.json(await listCuts(p.id, false));
+  }));
+  app.post("/api/desk/projects/:id/cuts", ...auth, mgr, wrap(async (req, res) => {
+    const p = await projectOr404(req, res); if (!p) return;
+    res.status(201).json(await generateCut(p.id, req.actor.userId, undefined, true));
+  }));
+  app.get("/api/desk/projects/:id/cuts/:iid", ...auth, workers, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectCuts.$inferSelect>(req, res, sdProjectCuts); if (!c) return;
+    res.json({ id: c.id, cutDate: c.cutDate, status: c.status, data: c.data, html: cutHtml(c.data), sendLog: c.sendLog });
+  }));
+  app.post("/api/desk/projects/:id/cuts/:iid/approve", ...auth, mgr, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectCuts.$inferSelect>(req, res, sdProjectCuts); if (!c) return;
+    await approveCut(c.id, req.actor.userId); res.json({ ok: true });
+  }));
+  app.post("/api/desk/projects/:id/cuts/:iid/send", ...auth, mgr, wrap(async (req, res) => {
+    const c = await itemOr404<typeof sdProjectCuts.$inferSelect>(req, res, sdProjectCuts); if (!c) return;
+    res.json(await sendCut(c.id, req.actor.userId));
+  }));
+
+  app.get("/api/desk/projects/:id/export.csv", ...auth, workers, wrap(async (req, res) => {
+    const p = await projectOr404(req, res); if (!p) return;
+    const v: any = await loadProjectFull(p.id, { client: false });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="cronograma-${p.id}.csv"`);
+    res.send(scheduleCsv(v, false));
+  }));
+
+  // ---- schedule importer (RF-PRJ-18): CSV only, loads a draft for human review ----
+  const impBody = z.object({ accountId: z.number().int().positive(), csv: z.string().min(1).max(2_000_000) });
+  app.post("/api/desk/project-import/preview", ...auth, mgr, wrap(async (req, res) => {
+    const b = impBody.parse(req.body);
+    if (!(await visibleAccountIds(req.actor)).includes(b.accountId)) return void res.status(404).json({ message: "No encontrado" });
+    res.json(await previewSchedule(b.accountId, b.csv));
+  }));
+  app.post("/api/desk/project-import", ...auth, mgr, wrap(async (req, res) => {
+    const b = impBody.extend({ name: z.string().trim().min(3).max(200), solutionType: z.string().trim().max(60).default(""), pauseSla: z.boolean().default(true) }).parse(req.body);
+    if (!(await visibleAccountIds(req.actor)).includes(b.accountId)) return void res.status(404).json({ message: "No encontrado" });
+    const r = await importSchedule(b, req.actor.userId);
+    if (b.pauseSla) await (await import("./projectItemService")).pauseSlaForProject(b.accountId);
+    res.status(201).json(r);
   }));
 }

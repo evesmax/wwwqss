@@ -16,6 +16,7 @@ export default function ProjectsPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [nf, setNf] = useState({ accountId: "", name: "", solutionType: "", startDate: "", template: "generic" });
   const [rev, setRev] = useState({ reason: "", origin: "qss" });
+  const [imp, setImp] = useState<{ csv: string; name: string; preview?: any }>({ csv: "", name: "" });
   const load = () => apiRequest("GET", "/api/desk/projects").then((r) => r.json()).then(setRows).catch(() => setMsg({ ok: false, text: "No se pudieron cargar los proyectos." }));
   const open = async (id: number) => setSel(await (await apiRequest("GET", `/api/desk/projects/${id}`)).json());
   useEffect(() => { load(); apiRequest("GET", "/api/desk/accounts").then((r) => r.json()).then(setAccounts).catch(() => {}); }, []);
@@ -37,6 +38,14 @@ export default function ProjectsPage() {
         <button disabled={!nf.accountId || nf.name.trim().length < 3 || !nf.startDate} className={`${btn} bg-[#00aeef] text-white disabled:opacity-50`}
           onClick={() => run(async () => { await apiRequest("POST", "/api/desk/projects", { ...nf, accountId: Number(nf.accountId) }); setNf({ ...nf, name: "" }); }, "Proyecto creado desde la plantilla estándar (F0–F7).")}>Crear con plantilla</button>
       </div>
+      <details className="bg-white border rounded-xl p-4 text-sm"><summary className="cursor-pointer font-semibold">Importar cronograma existente (CSV)</summary>
+        <div className="mt-2 space-y-2 text-xs"><p className="text-gray-600">Columnas: tipo (FASE, TAREA, GATE, PAGO, FERIADO), codigo, nombre, fase, responsable, inicio, fin, avance, notas, monto, fecha. Se carga como <b>borrador</b>: las referencias P-/R-/DOC-/MOD- en las notas crean objetos pendientes de completar y la línea base se aprueba después de revisar. Si trabajas en Excel, guarda la hoja como CSV.</p>
+          <div className="flex flex-wrap gap-2 items-center"><input type="file" accept=".csv,text/csv" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setImp({ ...imp, csv: await f.text(), preview: undefined }); }} />
+            <input className={inp} placeholder="Nombre del proyecto" value={imp.name} onChange={(e) => setImp({ ...imp, name: e.target.value })} />
+            <button disabled={!imp.csv || !nf.accountId} className={`${btn} border disabled:opacity-50`} onClick={() => run(async () => { const r = await (await apiRequest("POST", "/api/desk/project-import/preview", { accountId: Number(nf.accountId), csv: imp.csv })).json(); setImp({ ...imp, preview: r }); }, "Vista previa lista.")}>Vista previa (usa la cuenta de arriba)</button>
+            <button disabled={!imp.preview || imp.preview.errors.length > 0 || imp.name.trim().length < 3} className={`${btn} bg-[#00aeef] text-white disabled:opacity-50`} onClick={() => run(async () => { await apiRequest("POST", "/api/desk/project-import", { accountId: Number(nf.accountId), name: imp.name, solutionType: nf.solutionType, csv: imp.csv }); setImp({ csv: "", name: "" }); }, "Cronograma cargado como borrador: revisa y aprueba la línea base.")}>Cargar como borrador</button></div>
+          {imp.preview && <div className="border rounded-lg p-2">{imp.preview.phases} fases · {imp.preview.tasks} tareas · {imp.preview.gates} gates · {imp.preview.payments} pagos · {imp.preview.holidays} feriados
+            {imp.preview.errors.length > 0 && <ul className="text-red-700 list-disc ml-5 mt-1">{imp.preview.errors.slice(0, 12).map((e: any, i: number) => <li key={i}>Línea {e.line}: {e.message}</li>)}</ul>}</div>}</div></details>
       <div className="grid lg:grid-cols-4 gap-4">
         <div className="space-y-2">
           {rows.length === 0 && <p className="text-sm text-gray-500">Aún no hay proyectos.</p>}
@@ -59,6 +68,7 @@ export default function ProjectsPage() {
             </div>
             {sel.warnings.length > 0 && <details className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs" open><summary className="font-semibold text-amber-900">Validaciones de consistencia ({sel.warnings.length})</summary>
               <ul className="list-disc ml-5 mt-1 space-y-0.5">{sel.warnings.map((w: any, i: number) => <li key={i}>{w.message}</li>)}</ul></details>}
+            <a className="text-xs text-[#0088c2] underline" href={`/api/desk/projects/${p.id}/export.csv`}>Exportar cronograma (CSV)</a>
             <GanttChart tasks={sel.tasks.map((t: any) => ({ ...t, start: t.startDate, end: t.endDate }))} gates={sel.gates} holidays={sel.holidays} today={pr.asOf} />
             <div className="bg-white border rounded-xl overflow-x-auto"><table className="w-full text-xs"><thead className="bg-gray-50 text-left"><tr><th className="p-2">EAP</th><th>Tarea</th><th>Días</th><th>Horas</th><th>Inicio → Fin</th><th>%</th><th>Cliente</th><th>Visible</th><th>Bloq.</th></tr></thead><tbody>
               {sel.tasks.map((t: any) => <tr key={t.id} className="border-t">

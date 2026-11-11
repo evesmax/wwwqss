@@ -22,7 +22,8 @@ const TEST_EMAILS = ["c1@a.test", "c2@a.test", "adm@a.test", "cb@b.test"];
 async function api(who: string, method: string, path: string, body?: unknown) {
   const r = await fetch(base + path, { method, headers: { "content-type": "application/json", cookie: jars[who] ?? "" }, body: body ? JSON.stringify(body) : undefined });
   const text = await r.text();
-  return { status: r.status, body: text ? JSON.parse(text) : null, raw: text };
+  let parsed: any = null; try { parsed = text ? JSON.parse(text) : null; } catch { /* non-JSON body (CSV export) */ }
+  return { status: r.status, body: parsed, raw: text };
 }
 
 async function login(who: string, username: string) {
@@ -895,4 +896,103 @@ test("project items: DOC/P/R/MOD, payments, resource load, handoff to operation,
   assert.ok([401, 404].includes(tick.status));
   const { projectTick } = await import("./projectItemService");
   await projectTick();
+});
+
+test("project P2b: change control, status cuts, schedule importer, CSV export", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const ag = (await api("owner", "GET", "/api/desk/agents")).body.find((u: any) => u.username.startsWith("tmpt_owner"));
+  const c = await api("owner", "POST", "/api/desk/projects", { accountId: accA, name: "TMPT P2b", startDate: "2026-11-09", template: "generic", pauseSla: false });
+  assert.equal(c.status, 201); const pid = c.body.id;
+  let det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/cuts`)).status, 409); // no baseline yet
+  for (const t of det.tasks.filter((t: any) => !t.clientSide)) await api("owner", "PATCH", `/api/desk/projects/${pid}/tasks/${t.id}`, { assigneeUserId: ag.id });
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/approve-plan`)).status, 200);
+  await portalLogin("adm", "adm@a.test"); await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+
+  // ---- change control ----
+  const ft = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "feature_request", title: "TMPT Exportar a Excel en proyecto", channel: "manual" })).body;
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  const auto = det.changes.find((x: any) => x.ticketId === ft.id);
+  assert.ok(auto && auto.status === "draft" && auto.code === "CC-01"); // a feature request in an account with an active plan becomes a change request
+  assert.equal((await api("agentA", "POST", `/api/desk/projects/${pid}/changes`, { title: "No debe" })).status, 403);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/changes`, { title: "Reporte", daysImpact: 1.5 })).status, 400);
+  const ch = (await api("owner", "POST", `/api/desk/projects/${pid}/changes`, { title: "Reporte de conciliación", hoursImpact: 16, costImpact: 8000, daysImpact: 3, taskSpec: { name: "Reporte de conciliación" } })).body;
+  assert.equal(ch.code, "CC-02");
+  assert.equal((await papi("adm", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "approve" })).status, 404); // drafts are not visible/decidable
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/changes/${ch.id}`, { costImpact: 9000 })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch.id}/apply`)).status, 409); // not approved by the customer
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch.id}/propose`)).status, 200);
+  assert.equal((await api("owner", "PATCH", `/api/desk/projects/${pid}/changes/${ch.id}`, { costImpact: 1 })).status, 409); // a proposal is frozen
+  const before = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  const pvc = await papi("c1", "GET", `/api/portal/projects/${pid}`);
+  const seen = pvc.body.changes.find((x: any) => x.id === ch.id);
+  assert.ok(seen && seen.costImpact === "9000" && seen.daysImpact === 3 && !("hoursImpact" in seen)); // customer sees days and cost, never hours
+  assert.ok(!pvc.body.changes.some((x: any) => x.id === auto.id)); // drafts stay internal
+  assert.equal((await papi("c1", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "approve" })).status, 404); // only account_admin
+  assert.equal((await papi("cb", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "approve" })).status, 404);
+  assert.equal((await papi("adm", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "reject" })).status, 400); // reason required
+  assert.equal((await papi("adm", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "approve", note: "ok" })).status, 200);
+  assert.equal((await papi("adm", "POST", `/api/portal/changes/${ch.id}/decide`, { decision: "approve" })).status, 409);
+  det = (await api("owner", "GET", `/api/desk/projects/${pid}`)).body;
+  assert.equal(det.project.baselineVersion, before.project.baselineVersion + 1); // only the approved change moved the plan, as a baseline revision
+  assert.ok(det.tasks.some((t: any) => t.code === "CC-02" && t.days === 3));
+  assert.equal(det.changes.find((x: any) => x.id === ch.id).status, "applied");
+  assert.equal(det.revisions[det.revisions.length - 1].origin, "customer");
+  assert.equal(det.changes.find((x: any) => x.id === auto.id).status, "draft"); // unapproved changes never touch the plan
+  const ch2 = (await api("owner", "POST", `/api/desk/projects/${pid}/changes`, { title: "Cambio rechazable", daysImpact: 2 })).body;
+  await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch2.id}/propose`);
+  assert.equal((await papi("adm", "POST", `/api/portal/changes/${ch2.id}/decide`, { decision: "reject", note: "fuera de presupuesto" })).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/changes/${ch2.id}/apply`)).status, 409);
+  assert.equal((await api("owner", "GET", `/api/desk/projects/${pid}`)).body.project.baselineVersion, det.project.baselineVersion);
+
+  // ---- status cuts ----
+  const cut = await api("owner", "POST", `/api/desk/projects/${pid}/cuts`);
+  assert.equal(cut.status, 201); assert.equal(cut.body.status, "draft");
+  assert.equal((await api("agentA", "POST", `/api/desk/projects/${pid}/cuts`)).status, 403);
+  assert.deepEqual((await papi("c1", "GET", `/api/portal/projects/${pid}/cuts`)).body, []); // drafts are internal
+  assert.equal((await papi("c1", "GET", `/api/portal/cuts/${cut.body.id}`)).status, 404);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/cuts/${cut.body.id}/send`)).status, 409); // approve first
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/cuts/${cut.body.id}/approve`)).status, 200);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/cuts/${cut.body.id}/approve`)).status, 409);
+  assert.equal((await api("owner", "POST", `/api/desk/projects/${pid}/cuts`)).status, 409); // approved cuts are immutable
+  const lst = await papi("c1", "GET", `/api/portal/projects/${pid}/cuts`); assert.equal(lst.body.length, 1);
+  const view = await papi("c1", "GET", `/api/portal/cuts/${cut.body.id}`);
+  assert.equal(view.status, 200); assert.ok(view.body.html.includes("TMPT P2b") && !view.raw.includes("hours") && !view.body.html.includes("NOTA-INTERNA"));
+  assert.equal((await papi("cb", "GET", `/api/portal/cuts/${cut.body.id}`)).status, 404);
+  const sent = await api("owner", "POST", `/api/desk/projects/${pid}/cuts/${cut.body.id}/send`);
+  assert.equal(sent.status, 200); assert.ok(sent.body.recipients >= 1);
+  const { cutTick } = await import("./projectP2bService");
+  const t1 = await cutTick(); const t2 = await cutTick(); assert.equal(t2.created, 0); assert.ok(t1.created >= 0);
+
+  // ---- importer ----
+  const csv = ["tipo,codigo,nombre,fase,responsable,inicio,fin,avance,notas,monto,fecha",
+    "FASE,F0,Descubrimiento,,,,,,,,", "FASE,F1,Diseño,,,,,,,,",
+    `TAREA,0.1,Levantamiento,F0,${ag.username},2026-11-09,2026-11-13,100,Ver DOC-01 y P-01,,`,
+    "TAREA,1.1,Diseño,F1,Cliente,2026-11-16,2026-11-20,50,riesgo R-01 módulo MOD-01,,",
+    "GATE,G0,Arranque,F0,,,,,,,2026-11-05", "PAGO,,Anticipo,,,,,,,50000,2026-10-12", "FERIADO,,Puente,,,2026-11-27,,,,,"].join("\n");
+  assert.equal((await api("agentA", "POST", "/api/desk/project-import/preview", { accountId: accA, csv })).status, 403);
+  const pre = await api("owner", "POST", "/api/desk/project-import/preview", { accountId: accA, csv });
+  assert.equal(pre.status, 200); assert.equal(pre.body.errors.length, 0); assert.deepEqual([pre.body.tasks, pre.body.gates, pre.body.payments], [2, 1, 1]);
+  assert.deepEqual(pre.body.refs.doc, ["DOC-01"]);
+  const bad = await api("owner", "POST", "/api/desk/project-import", { accountId: accA, name: "TMPT Import malo", csv: csv + "\nTAREA,9.9,Sin fechas,F0,,,,0,,,", pauseSla: false });
+  assert.equal(bad.status, 400); assert.match(bad.body.message, /error/); // no silent partial loads
+  const imp = await api("owner", "POST", "/api/desk/project-import", { accountId: accA, name: "TMPT Importado", solutionType: "TMS", csv, pauseSla: false });
+  assert.equal(imp.status, 201, JSON.stringify(imp.body));
+  const id2 = imp.body.id; const d2 = (await api("owner", "GET", `/api/desk/projects/${id2}`)).body;
+  assert.equal(d2.project.baselineVersion, 0); // a draft: importing never approves a baseline
+  assert.equal(d2.tasks.length, 2); assert.equal(d2.payments.length, 1); assert.equal(d2.tasks.find((t: any) => t.code === "1.1").clientSide, true);
+  assert.equal(d2.tasks.find((t: any) => t.code === "0.1").assigneeUserId, ag.id); // matched by username
+  assert.deepEqual(d2.docs.map((d: any) => [d.code, d.clientVisible]), [["DOC-01", false]]); // stubs keep the original codes, hidden until reviewed
+  assert.ok(d2.risks.some((r: any) => r.code === "R-01") && d2.modules.some((m: any) => m.code === "MOD-01") && d2.decisions.some((x: any) => x.code === "P-01"));
+  assert.equal(d2.gates[0].date, "2026-11-05"); assert.ok(d2.warnings.some((w: any) => w.code === "phase_after_gate")); // the file's inconsistency is surfaced, not smoothed over
+  assert.equal(Number(((await db.execute(sql`SELECT count(*)::int n FROM sd_holidays WHERE account_id = ${accA} AND date = '2026-11-27'`)).rows as any[])[0].n), 1);
+  assert.deepEqual((await papi("c1", "GET", "/api/portal/projects")).body.map((p: any) => p.id).includes(id2), false); // not visible until the plan is approved
+
+  // ---- CSV export ----
+  const ex = await api("owner", "GET", `/api/desk/projects/${pid}/export.csv`);
+  assert.equal(ex.status, 200); assert.ok(ex.raw.includes("Horas"));
+  const exc = await papi("c1", "GET", `/api/portal/projects/${pid}/export.csv`);
+  assert.equal(exc.status, 200); assert.ok(!exc.raw.includes("Horas") && exc.raw.includes("Actividad"));
+  assert.equal((await papi("cb", "GET", `/api/portal/projects/${pid}/export.csv`)).status, 404);
 });

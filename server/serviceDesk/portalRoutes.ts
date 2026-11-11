@@ -18,6 +18,8 @@ import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@sha
 import { decideQuote, decideUat } from "./featureService";
 import { sdProjectGates, sdProjects } from "@shared/schema";
 import { loadProject, signGate } from "./projectService";
+import { cutHtml, decideChange, listCuts } from "./projectP2bService";
+import { scheduleCsv } from "./projectP2bRules";
 import { applyGateEffects, canonicalModule, decide, loadProjectFull, moduleCatalog, updateDoc } from "./projectItemService";
 import { quoteState } from "./featureRules";
 
@@ -272,6 +274,40 @@ export function registerPortalRoutes(app: Express) {
     if (!d || !c) return res.status(404).json({ message: "No encontrado" });
     const b = z.object({ decision: z.string().trim().min(1).max(1000) }).parse(req.body);
     await decide(d.id, { type: "contact", id: c.id }, b.decision); res.json({ ok: true });
+  }));
+  // Change control: only an account_admin approves or rejects a proposed change.
+  app.post("/api/portal/changes/:id/decide", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const { sdProjectChanges } = await import("@shared/schema");
+    const [ch] = Number.isInteger(id) ? await db.select().from(sdProjectChanges).where(eq(sdProjectChanges.id, id)) : [];
+    const [p] = ch ? await db.select().from(sdProjects).where(eq(sdProjects.id, ch.projectId)) : [];
+    const c = p && ch.status !== "draft" ? req.contacts.find((x) => x.accountId === p.accountId && x.role === "account_admin") : null;
+    if (!ch || !c) return res.status(404).json({ message: "No encontrado" });
+    const b = z.object({ decision: z.enum(["approve", "reject"]), note: z.string().max(2000).default("") }).parse(req.body);
+    await decideChange(ch.id, c.id, b.decision, b.note); res.json({ ok: true });
+  }));
+  // Status cuts: approved/sent cuts only, as immutable snapshots.
+  app.get("/api/portal/projects/:id/cuts", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [p] = Number.isInteger(id) ? await db.select().from(sdProjects).where(eq(sdProjects.id, id)) : [];
+    if (!p || p.baselineVersion < 1 || !req.contacts.some((c) => c.accountId === p.accountId)) return res.status(404).json({ message: "No encontrado" });
+    res.json(await listCuts(p.id, true));
+  }));
+  app.get("/api/portal/projects/:id/export.csv", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [p] = Number.isInteger(id) ? await db.select().from(sdProjects).where(eq(sdProjects.id, id)) : [];
+    if (!p || p.baselineVersion < 1 || !req.contacts.some((c) => c.accountId === p.accountId)) return res.status(404).json({ message: "No encontrado" });
+    const v: any = await loadProjectFull(p.id, { client: true });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="cronograma-${p.id}.csv"`);
+    res.send(scheduleCsv(v, true));
+  }));
+  app.get("/api/portal/cuts/:id", portalAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const { sdProjectCuts } = await import("@shared/schema");
+    const [c] = Number.isInteger(id) ? await db.select().from(sdProjectCuts).where(eq(sdProjectCuts.id, id)) : [];
+    const [p] = c ? await db.select().from(sdProjects).where(eq(sdProjects.id, c.projectId)) : [];
+    if (!c || c.status === "draft" || !p || !req.contacts.some((x) => x.accountId === p.accountId)) return res.status(404).json({ message: "No encontrado" });
+    res.json({ id: c.id, cutDate: c.cutDate, html: cutHtml(c.data) });
   }));
   // Module catalog of the customer's accounts: feeds the "module" field of the ticket form.
   app.get("/api/portal/modules", portalAuth, handle(async (req, res) => {

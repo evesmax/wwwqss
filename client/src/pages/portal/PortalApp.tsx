@@ -239,6 +239,10 @@ function ProjectItemsPortal({ d, reload }: { d: any; reload: () => Promise<void>
   const [link, setLink] = useState<Record<number, string>>({});
   const [dec, setDec] = useState<Record<number, string>>({});
   const act = async (fn: () => Promise<any>) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(ERR(e, "No se pudo completar")); } };
+  const [cuts, setCuts] = useState<any[]>([]);
+  const [cutHtml, setCutHtml] = useState("");
+  const [note, setNote] = useState<Record<number, string>>({});
+  useEffect(() => { apiRequest("GET", `/api/portal/projects/${d.project.id}/cuts`).then((r) => r.json()).then(setCuts).catch(() => setCuts([])); }, [d.project.id]);
   const open = (d.docs ?? []).filter((x: any) => !["recibido", "validado"].includes(x.status));
   return (<>
     {msg && <div className="text-sm p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">{msg}</div>}
@@ -253,6 +257,16 @@ function ProjectItemsPortal({ d, reload }: { d: any; reload: () => Promise<void>
           <p className="text-gray-600">Por defecto: {x.defaultDecision}{x.options.length > 0 && ` · opciones: ${x.options.join(", ")}`}{x.state === "expired" && <span className="text-red-700"> · vencida</span>}</p>
           {d.canSign ? <div className="flex gap-2"><input className="border rounded-lg px-2 py-1 flex-1" placeholder="Tu decisión" value={dec[x.id] ?? ""} onChange={(e) => setDec({ ...dec, [x.id]: e.target.value })} />
             <button className="px-3 py-1 bg-green-600 text-white rounded-lg" onClick={() => act(() => apiRequest("POST", `/api/portal/decisions/${x.id}/decide`, { decision: dec[x.id] ?? "" }))}>Decidir</button></div> : <p className="text-gray-500">La decisión la toma el administrador de la cuenta.</p>}</>}</div>)}</div>}
+    {(d.changes ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm space-y-2"><b>Cambios al alcance</b>
+      {d.changes.map((c: any) => <div key={c.id} className="border rounded-lg p-2 text-xs space-y-1"><p><b>{c.code}</b> {c.title} · {c.daysImpact} día(s) hábiles · {Number(c.costImpact).toLocaleString("es-MX")} {c.currency} · <i>{c.status === "proposed" ? "pendiente de tu decisión" : c.status === "rejected" ? "rechazado" : "aprobado"}</i></p>
+        {c.description && <p className="text-gray-600">{c.description}</p>}
+        {c.status === "proposed" && (d.canSign ? <div className="flex flex-wrap gap-2"><input className="border rounded-lg px-2 py-1 flex-1" placeholder="Comentario (obligatorio si rechazas)" value={note[c.id] ?? ""} onChange={(e) => setNote({ ...note, [c.id]: e.target.value })} />
+          <button className="px-3 py-1 bg-green-600 text-white rounded-lg" onClick={() => act(() => apiRequest("POST", `/api/portal/changes/${c.id}/decide`, { decision: "approve", note: note[c.id] ?? "" }))}>Aprobar</button>
+          <button className="px-3 py-1 border rounded-lg text-red-600" onClick={() => act(() => apiRequest("POST", `/api/portal/changes/${c.id}/decide`, { decision: "reject", note: note[c.id] ?? "" }))}>Rechazar</button></div> : <p className="text-gray-500">La decisión la toma el administrador de la cuenta.</p>)}</div>)}</div>}
+    {cuts.length > 0 && <div className="bg-white border rounded-xl p-4 text-sm space-y-1"><b>Cortes de estatus</b>
+      <ul className="text-xs space-y-0.5">{cuts.map((c: any) => <li key={c.id}>{c.cutDate} · avance {c.progress?.actual}% — <button className="text-[#0088c2] underline" onClick={async () => setCutHtml((await (await apiRequest("GET", `/api/portal/cuts/${c.id}`)).json()).html)}>ver</button></li>)}</ul>
+      {cutHtml && <div className="border rounded-lg mt-2"><button className="text-xs p-1" onClick={() => setCutHtml("")}>Cerrar</button><iframe title="Corte" sandbox="" srcDoc={cutHtml} className="w-full h-96" /></div>}</div>}
+    <a className="text-xs text-[#0088c2] underline" href={`/api/portal/projects/${d.project.id}/export.csv`}>Descargar cronograma (CSV)</a>
     {(d.modules ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Módulos</b><ul className="mt-1 text-xs space-y-0.5">{d.modules.map((m: any) => <li key={m.id}>{m.code} · {m.name} — {MOD_LBL[m.status] ?? m.status}</li>)}</ul></div>}
     {(d.risks ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Riesgos compartidos</b><ul className="mt-1 text-xs space-y-0.5">{d.risks.map((r: any) => <li key={r.id}>{r.code} · {r.title} ({r.level === "high" ? "alto" : r.level === "medium" ? "medio" : "bajo"}){r.mitigation && ` — ${r.mitigation}`}</li>)}</ul></div>}
     {(d.payments ?? []).length > 0 && <div className="bg-white border rounded-xl p-4 text-sm"><b>Plan de pagos</b><ul className="mt-1 text-xs space-y-0.5">{d.payments.map((p: any) => <li key={p.id}>{p.name} · {Number(p.amount).toLocaleString("es-MX")} {p.currency} · {p.dueDate} — {p.status === "paid" ? "pagado" : p.status === "invoiced" ? "facturado" : "pendiente"}</li>)}</ul></div>}

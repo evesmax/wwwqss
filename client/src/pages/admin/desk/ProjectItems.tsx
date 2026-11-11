@@ -7,7 +7,9 @@ const DOC_ST = ["pendiente", "parcial", "recibido", "validado", "rechazado"];
 const MOD_ST: Record<string, string> = { planned: "Planeado", in_dev: "En desarrollo", uat: "En UAT", released: "Liberado" };
 const LVL: Record<string, string> = { low: "bg-green-100 text-green-800", medium: "bg-amber-100 text-amber-800", high: "bg-red-100 text-red-800" };
 const PAY_ST: Record<string, string> = { pending: "Pendiente", invoiced: "Facturado", paid: "Pagado" };
-const TABS = ["Documentos", "Decisiones", "Riesgos", "Módulos", "Pagos", "Carga"] as const;
+const TABS = ["Documentos", "Decisiones", "Riesgos", "Módulos", "Cambios", "Cortes", "Pagos", "Carga"] as const;
+const CH_ST: Record<string, string> = { draft: "Borrador", proposed: "Propuesto al cliente", approved: "Aprobado", rejected: "Rechazado", applied: "Aplicado al plan" };
+const CUT_ST: Record<string, string> = { draft: "Borrador", approved: "Aprobado", sent: "Enviado" };
 
 // Internal view of the project objects (DOC-xx, P-xx, R-xx, MOD-xx, payments, resource load). `run` shows messages and reloads the project.
 export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promise<any>, ok: string) => Promise<void> }) {
@@ -18,6 +20,10 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
   const [f, setF] = useState<any>({});
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   const [load, setLoad] = useState<any>(null);
+  const [cuts, setCuts] = useState<any[]>([]);
+  const [preview, setPreview] = useState<string>("");
+  const loadCuts = () => apiRequest("GET", `/api/desk/projects/${pid}/cuts`).then((r) => r.json()).then(setCuts).catch(() => setCuts([]));
+  useEffect(() => { if (tab === "Cortes") void loadCuts(); }, [tab, pid, d]);
   useEffect(() => { if (tab === "Carga") apiRequest("GET", `/api/desk/projects/${pid}/load`).then((r) => r.json()).then(setLoad).catch(() => setLoad(null)); }, [tab, pid, d]);
   const clear = () => setF({});
   return (
@@ -65,6 +71,26 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
         {d.modules.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs flex gap-2 items-center"><b>{x.code}</b>{x.name}
           <select className={inp} value={x.status} onChange={(e) => patch(`modules/${x.id}`, { status: e.target.value })}>{Object.entries(MOD_ST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>)}
         {d.modules.length === 0 && <p className="text-xs text-gray-500">Sin módulos.</p>}</div>}
+
+      {tab === "Cambios" && <div className="space-y-2">
+        <p className="text-xs text-gray-500">Control de cambios: una nueva función en un proyecto con plan aprobado se vuelve una solicitud de cambio. Solo lo que el cliente aprueba mueve el plan (como revisión de la línea base).</p>
+        <div className="flex flex-wrap gap-2 items-end"><input className={`${inp} w-56`} placeholder="Título del cambio" value={f.title ?? ""} onChange={set("title")} />
+          <input className={`${inp} w-20`} type="number" placeholder="Horas" value={f.hours ?? ""} onChange={set("hours")} /><input className={`${inp} w-24`} type="number" placeholder="Costo" value={f.cost ?? ""} onChange={set("cost")} /><input className={`${inp} w-20`} type="number" placeholder="Días háb." value={f.days ?? ""} onChange={set("days")} />
+          <button className={`${btn} bg-[#00aeef] text-white`} onClick={() => post("changes", { title: f.title, hoursImpact: Number(f.hours || 0), costImpact: Number(f.cost || 0), daysImpact: Number(f.days || 0), taskSpec: { name: f.title } }, "Solicitud de cambio creada.").then(clear)}>Agregar</button></div>
+        {(d.changes ?? []).map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs flex flex-wrap gap-2 items-center"><b>{x.code}</b>{x.title} · {x.hoursImpact} h · {Number(x.costImpact).toLocaleString("es-MX")} {x.currency} · {x.daysImpact} día(s) · <i>{CH_ST[x.status]}</i>{x.decisionNote && <span className="text-gray-500">«{x.decisionNote}»</span>}
+          {x.status === "draft" && <button className={`${btn} border`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${pid}/changes/${x.id}/propose`), "Propuesta enviada al cliente.")}>Proponer al cliente</button>}
+          {x.status === "approved" && <button className={`${btn} border`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${pid}/changes/${x.id}/apply`), "Cambio aplicado como revisión de la línea base.")}>Aplicar al plan</button>}</div>)}
+        {(d.changes ?? []).length === 0 && <p className="text-xs text-gray-500">Sin solicitudes de cambio.</p>}</div>}
+
+      {tab === "Cortes" && <div className="space-y-2">
+        <p className="text-xs text-gray-500">Cortes de estatus: instantánea inmutable (borrador → aprobado → enviado). Lo que ve el cliente excluye horas, notas y riesgos internos. Se genera un borrador semanal automático.</p>
+        <button className={`${btn} bg-[#00aeef] text-white`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${pid}/cuts`), "Borrador de corte generado.").then(loadCuts)}>Generar corte de hoy</button>
+        {cuts.map((c) => <div key={c.id} className="border rounded-lg p-2 text-xs flex flex-wrap gap-2 items-center"><b>{c.cutDate}</b> · {CUT_ST[c.status]} · real {c.progress?.actual}% / plan {c.progress?.planned}%
+          <button className={`${btn} border`} onClick={async () => setPreview((await (await apiRequest("GET", `/api/desk/projects/${pid}/cuts/${c.id}`)).json()).html)}>Ver</button>
+          {c.status === "draft" && <button className={`${btn} border`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${pid}/cuts/${c.id}/approve`), "Corte aprobado (ya no se modifica).").then(loadCuts)}>Aprobar</button>}
+          {c.status !== "draft" && <button className={`${btn} border`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${pid}/cuts/${c.id}/send`), "Corte enviado a los administradores de la cuenta.").then(loadCuts)}>{c.status === "sent" ? "Reenviar" : "Enviar por correo"}</button>}</div>)}
+        {cuts.length === 0 && <p className="text-xs text-gray-500">Sin cortes.</p>}
+        {preview && <div className="border rounded-lg"><div className="flex justify-between p-1 bg-gray-50 text-xs"><span>Vista previa</span><button onClick={() => setPreview("")}>Cerrar</button></div><iframe title="Corte" sandbox="" srcDoc={preview} className="w-full h-96" /></div>}</div>}
 
       {tab === "Pagos" && <div className="space-y-2">
         <p className="text-xs text-gray-500">Solo lectura de referencia: la facturación y la cobranza viven en QFactura Hub. Por defecto el cliente no ve esta sección ni la comparación pago/gate.</p>

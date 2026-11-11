@@ -165,7 +165,8 @@ export function registerSlaRoutes(app: Express, auth: RequestHandler[]) {
       const r = await slaTick();
       const f = await import("./featureService").then((m) => m.featureTick()).catch((e) => { console.error("feature tick:", e.message); return null; });
       const pj = await import("./projectItemService").then((m) => m.projectTick()).catch((e) => { console.error("project tick:", e.message); return null; });
-      res.json({ ...r, features: f, projects: pj });
+      const cuts = await import("./projectP2bService").then((m) => m.cutTick()).catch((e) => { console.error("cut tick:", e.message); return null; });
+      res.json({ ...r, features: f, projects: pj, cuts });
     } catch (e: any) { console.error("sla tick route error:", e.message); res.status(500).json({ message: "Error" }); }
   });
 }

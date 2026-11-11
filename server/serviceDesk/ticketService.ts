@@ -64,6 +64,7 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
     return t;
   });
   refreshSoon(ticket.id);
+  if (input.type === "feature_request") await import("./projectP2bService").then((m) => m.maybeChangeFromTicket(ticket)).catch((e) => console.error("change request:", e.message));
   if (opts.notify !== false) void notifyRequester(ticket, (t) => ackEmail(t, portalLink(ticket.id)));
   return ticket;
 }
