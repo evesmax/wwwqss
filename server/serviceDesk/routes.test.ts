@@ -530,6 +530,20 @@ test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, sco
   assert.equal((await call("GET", `/api/v1/sdk/tickets/${r.body.id}`, tok({ sub: "u-78", email: "otra@cliente.com" }), undefined, O)).status, 404);
   assert.equal((await call("GET", `/api/v1/sdk/tickets/999999999`, tok(), undefined, O)).status, 404);
   assert.equal((await call("GET", "/api/v1/sdk/tickets", tok(), undefined, O)).body[0].updatedAt !== undefined, true);
+  // requester replies: own tickets only, open statuses only; answering "waiting for you" resumes work
+  const cm = (t: string, id: number | string, body: any) => call("POST", `/api/v1/sdk/tickets/${id}/comments`, t, body, O);
+  assert.equal((await cm(tok(), r.body.id, { body: "   " })).status, 400);
+  assert.equal((await cm(tok({ sub: "u-78", email: "otra@cliente.com" }), r.body.id, { body: "ajeno" })).status, 404);
+  assert.equal((await cm(tok(), 999999999, { body: "x" })).status, 404);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${r.body.id}/transition`, { to: "waiting_customer" })).status, 200);
+  const mine = await cm(tok(), r.body.id, { body: "Ya probé y sigue igual" });
+  assert.equal(mine.status, 201, JSON.stringify(mine.body));
+  const after = await call("GET", `/api/v1/sdk/tickets/${r.body.id}`, tok(), undefined, O);
+  assert.equal(after.body.ticket.status, "in_progress");
+  assert.ok(after.body.comments.some((c: any) => c.authorType === "contact" && c.body === "Ya probé y sigue igual"));
+  await db.update(sc.sdTickets).set({ status: "closed" }).where(eq(sc.sdTickets.id, r.body.id));
+  assert.equal((await cm(tok(), r.body.id, { body: "tarde" })).status, 409);
+
   const rot = await api("owner", "POST", `/api/desk/sdk/keys/${k.body.id}/rotate`);
   assert.equal(rot.status, 200);
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, O)).status, 401); // old secret no longer valid

@@ -6,7 +6,7 @@ import { db } from "../db";
 import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdTicketEvents, sdTicketComments } from "@shared/schema";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { RateLimiter, originAllowed, sanitizeContext, verifyJwt, type SdkClaims } from "./sdkAuth";
-import { createTicket, TicketError } from "./ticketService";
+import { addComment, createTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
@@ -16,6 +16,7 @@ type KeyRow = typeof sdSdkKeys.$inferSelect;
 type SReq = Request & { sdk: { key: KeyRow; claims: SdkClaims; instanceId: number; accountId: number; contactId: number } };
 const keyLimiter = new RateLimiter(120, 60_000);
 const userLimiter = new RateLimiter(10, 3_600_000);
+const commentLimiter = new RateLimiter(40, 3_600_000);
 const draftLimiter = new RateLimiter(30, 3_600_000);
 const SDK_TYPES = ["incident", "service_request", "question", "feature_request"] as const;
 
@@ -111,6 +112,19 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     const rows = await db.select({ id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, status: sdTickets.status, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt })
       .from(sdTickets).where(eq(sdTickets.requesterContactId, req.sdk.contactId)).orderBy(desc(sdTickets.updatedAt)).limit(50);
     res.json(rows);
+  }));
+
+  // The requester adds a public note to one of their own tickets while it is still open. A reply to "waiting for you"
+  // moves the ticket back to in progress (addComment does that); finished tickets are not reopened from the widget.
+  app.post("/api/v1/sdk/tickets/:id/comments", sdkAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const b = z.object({ body: z.string().trim().min(1).max(5000) }).parse(req.body);
+    const [t] = Number.isInteger(id) ? await db.select({ id: sdTickets.id, status: sdTickets.status, requesterContactId: sdTickets.requesterContactId }).from(sdTickets).where(eq(sdTickets.id, id)) : [];
+    if (!t || t.requesterContactId !== req.sdk.contactId) return void res.status(404).json({ message: "No encontrado" });
+    if (["resolved", "closed", "released", "duplicate", "cancelled", "rejected"].includes(t.status)) return void res.status(409).json({ message: "El reporte ya está terminado; abre uno nuevo si el problema continúa." });
+    if (!commentLimiter.hit(`c${req.sdk.key.id}:${req.sdk.claims.sub}`)) return void res.status(429).json({ message: "Límite de comentarios por hora alcanzado" });
+    const c = await addComment(t.id, { type: "contact", id: req.sdk.contactId }, b.body, "public");
+    res.status(201).json({ id: c.id, createdAt: c.createdAt });
   }));
 
   // Progress of one of the caller's own tickets: status history and public notes only (same rules as the customer portal:
