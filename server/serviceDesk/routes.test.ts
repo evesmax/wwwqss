@@ -1179,3 +1179,21 @@ test("tickets list: filters, sorting, pagination, search and summary", { skip: !
   assert.ok(sumA.body.open >= 4);
   assert.equal((await api("nobody", "GET", "/api/desk/tickets/summary")).body.open, 0);
 });
+
+test("tickets stats dashboard: kpis, volume, urgency, repeats", { skip: !run }, async () => {
+  const mk = async (b: any) => { const r = await api("owner", "POST", "/api/desk/tickets", { accountId: accA, channel: "manual", type: "incident", ...b }); assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body; };
+  await mk({ title: "ZZSTAT No imprime etiqueta", moduleArea: "Etiquetas", severity: "P1" });
+  await mk({ title: "zzstat  no imprime etiqueta!", moduleArea: "Etiquetas" });
+  await mk({ title: "ZZSTAT otra cosa", moduleArea: "Etiquetas" });
+  const r = await api("owner", "GET", `/api/desk/tickets/stats?days=30&accountId=${accA}`);
+  assert.equal(r.status, 200, r.raw);
+  const s = r.body;
+  assert.ok(s.kpis.created >= 3 && s.kpis.openNow >= 3);
+  assert.ok(s.byProduct.length >= 1 && s.byAccount.some((a: any) => a.total >= 3));
+  assert.ok(s.repeatedModules.some((m: any) => m.module === "Etiquetas" && m.total >= 3));
+  assert.ok(s.repeatedTitles.some((m: any) => /no imprime etiqueta/i.test(m.title) && m.total >= 2)); // normalised: case, spaces, punctuation
+  assert.ok(Array.isArray(s.urgent) && Array.isArray(s.timeline) && s.timeline.length >= 4);
+  assert.ok(s.aging.some((a: any) => a.n >= 3));
+  assert.equal((await api("owner", "GET", "/api/desk/tickets/stats?days=1")).status, 400);
+  assert.equal((await api("owner", "GET", "/api/desk/tickets/stats?accountId=999999999")).body.kpis.created ?? 0, 0);
+});

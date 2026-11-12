@@ -17,6 +17,7 @@ import SlaConfigPage from "./desk/SlaConfigPage";
 import ImportPage from "./desk/ImportPage";
 import SdkPage from "./desk/SdkPage";
 import ReportsPage from "./desk/ReportsPage";
+import TicketDashboardPage from "./desk/TicketDashboardPage";
 import FeaturesPage from "./desk/FeaturesPage";
 import ProjectsPage from "./desk/ProjectsPage";
 import AvailabilityPage from "./desk/AvailabilityPage";
@@ -65,6 +66,7 @@ export default function AdminApp() {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
+        <Route path="/soporte/dashboard" component={TicketDashboardPage} />
         <Route path="/soporte/tickets/:id">
           {(params) => <TicketDetailPage id={params.id} user={user} />}
         </Route>

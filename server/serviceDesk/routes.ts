@@ -13,6 +13,7 @@ import { registerImportRoutes } from "./importRoutes";
 import { registerSdkRoutes } from "./sdkRoutes";
 import { registerMonitorRoutes } from "./monitorRoutes";
 import { registerReportRoutes } from "./reportRoutes";
+import { registerStatsRoutes } from "./statsRoutes";
 import { registerFeatureRoutes } from "./featureRoutes";
 import { registerProjectRoutes } from "./projectRoutes";
 import { registerProjectItemRoutes } from "./projectItemRoutes";
@@ -75,6 +76,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     res.json(r);
   }));
 
+  registerStatsRoutes(app, auth); // before ticket routes: "/tickets/stats" must not be read as /tickets/:id
   registerTicketRoutes(app, auth);
   registerSlaRoutes(app, auth);
   registerImportRoutes(app, auth);
