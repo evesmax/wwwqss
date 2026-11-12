@@ -20,7 +20,7 @@
     "input,select,textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:8px;font-size:14px}textarea{min-height:90px;resize:vertical}" +
     ".row{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px}.row input{width:auto}" +
     ".send{margin-top:12px;width:100%;background:#00aeef;color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}.send:disabled{opacity:.5}" +
-    ".x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
+    ".mic{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}.mic.rec{background:#fee2e2;border-color:#ef4444;color:#b91c1c}.mic.rec i{animation:p 1s infinite}@keyframes p{50%{opacity:.25}}.mic i{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}.live{display:none;margin-top:6px;max-height:90px;overflow:auto;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:8px;font-size:13px;color:#334155}.hint{font-size:11px;color:#64748b;margin-top:4px}.x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
 
   function init(cfg) {
     cfg = cfg || {};
@@ -33,6 +33,7 @@
       "<div class='panel'><button class='x' type='button' aria-label='Cerrar' title='Cerrar'>&times;</button><h3>Reportar un problema</h3>" +
       "<label>Tipo</label><select id='type'><option value='incident'>Algo no funciona</option><option value='question'>Tengo una duda</option><option value='service_request'>Necesito un cambio o apoyo</option><option value='feature_request'>Sugerencia</option></select>" +
       "<div id='sevbox'><label>¿Qué tan urgente es para ti?</label><select id='sev'><option value=''>No sé</option><option value='P3'>Puedo esperar</option><option value='P2'>Me estorba</option><option value='P1'>Bloquea mi trabajo</option><option value='P0'>Está caído</option></select></div>" +
+      "<div id='micbox'><button class='mic' type='button'><i></i><span>Dictar con voz</span></button><div class='live'></div><div class='hint'>Habla y escribimos por ti; al terminar armamos el resumen y el detalle para que los revises.</div></div>" +
       "<label>Resumen</label><input id='title' maxlength='200' placeholder='Ej. No me deja guardar la orden'>" +
       "<label>Detalle</label><textarea id='desc' placeholder='¿Qué hiciste y qué esperabas que pasara?'></textarea>" +
       "<div class='row'><input type='checkbox' id='shot'><label style='margin:0'>Adjuntar captura de pantalla (te pediremos permiso)</label></div>" +
@@ -61,6 +62,41 @@
         });
       });
     }
+    // --- Dictado por voz: transcribe en vivo (Web Speech API) y arma resumen + detalle ---
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition, micBtn = $(".mic"), live = $(".live"), transcript = "", rec = null, recording = false;
+    if (!SR) { $("#micbox").style.display = "none"; }
+    function setMic(on) { recording = on; micBtn.classList.toggle("rec", on); micBtn.querySelector("span").textContent = on ? "Detener y armar el reporte" : "Dictar con voz"; }
+    function draft() {
+      var text = transcript.trim();
+      if (text.length < 5) { live.style.display = "none"; return say("No alcancé a escuchar nada. Revisa el permiso del micrófono e inténtalo de nuevo.", false); }
+      say("Armando el resumen…", true); micBtn.disabled = true;
+      Promise.resolve(cfg.getToken()).then(function (token) {
+        return fetch(endpoint + "/tickets/draft", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ transcript: text, type: $("#type").value }) })
+          .then(function (res) { return res.json().then(function (j) { if (!res.ok) throw new Error(j.message || "Error " + res.status); return j; }); });
+      }).then(function (d) {
+        $("#title").value = d.title; $("#desc").value = d.description; say(d.ai ? "Listo, revisa y corrige lo que quieras antes de enviar." : "Usamos tu dictado tal cual; revísalo antes de enviar.", true);
+      }).catch(function () { $("#desc").value = text; $("#title").value = text.slice(0, 100); say("No pudimos armar el resumen; dejamos tu dictado tal cual para que lo edites.", false); })
+        .then(function () { micBtn.disabled = false; });
+    }
+    function startRec() {
+      transcript = ""; live.textContent = ""; live.style.display = "block"; msg.textContent = "";
+      rec = new SR(); rec.lang = cfg.lang || (navigator.language && navigator.language.indexOf("es") === 0 ? navigator.language : "es-MX"); rec.continuous = true; rec.interimResults = true;
+      rec.onresult = function (e) {
+        var interim = "";
+        for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) transcript += e.results[i][0].transcript + " "; else interim += e.results[i][0].transcript; }
+        live.textContent = transcript + interim; live.scrollTop = live.scrollHeight;
+      };
+      rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { recording = false; setMic(false); say("Permite el micrófono en tu navegador para dictar.", false); } };
+      rec.onend = function () { if (recording) { try { rec.start(); } catch (e) {} } };
+      try { rec.start(); setMic(true); } catch (e) { say("No se pudo iniciar el micrófono.", false); }
+    }
+    micBtn.onclick = function () {
+      if (!recording) return startRec();
+      setMic(false); try { rec.stop(); } catch (e) {}
+      setTimeout(draft, 600);
+    };
+    $(".x").addEventListener("click", function () { if (recording) { setMic(false); try { rec.stop(); } catch (e) {} } });
+
     send.onclick = function () {
       var title = $("#title").value.trim();
       if (title.length < 3) return say("Escribe un resumen (mínimo 3 caracteres).", false);
@@ -71,7 +107,7 @@
         var token = r[0], blob = r[1];
         var ctx = { url: location.href, userAgent: navigator.userAgent, appVersion: cfg.appVersion || "", viewport: innerWidth + "x" + innerHeight, locale: navigator.language, consoleErrors: errors.slice() };
         return fetch(endpoint + "/tickets", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ type: type, title: title, description: $("#desc").value, perceivedSeverity: type === "incident" ? ($("#sev").value || null) : null, context: ctx }) })
+          body: JSON.stringify({ type: type, title: title, description: $("#desc").value + (transcript.trim() ? "\n\n— Transcripción original (dictado) —\n" + transcript.trim() : ""), perceivedSeverity: type === "incident" ? ($("#sev").value || null) : null, context: ctx }) })
           .then(function (res) { return res.json().then(function (j) { if (!res.ok) throw new Error(j.message || "Error " + res.status); return j; }); })
           .then(function (t) {
             if (!blob) return t;
@@ -79,7 +115,7 @@
           });
       }).then(function (t) {
         say("¡Listo! Tu folio es " + t.key + ". Te avisaremos por correo.", true);
-        $("#title").value = ""; $("#desc").value = ""; $("#shot").checked = false;
+        $("#title").value = ""; $("#desc").value = ""; $("#shot").checked = false; transcript = ""; live.style.display = "none";
         if (cfg.onSent) try { cfg.onSent(t); } catch (e) {}
       }).catch(function (e) { say("No se pudo enviar: " + (e && e.message ? e.message : e), false); }).then(function () { send.disabled = false; });
     };

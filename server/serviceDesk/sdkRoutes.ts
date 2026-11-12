@@ -10,11 +10,13 @@ import { createTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
+import { draftFromTranscript, MAX_TRANSCRIPT } from "./ticketDraft";
 
 type KeyRow = typeof sdSdkKeys.$inferSelect;
 type SReq = Request & { sdk: { key: KeyRow; claims: SdkClaims; instanceId: number; accountId: number; contactId: number } };
 const keyLimiter = new RateLimiter(120, 60_000);
 const userLimiter = new RateLimiter(10, 3_600_000);
+const draftLimiter = new RateLimiter(30, 3_600_000);
 const SDK_TYPES = ["incident", "service_request", "question", "feature_request"] as const;
 
 const createSchema = z.object({
@@ -85,6 +87,12 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     }, { type: "contact", id: s.contactId });
     await db.update(sdTickets).set({ context: { ...ctx, sdkUser: s.claims.sub } }).where(eq(sdTickets.id, t.id));
     res.status(201).json({ id: t.id, key: t.key });
+  }));
+
+  app.post("/api/v1/sdk/tickets/draft", sdkAuth, handle(async (req, res) => {
+    const b = z.object({ transcript: z.string().trim().min(5).max(MAX_TRANSCRIPT * 2), type: z.enum(SDK_TYPES).default("incident") }).parse(req.body);
+    if (!draftLimiter.hit(`d${req.sdk.key.id}:${req.sdk.claims.sub}`)) return void res.status(429).json({ message: "Límite de dictados por hora alcanzado" });
+    res.json(await draftFromTranscript(b.transcript, b.type));
   }));
 
   app.post("/api/v1/sdk/tickets/:id/attachments", sdkAuth, express.raw({ type: () => true, limit: "3mb" }), handle(async (req, res) => {
