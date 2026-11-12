@@ -20,7 +20,7 @@
     "input,select,textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:8px;font-size:14px}textarea{min-height:90px;resize:vertical}" +
     ".row{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px}.row input{width:auto}" +
     ".send{margin-top:12px;width:100%;background:#00aeef;color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}.send:disabled{opacity:.5}" +
-    ".msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
+    ".x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
 
   function init(cfg) {
     cfg = cfg || {};
@@ -30,7 +30,7 @@
     var host = document.createElement("div");
     var root = host.attachShadow({ mode: "open" });
     root.innerHTML = "<style>" + CSS + "</style><button class='fab' part='fab'>" + (cfg.buttonText || "Soporte") + "</button>" +
-      "<div class='panel'><h3>Reportar un problema</h3>" +
+      "<div class='panel'><button class='x' type='button' aria-label='Cerrar' title='Cerrar'>&times;</button><h3>Reportar un problema</h3>" +
       "<label>Tipo</label><select id='type'><option value='incident'>Algo no funciona</option><option value='question'>Tengo una duda</option><option value='service_request'>Necesito un cambio o apoyo</option><option value='feature_request'>Sugerencia</option></select>" +
       "<div id='sevbox'><label>¿Qué tan urgente es para ti?</label><select id='sev'><option value=''>No sé</option><option value='P3'>Puedo esperar</option><option value='P2'>Me estorba</option><option value='P1'>Bloquea mi trabajo</option><option value='P0'>Está caído</option></select></div>" +
       "<label>Resumen</label><input id='title' maxlength='200' placeholder='Ej. No me deja guardar la orden'>" +
@@ -43,6 +43,9 @@
     var $ = function (s) { return root.querySelector(s); };
     var panel = $(".panel"), msg = $(".msg"), send = $(".send");
     $(".fab").onclick = function () { panel.classList.toggle("open"); };
+    $(".x").onclick = function () { panel.classList.remove("open"); };
+    var onKey = function (e) { if (e.key === "Escape") panel.classList.remove("open"); };
+    document.addEventListener("keydown", onKey);
     $("#type").onchange = function () { $("#sevbox").style.display = this.value === "incident" ? "" : "none"; };
 
     function say(t, ok) { msg.textContent = t; msg.className = "msg " + (ok ? "ok" : "err"); }
@@ -80,7 +83,7 @@
         if (cfg.onSent) try { cfg.onSent(t); } catch (e) {}
       }).catch(function (e) { say("No se pudo enviar: " + (e && e.message ? e.message : e), false); }).then(function () { send.disabled = false; });
     };
-    return { open: function () { panel.classList.add("open"); }, close: function () { panel.classList.remove("open"); }, destroy: function () { host.remove(); } };
+    return { open: function () { panel.classList.add("open"); }, close: function () { panel.classList.remove("open"); }, destroy: function () { document.removeEventListener("keydown", onKey); host.remove(); } };
   }
   window.QSSWidget = { init: init };
 })();
