@@ -5,6 +5,7 @@
  * getToken debe devolver un JWT HS256 firmado por TU backend (claims: sub, email, name, tenant, iat, exp<=15min).
  * Opcional: position:'left' mueve el botón y el panel a la esquina inferior izquierda (por defecto, derecha),
  * útil si la app ya tiene otra burbuja (chat) abajo a la derecha.
+ * position:'header' oculta el botón flotante y ancla el panel arriba a la derecha; ábrelo con el objeto que devuelve init() (api.open()/close()/destroy()).
  * Nunca pongas la llave secreta en el navegador. */
 (function () {
   var errors = [];
@@ -36,6 +37,7 @@
       "<label>Detalle</label><textarea id='desc' placeholder='¿Qué hiciste y qué esperabas que pasara?'></textarea>" +
       "<div class='row'><input type='checkbox' id='shot'><label style='margin:0'>Adjuntar captura de pantalla (te pediremos permiso)</label></div>" +
       "<button class='send'>Enviar</button><div class='msg'></div></div>";
+    if (cfg.position === "header") { var hs = document.createElement("style"); hs.textContent = ".fab{display:none}.panel{top:64px;right:16px;bottom:auto}"; root.appendChild(hs); }
     if (cfg.position === "left") { var pos = document.createElement("style"); pos.textContent = ".fab,.panel{right:auto;left:20px}"; root.appendChild(pos); }
     document.body.appendChild(host);
     var $ = function (s) { return root.querySelector(s); };
