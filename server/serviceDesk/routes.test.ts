@@ -513,6 +513,23 @@ test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, sco
   assert.equal(await up(tok(), "application/pdf"), 400);
   assert.equal((await call("GET", "/api/v1/sdk/tickets", tok(), undefined, O)).body.length, 1);
   assert.equal((await call("GET", "/api/v1/sdk/tickets", tok({ email: "otra@cliente.com" }), undefined, O)).body.length, 0);
+  // Detail for the end user: progress (status history) and public notes only, never internal notes, reasons or names.
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${r.body.id}/transition`, { to: "in_progress" })).status, 200);
+  await api("owner", "POST", `/api/desk/tickets/${r.body.id}/comments`, { body: "NOTA-INTERNA-SECRETA", visibility: "internal" });
+  await api("owner", "POST", `/api/desk/tickets/${r.body.id}/comments`, { body: "Ya lo estamos revisando", visibility: "public" });
+  const det = await call("GET", `/api/v1/sdk/tickets/${r.body.id}`, tok(), undefined, O);
+  assert.equal(det.status, 200);
+  assert.equal(det.body.ticket.key, r.body.key);
+  assert.equal(det.body.ticket.status, "in_progress");
+  assert.deepEqual(det.body.comments.map((c: any) => c.body), ["Ya lo estamos revisando"]);
+  assert.equal(det.body.comments[0].authorType, "user");
+  assert.ok(det.body.history.some((h: any) => h.to === "in_progress"));
+  const raw = JSON.stringify(det.body);
+  assert.ok(!raw.includes("NOTA-INTERNA-SECRETA"));
+  assert.ok(!raw.includes("assignee") && !raw.includes("reason"));
+  assert.equal((await call("GET", `/api/v1/sdk/tickets/${r.body.id}`, tok({ sub: "u-78", email: "otra@cliente.com" }), undefined, O)).status, 404);
+  assert.equal((await call("GET", `/api/v1/sdk/tickets/999999999`, tok(), undefined, O)).status, 404);
+  assert.equal((await call("GET", "/api/v1/sdk/tickets", tok(), undefined, O)).body[0].updatedAt !== undefined, true);
   const rot = await api("owner", "POST", `/api/desk/sdk/keys/${k.body.id}/rotate`);
   assert.equal(rot.status, 200);
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, O)).status, 401); // old secret no longer valid

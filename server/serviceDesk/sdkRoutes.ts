@@ -3,7 +3,7 @@ import express, { type Express, type NextFunction, type Request, type RequestHan
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
-import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdTicketEvents } from "@shared/schema";
+import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdTicketEvents, sdTicketComments } from "@shared/schema";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { RateLimiter, originAllowed, sanitizeContext, verifyJwt, type SdkClaims } from "./sdkAuth";
 import { createTicket, TicketError } from "./ticketService";
@@ -100,9 +100,26 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
   }));
 
   app.get("/api/v1/sdk/tickets", sdkAuth, handle(async (req, res) => {
-    const rows = await db.select({ id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, status: sdTickets.status, createdAt: sdTickets.createdAt })
-      .from(sdTickets).where(eq(sdTickets.requesterContactId, req.sdk.contactId)).orderBy(desc(sdTickets.id)).limit(50);
+    const rows = await db.select({ id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, status: sdTickets.status, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt })
+      .from(sdTickets).where(eq(sdTickets.requesterContactId, req.sdk.contactId)).orderBy(desc(sdTickets.updatedAt)).limit(50);
     res.json(rows);
+  }));
+
+  // Progress of one of the caller's own tickets: status history and public notes only (same rules as the customer portal:
+  // no internal notes, no reasons, no names of staff).
+  app.get("/api/v1/sdk/tickets/:id", sdkAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [t] = Number.isInteger(id) ? await db.select({ id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, status: sdTickets.status, type: sdTickets.type, requesterContactId: sdTickets.requesterContactId, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt })
+      .from(sdTickets).where(eq(sdTickets.id, id)) : [];
+    if (!t || t.requesterContactId !== req.sdk.contactId) return void res.status(404).json({ message: "No encontrado" });
+    const [comments, events] = await Promise.all([
+      db.select({ id: sdTicketComments.id, authorType: sdTicketComments.authorType, body: sdTicketComments.body, createdAt: sdTicketComments.createdAt })
+        .from(sdTicketComments).where(and(eq(sdTicketComments.ticketId, t.id), eq(sdTicketComments.visibility, "public"))).orderBy(sdTicketComments.id),
+      db.select({ at: sdTicketEvents.at, detail: sdTicketEvents.detail }).from(sdTicketEvents)
+        .where(and(eq(sdTicketEvents.ticketId, t.id), eq(sdTicketEvents.kind, "status_changed"))).orderBy(sdTicketEvents.id),
+    ]);
+    const { requesterContactId: _r, ...ticket } = t;
+    res.json({ ticket, comments, history: events.map((e) => ({ at: e.at, from: (e.detail as any).from, to: (e.detail as any).to })) });
   }));
 
   // --- admin: key management (global managers) ---
