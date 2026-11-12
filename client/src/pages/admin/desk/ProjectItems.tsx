@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-2 py-1 text-xs";
 const btn = "px-2 py-1 rounded-lg text-xs";
@@ -33,13 +34,13 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
       {tab === "Documentos" && <div className="space-y-2">
         <p className="text-xs text-gray-500">Solicitudes al cliente. Un documento vencido marca como «bloqueadas por el cliente» las tareas que lo necesitan.</p>
         <div className="flex flex-wrap gap-2 items-end"><input className={`${inp} w-56`} placeholder="Nombre del documento" value={f.name ?? ""} onChange={set("name")} />
-          <select className={inp} value={f.priority ?? "A"} onChange={set("priority")}><option>A</option><option>B</option></select>
+          <SearchSelect className={inp} value={f.priority ?? "A"} onChange={set("priority")}><option>A</option><option>B</option></SearchSelect>
           <input className={inp} type="date" value={f.dueDate ?? ""} onChange={set("dueDate")} />
           <button className={`${btn} bg-[#00aeef] text-white`} onClick={() => post("docs", { name: f.name, priority: f.priority ?? "A", dueDate: f.dueDate }, "Documento solicitado.").then(clear)}>Solicitar</button></div>
         <table className="w-full text-xs"><thead className="text-left bg-gray-50"><tr><th className="p-1">Código</th><th>Documento</th><th>Prior.</th><th>Fecha compromiso</th><th>Estado</th><th>Visible</th></tr></thead><tbody>
           {d.docs.map((x: any) => <tr key={x.id} className="border-t"><td className="p-1">{x.code}</td><td>{x.name}{x.files.length > 0 && <span className="text-gray-500"> · {x.files.length} archivo(s)</span>}</td><td>{x.priority}</td>
             <td className={x.overdue ? "text-red-700 font-semibold" : ""}>{x.dueDate}{x.overdue && " (vencido)"}</td>
-            <td><select className={inp} value={x.status} onChange={(e) => patch(`docs/${x.id}`, { status: e.target.value, ...(e.target.value === "rechazado" ? { comment: prompt("Motivo del rechazo") || "" } : {}) })}>{DOC_ST.map((s) => <option key={s}>{s}</option>)}</select></td>
+            <td><SearchSelect className={inp} value={x.status} onChange={(e) => patch(`docs/${x.id}`, { status: e.target.value, ...(e.target.value === "rechazado" ? { comment: prompt("Motivo del rechazo") || "" } : {}) })}>{DOC_ST.map((s) => <option key={s}>{s}</option>)}</SearchSelect></td>
             <td><input type="checkbox" checked={x.clientVisible} onChange={(e) => patch(`docs/${x.id}`, { clientVisible: e.target.checked })} /></td></tr>)}</tbody></table>
         {d.docs.length === 0 && <p className="text-xs text-gray-500">Sin solicitudes.</p>}</div>}
 
@@ -56,12 +57,12 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
 
       {tab === "Riesgos" && <div className="space-y-2">
         <div className="flex flex-wrap gap-2 items-end"><input className={`${inp} w-56`} placeholder="Riesgo" value={f.title ?? ""} onChange={set("title")} />
-          <label className="text-xs">Prob. <select className={inp} value={f.p ?? "2"} onChange={set("p")}><option>1</option><option>2</option><option>3</option></select></label>
-          <label className="text-xs">Impacto <select className={inp} value={f.i ?? "2"} onChange={set("i")}><option>1</option><option>2</option><option>3</option></select></label>
+          <label className="text-xs">Prob. <SearchSelect className={inp} value={f.p ?? "2"} onChange={set("p")}><option>1</option><option>2</option><option>3</option></SearchSelect></label>
+          <label className="text-xs">Impacto <SearchSelect className={inp} value={f.i ?? "2"} onChange={set("i")}><option>1</option><option>2</option><option>3</option></SearchSelect></label>
           <input className={`${inp} w-56`} placeholder="Mitigación" value={f.mit ?? ""} onChange={set("mit")} />
           <button className={`${btn} bg-[#00aeef] text-white`} onClick={() => post("risks", { title: f.title, probability: Number(f.p ?? 2), impact: Number(f.i ?? 2), mitigation: f.mit ?? "" }, "Riesgo registrado.").then(clear)}>Agregar</button></div>
         {d.risks.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs flex flex-wrap gap-2 items-center"><b>{x.code}</b><span className={`px-1.5 py-0.5 rounded ${LVL[x.level]}`}>{x.level === "high" ? "Alto" : x.level === "medium" ? "Medio" : "Bajo"}</span>{x.title}
-          <select className={inp} value={x.status} onChange={(e) => patch(`risks/${x.id}`, { status: e.target.value })}><option value="open">Abierto</option><option value="mitigated">Mitigado</option><option value="occurred">Ocurrió</option><option value="closed">Cerrado</option></select>
+          <SearchSelect className={inp} value={x.status} onChange={(e) => patch(`risks/${x.id}`, { status: e.target.value })}><option value="open">Abierto</option><option value="mitigated">Mitigado</option><option value="occurred">Ocurrió</option><option value="closed">Cerrado</option></SearchSelect>
           <label><input type="checkbox" checked={x.shared} onChange={(e) => patch(`risks/${x.id}`, { shared: e.target.checked })} /> compartido con el cliente</label></div>)}
         {d.risks.length === 0 && <p className="text-xs text-gray-500">Sin riesgos.</p>}</div>}
 
@@ -69,7 +70,7 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
         <p className="text-xs text-gray-500">Catálogo de módulos del contrato: alimenta el campo «módulo» de los tickets y «Módulos entregados» del informe mensual.</p>
         <div className="flex gap-2"><input className={`${inp} w-56`} placeholder="Nombre del módulo" value={f.name ?? ""} onChange={set("name")} /><button className={`${btn} bg-[#00aeef] text-white`} onClick={() => post("modules", { name: f.name }, "Módulo agregado.").then(clear)}>Agregar</button></div>
         {d.modules.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs flex gap-2 items-center"><b>{x.code}</b>{x.name}
-          <select className={inp} value={x.status} onChange={(e) => patch(`modules/${x.id}`, { status: e.target.value })}>{Object.entries(MOD_ST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>)}
+          <SearchSelect className={inp} value={x.status} onChange={(e) => patch(`modules/${x.id}`, { status: e.target.value })}>{Object.entries(MOD_ST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</SearchSelect></div>)}
         {d.modules.length === 0 && <p className="text-xs text-gray-500">Sin módulos.</p>}</div>}
 
       {tab === "Cambios" && <div className="space-y-2">
@@ -96,10 +97,10 @@ export default function ProjectItems({ d, run }: { d: any; run: (fn: () => Promi
         <p className="text-xs text-gray-500">Solo lectura de referencia: la facturación y la cobranza viven en QFactura Hub. Por defecto el cliente no ve esta sección ni la comparación pago/gate.</p>
         <div className="flex flex-wrap gap-2 items-end"><input className={`${inp} w-40`} placeholder="Concepto" value={f.name ?? ""} onChange={set("name")} /><input className={`${inp} w-24`} type="number" placeholder="Monto" value={f.amount ?? ""} onChange={set("amount")} />
           <input className={inp} type="date" value={f.dueDate ?? ""} onChange={set("dueDate")} />
-          <select className={inp} value={f.gateId ?? ""} onChange={set("gateId")}><option value="">Sin gate</option>{d.gates.map((g: any) => <option key={g.id} value={g.id}>{g.code}</option>)}</select>
+          <SearchSelect className={inp} value={f.gateId ?? ""} onChange={set("gateId")}><option value="">Sin gate</option>{d.gates.map((g: any) => <option key={g.id} value={g.id}>{g.code}</option>)}</SearchSelect>
           <button className={`${btn} bg-[#00aeef] text-white`} onClick={() => post("payments", { name: f.name, amount: Number(f.amount), dueDate: f.dueDate, gateId: f.gateId ? Number(f.gateId) : null }, "Pago agregado.").then(clear)}>Agregar</button></div>
         {d.payments.map((x: any) => <div key={x.id} className="border rounded-lg p-2 text-xs flex flex-wrap gap-2 items-center">{x.name} · {Number(x.amount).toLocaleString("es-MX")} {x.currency} · {x.dueDate}
-          <select className={inp} value={x.status} onChange={(e) => patch(`payments/${x.id}`, { status: e.target.value })}>{Object.entries(PAY_ST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+          <SearchSelect className={inp} value={x.status} onChange={(e) => patch(`payments/${x.id}`, { status: e.target.value })}>{Object.entries(PAY_ST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</SearchSelect>
           <label><input type="checkbox" checked={x.clientVisible} onChange={(e) => patch(`payments/${x.id}`, { clientVisible: e.target.checked })} /> visible al cliente</label></div>)}
         {d.payments.length === 0 && <p className="text-xs text-gray-500">Sin plan de pagos.</p>}</div>}
 

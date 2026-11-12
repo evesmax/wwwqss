@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -25,8 +26,8 @@ export default function ReportsPage() {
       <p className="text-sm text-gray-600">Flujo: borrador → revisión (vista previa idéntica al correo) → aprobación → envío. Cada informe es una instantánea inmutable; si hay que corregir, se emite una nueva versión con nota. Los datos faltantes se muestran como N/D.</p>
       {msg && <div className={`text-sm p-3 rounded-lg border ${msg.ok ? "bg-green-50 border-green-200 text-green-900" : "bg-red-50 border-red-200 text-red-800"}`}>{msg.text}</div>}
       <div className="bg-white border rounded-xl p-4 grid sm:grid-cols-5 gap-2 items-end text-sm">
-        <select className={inp} value={f.accountId} onChange={(e) => setF({ ...f, accountId: e.target.value })}><option value="">Cuenta…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select>
-        <select className={inp} value={f.month} onChange={(e) => setF({ ...f, month: Number(e.target.value) })}>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>
+        <SearchSelect className={inp} value={f.accountId} onChange={(e) => setF({ ...f, accountId: e.target.value })}><option value="">Cuenta…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</SearchSelect>
+        <SearchSelect className={inp} value={f.month} onChange={(e) => setF({ ...f, month: Number(e.target.value) })}>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</SearchSelect>
         <input className={inp} type="number" value={f.year} onChange={(e) => setF({ ...f, year: Number(e.target.value) })} />
         <input className={inp} placeholder="Nota (solo para nueva versión)" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         <button disabled={!f.accountId} className="px-3 py-2 bg-[#00aeef] text-white rounded-lg disabled:opacity-50"

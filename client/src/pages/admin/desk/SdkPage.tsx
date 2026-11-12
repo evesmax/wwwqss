@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
@@ -40,7 +41,7 @@ export default function SdkPage() {
         <p>ID: <code>{secret.keyId}</code></p><p>Secreto: <code className="break-all">{secret.secret}</code></p>
         <button className="text-[#0088c2]" onClick={() => setSecret(null)}>Ya la guardé</button></div>}
       <div className="bg-white border rounded-xl p-4 grid sm:grid-cols-3 gap-3 text-sm items-end">
-        <label>Producto<select className={`${inp} w-full`} value={f.productId} onChange={(e) => setF({ ...f, productId: e.target.value })}><option value="">Selecciona…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <label>Producto<SearchSelect className={`${inp} w-full`} value={f.productId} onChange={(e) => setF({ ...f, productId: e.target.value })}><option value="">Selecciona…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</SearchSelect></label>
         <label>Nombre de la llave<input className={`${inp} w-full`} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="QPulseMES producción" /></label>
         <label>Orígenes permitidos<input className={`${inp} w-full`} value={f.origins} onChange={(e) => setF({ ...f, origins: e.target.value })} placeholder="https://app.cliente.com" /></label>
         <div className="sm:col-span-3"><button disabled={!f.productId || f.name.length < 2} onClick={create} className="px-4 py-2 bg-[#00aeef] text-white rounded-lg disabled:opacity-50">Crear llave</button></div>

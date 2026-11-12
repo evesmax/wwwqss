@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import {
-  users, clientes, sdAccounts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdContacts, sdProducts,
+  users, clientes, sdAccounts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdContacts, sdProducts, sdInstances,
 } from "@shared/schema";
 import { hasRole, visibleAccountIds } from "./access";
 import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
@@ -50,34 +50,85 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
     res.json(rows);
   }));
 
+  // Statuses that count as "closed" for the open / no-response filters.
+  const CLOSED_SQL = sql`('resolved','closed','duplicate','cancelled','rejected','released','deferred')`;
+  const sevRank = sql`case ${sdTickets.severity} when 'P0' then 0 when 'P1' then 1 when 'P2' then 2 when 'P3' then 3 else 4 end`;
+  const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v, "Fecha inválida");
+  const listQuery = z.object({
+    status: z.string().optional(), type: z.string().optional(), accountId: z.coerce.number().int().optional(), productId: z.coerce.number().int().optional(),
+    severity: z.string().regex(/^(P[0-3]|none)(,(P[0-3]|none))*$/).optional(), channel: z.string().max(30).optional(),
+    assignee: z.string().regex(/^(me|none|\d+)$/).optional(), q: z.string().trim().max(100).optional(), open: z.enum(["1", "0"]).optional(),
+    noResponse: z.enum(["1", "0"]).optional(), createdFrom: isoDay.optional(), createdTo: isoDay.optional(),
+    sort: z.enum(["priority", "created", "updated", "title", "severity", "status", "client"]).default("priority"), dir: z.enum(["asc", "desc"]).optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50), offset: z.coerce.number().int().min(0).default(0),
+  });
+  // Calendar day in Mexico City, so "created on the 11th" means the 11th for the people using the desk.
+  const mxDay = sql`((${sdTickets.createdAt} at time zone 'UTC') at time zone 'America/Mexico_City')::date`;
+
   app.get("/api/desk/tickets", ...auth, wrap(async (req, res) => {
     const ids = await visibleAccountIds(req.actor);
     if (!ids.length) return res.json({ rows: [], total: 0 });
-    const q = z.object({
-      status: z.string().optional(), type: z.string().optional(), accountId: z.coerce.number().int().optional(),
-      assignee: z.string().optional(), q: z.string().trim().max(100).optional(), open: z.enum(["1", "0"]).optional(),
-      limit: z.coerce.number().int().min(1).max(200).default(50), offset: z.coerce.number().int().min(0).default(0),
-    }).parse(req.query);
+    const q = listQuery.parse(req.query);
     const conds = [inArray(sdTickets.accountId, ids)];
     if (q.accountId) conds.push(eq(sdTickets.accountId, q.accountId));
+    if (q.productId) conds.push(eq(sdTickets.productId, q.productId));
     if (q.status) conds.push(eq(sdTickets.status, q.status));
     if (q.type) conds.push(eq(sdTickets.type, q.type));
+    if (q.severity) {
+      const want = q.severity.split(",");
+      const levels = want.filter((x) => x !== "none");
+      const parts = [...(levels.length ? [inArray(sdTickets.severity, levels)] : []), ...(want.includes("none") ? [sql`${sdTickets.severity} is null`] : [])];
+      conds.push(parts.length === 1 ? parts[0] : or(...parts)!);
+    }
+    if (q.channel) conds.push(eq(sdTickets.channel, q.channel));
     if (q.assignee === "me") conds.push(eq(sdTickets.assigneeUserId, req.actor.userId));
     else if (q.assignee === "none") conds.push(sql`${sdTickets.assigneeUserId} is null`);
-    if (q.open === "1") conds.push(sql`${sdTickets.status} not in ('resolved','closed','duplicate','cancelled','rejected','released','deferred')`);
-    if (q.q) { const like = `%${q.q.replace(/[%_]/g, "\\$&")}%`; conds.push(or(ilike(sdTickets.title, like), ilike(sdTickets.key, like))!); }
+    else if (q.assignee) conds.push(eq(sdTickets.assigneeUserId, Number(q.assignee)));
+    if (q.open === "1") conds.push(sql`${sdTickets.status} not in ${CLOSED_SQL}`);
+    if (q.noResponse === "1") conds.push(sql`${sdTickets.firstResponseAt} is null and ${sdTickets.status} not in ${CLOSED_SQL}`);
+    if (q.createdFrom) conds.push(sql`${mxDay} >= ${q.createdFrom}::date`);
+    if (q.createdTo) conds.push(sql`${mxDay} <= ${q.createdTo}::date`);
+    if (q.q) {
+      const like = `%${q.q.replace(/[%_]/g, "\\$&")}%`;
+      conds.push(or(ilike(sdTickets.title, like), ilike(sdTickets.key, like), ilike(sdTickets.description, like), ilike(clientes.nombreNegocio, like))!);
+    }
     const where = and(...conds);
-    const rows = await db.select({
+    const d = (dir: "asc" | "desc") => (q.dir ?? dir) === "asc" ? sql`asc` : sql`desc`;
+    const order = {
+      priority: [sevRank, desc(sdTickets.updatedAt)],
+      severity: [sql`${sevRank} ${d("asc")}`, desc(sdTickets.updatedAt)],
+      created: [sql`${sdTickets.createdAt} ${d("desc")}`, desc(sdTickets.id)],
+      updated: [sql`${sdTickets.updatedAt} ${d("desc")}`, desc(sdTickets.id)],
+      title: [sql`lower(${sdTickets.title}) ${d("asc")}`, desc(sdTickets.id)],
+      status: [sql`${sdTickets.status} ${d("asc")}`, desc(sdTickets.updatedAt)],
+      client: [sql`lower(${clientes.nombreNegocio}) ${d("asc")}`, desc(sdTickets.updatedAt)],
+    }[q.sort];
+    const base = db.select({
       id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, type: sdTickets.type, status: sdTickets.status, severity: sdTickets.severity,
-      perceivedSeverity: sdTickets.perceivedSeverity, assigneeUserId: sdTickets.assigneeUserId, accountId: sdTickets.accountId,
-      cliente: clientes.nombreNegocio, productCode: sdProducts.code, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt,
+      perceivedSeverity: sdTickets.perceivedSeverity, assigneeUserId: sdTickets.assigneeUserId, assigneeName: users.username, accountId: sdTickets.accountId,
+      cliente: clientes.nombreNegocio, productCode: sdProducts.code, channel: sdTickets.channel, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt,
       firstResponseAt: sdTickets.firstResponseAt,
     }).from(sdTickets).innerJoin(sdAccounts, eq(sdAccounts.id, sdTickets.accountId)).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId))
-      .leftJoin(sdProducts, eq(sdProducts.id, sdTickets.productId)).where(where)
-      .orderBy(sql`case ${sdTickets.severity} when 'P0' then 0 when 'P1' then 1 when 'P2' then 2 when 'P3' then 3 else 4 end`, desc(sdTickets.updatedAt))
-      .limit(q.limit).offset(q.offset);
-    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(sdTickets).where(where);
+      .leftJoin(sdProducts, eq(sdProducts.id, sdTickets.productId)).leftJoin(users, eq(users.id, sdTickets.assigneeUserId));
+    const rows = await base.where(where).orderBy(...order).limit(q.limit).offset(q.offset);
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(sdTickets)
+      .innerJoin(sdAccounts, eq(sdAccounts.id, sdTickets.accountId)).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId)).where(where);
     res.json({ rows, total: n });
+  }));
+
+  // Counters for the quick-filter chips (same visibility as the list). Registered before /:id so "summary" is not read as an id.
+  app.get("/api/desk/tickets/summary", ...auth, wrap(async (req, res) => {
+    const ids = await visibleAccountIds(req.actor);
+    if (!ids.length) return res.json({ open: 0, mine: 0, unassigned: 0, critical: 0, noResponse: 0 });
+    const open = sql`${sdTickets.status} not in ${CLOSED_SQL}`;
+    const [r] = await db.select({
+      open: sql<number>`count(*) filter (where ${open})::int`,
+      mine: sql<number>`count(*) filter (where ${open} and ${sdTickets.assigneeUserId} = ${req.actor.userId})::int`,
+      unassigned: sql<number>`count(*) filter (where ${open} and ${sdTickets.assigneeUserId} is null)::int`,
+      critical: sql<number>`count(*) filter (where ${open} and ${sdTickets.severity} in ('P0','P1'))::int`,
+      noResponse: sql<number>`count(*) filter (where ${open} and ${sdTickets.firstResponseAt} is null)::int`,
+    }).from(sdTickets).where(inArray(sdTickets.accountId, ids));
+    res.json(r);
   }));
 
   app.post("/api/desk/tickets", ...auth, requireRole(...WORKERS), wrap(async (req, res) => {
@@ -89,7 +140,7 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
 
   app.get("/api/desk/tickets/:id", ...auth, wrap(async (req, res) => {
     const t = await ticketOr404(req, res); if (!t) return;
-    const [events, comments, time, attachments, [requester], [acc]] = await Promise.all([
+    const [events, comments, time, attachments, [requester], [acc], [instance], [product]] = await Promise.all([
       db.select().from(sdTicketEvents).where(eq(sdTicketEvents.ticketId, t.id)).orderBy(sdTicketEvents.id),
       db.select().from(sdTicketComments).where(eq(sdTicketComments.ticketId, t.id)).orderBy(sdTicketComments.id),
       db.select().from(sdTimeEntries).where(eq(sdTimeEntries.ticketId, t.id)).orderBy(sdTimeEntries.id),
@@ -97,9 +148,11 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
         .from(sdTicketAttachments).where(eq(sdTicketAttachments.ticketId, t.id)).orderBy(sdTicketAttachments.id),
       t.requesterContactId ? db.select().from(sdContacts).where(eq(sdContacts.id, t.requesterContactId)) : Promise.resolve([]),
       db.select({ cliente: clientes.nombreNegocio, prefix: sdAccounts.ticketPrefix }).from(sdAccounts).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId)).where(eq(sdAccounts.id, t.accountId)),
+      t.instanceId ? db.select({ name: sdInstances.name, environment: sdInstances.environment, baseUrl: sdInstances.baseUrl }).from(sdInstances).where(eq(sdInstances.id, t.instanceId)) : Promise.resolve([]),
+      t.productId ? db.select({ code: sdProducts.code, name: sdProducts.name }).from(sdProducts).where(eq(sdProducts.id, t.productId)) : Promise.resolve([]),
     ]);
     res.json({
-      ticket: t, requester: requester ?? null, account: acc, events, comments, time, attachments,
+      ticket: t, requester: requester ?? null, account: acc, instance: instance ?? null, product: product ?? null, events, comments, time, attachments,
       nextStatuses: nextStatuses(t.type, t.status), allStatuses: statusesFor(t.type),
       totalMinutes: time.reduce((a, e) => a + e.minutes, 0),
     });

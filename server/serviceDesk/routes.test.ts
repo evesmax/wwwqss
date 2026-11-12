@@ -1060,3 +1060,122 @@ test("project P2b: change control, status cuts, schedule importer, CSV export", 
   assert.equal(exc.status, 200); assert.ok(!exc.raw.includes("Horas") && exc.raw.includes("Actividad"));
   assert.equal((await papi("cb", "GET", `/api/portal/projects/${pid}/export.csv`)).status, 404);
 });
+
+test("catalog: edit and delete with referential guards", { skip: !run }, async () => {
+  const { db } = await import("../db");
+  const s = await import("@shared/schema");
+  const tag = Date.now().toString(36);
+  // products: rename, role checks, delete only when unused
+  const p = await api("owner", "POST", "/api/desk/products", { code: `TMPT-DEL-${tag}`, name: "TMPT borrable" });
+  assert.equal(p.status, 201);
+  const ren = await api("owner", "PUT", `/api/desk/products/${p.body.id}`, { code: p.body.code, name: "TMPT renombrado", active: false });
+  assert.equal(ren.body.name, "TMPT renombrado");
+  assert.equal((await api("l1", "DELETE", `/api/desk/products/${p.body.id}`)).status, 403);
+  assert.equal((await api("agentA", "DELETE", `/api/desk/products/${p.body.id}`)).status, 403);
+  const used = await api("owner", "DELETE", `/api/desk/products/${ids.product}`);
+  assert.equal(used.status, 409); // used by contracts
+  assert.match(used.body.message, /desact/i);
+  assert.equal((await api("owner", "DELETE", `/api/desk/products/${p.body.id}`)).status, 200);
+  assert.equal((await api("owner", "GET", "/api/desk/products")).body.some((x: any) => x.id === p.body.id), false);
+  assert.equal((await api("owner", "DELETE", `/api/desk/products/${p.body.id}`)).status, 404);
+
+  // accounts: only empty accounts can be deleted
+  const [c] = await db.insert(s.clientes).values({ codigo: `TMPT-DEL-${tag}`, tipo: "Cliente", nombreNegocio: "TMPT borrable" }).returning();
+  ids.clientes.push(c.id);
+  const letters = tag.toUpperCase().replace(/[^A-Z]/g, "").padEnd(3, "Q").slice(0, 3);
+  const acc = await api("owner", "POST", "/api/desk/accounts", { clienteId: c.id, accountType: "demo", ticketPrefix: `DX${letters}` });
+  assert.equal(acc.status, 201, JSON.stringify(acc.body));
+  ids.accounts.push(acc.body.id);
+  const ct = await api("owner", "POST", "/api/desk/contacts", { accountId: acc.body.id, email: `tmpt-del-${tag}@x.test`, name: "Borrable" });
+  assert.equal(ct.status, 201);
+  assert.equal((await api("owner", "PUT", `/api/desk/contacts/${ct.body.id}`, { email: `tmpt-del-${tag}@x.test`, name: "Renombrado", role: "contact" })).body.name, "Renombrado");
+  const blocked = await api("owner", "DELETE", `/api/desk/accounts/${acc.body.id}`);
+  assert.equal(blocked.status, 409);
+  assert.match(blocked.body.message, /primero/i);
+  assert.equal((await api("agentA", "DELETE", `/api/desk/accounts/${accA}`)).status, 403);
+  assert.equal((await api("owner", "DELETE", `/api/desk/accounts/${accA}`)).status, 409); // has tickets/contacts
+  assert.equal((await api("owner", "DELETE", `/api/desk/contacts/${ct.body.id}`)).status, 200);
+  assert.equal((await api("owner", "DELETE", `/api/desk/accounts/${acc.body.id}`)).status, 200);
+  assert.equal((await api("owner", "GET", "/api/desk/accounts")).body.some((x: any) => x.id === acc.body.id), false);
+  assert.equal((await api("owner", "DELETE", `/api/desk/accounts/${acc.body.id}`)).status, 404);
+
+  // instances: cannot be deleted while tickets point at them
+  const inst = await api("owner", "POST", "/api/desk/instances", { accountId: accA, productId: ids.product, name: `TMPT inst ${tag}` });
+  assert.equal(inst.status, 201);
+  assert.equal((await api("owner", "PUT", `/api/desk/instances/${inst.body.id}`, { productId: ids.product, name: `TMPT inst ${tag} v2`, environment: "staging", baseUrl: "", active: true })).body.name, `TMPT inst ${tag} v2`);
+  const t = await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "question", title: "Usa instancia", channel: "manual", instanceId: inst.body.id });
+  assert.equal(t.status, 201, JSON.stringify(t.body));
+  const det = (await api("owner", "GET", `/api/desk/tickets/${t.body.id}`)).body;
+  assert.equal(det.instance.name, `TMPT inst ${tag} v2`); // the detail carries product/instance names for the copyable context
+  assert.ok("product" in det);
+  const guard = await api("owner", "DELETE", `/api/desk/instances/${inst.body.id}`);
+  assert.equal(guard.status, 409);
+  assert.match(guard.body.message, /desact/i);
+  const free = await api("owner", "POST", "/api/desk/instances", { accountId: accA, productId: ids.product, name: `TMPT libre ${tag}` });
+  assert.equal((await api("owner", "DELETE", `/api/desk/instances/${free.body.id}`)).status, 200);
+});
+
+test("tickets list: filters, sorting, pagination, search and summary", { skip: !run }, async () => {
+  const mk = async (b: any) => { const r = await api("owner", "POST", "/api/desk/tickets", { accountId: accA, channel: "manual", ...b }); assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body; };
+  const t1 = await mk({ type: "incident", title: "ZZLIST alfa", description: "falla en bodega norte", severity: "P1" });
+  const t2 = await mk({ type: "question", title: "ZZLIST beta", channel: "email" });
+  const t3 = await mk({ type: "service_request", title: "ZZLIST gamma", channel: "portal" });
+  const t4 = await mk({ type: "incident", title: "ZZLIST delta", severity: "P3" });
+  const agentId = ids.users[1];
+  assert.equal((await api("owner", "PATCH", `/api/desk/tickets/${t1.id}`, { assigneeUserId: agentId })).status, 200);
+  const list = async (qs: string) => { const r = await api("owner", "GET", `/api/desk/tickets?q=ZZLIST&${qs}`); assert.equal(r.status, 200, r.raw); return r.body; };
+  const keys = (r: any) => r.rows.map((x: any) => x.key);
+
+  // sorting
+  assert.deepEqual(keys(await list("sort=created&dir=asc")), [t1.key, t2.key, t3.key, t4.key]);
+  assert.deepEqual(keys(await list("sort=created&dir=desc")), [t4.key, t3.key, t2.key, t1.key]);
+  assert.deepEqual(keys(await list("sort=title&dir=asc")), [t1.key, t2.key, t4.key, t3.key]); // alfa, beta, delta, gamma
+  assert.equal(keys(await list("sort=severity&dir=asc"))[0], t1.key); // P1 before P3 before none
+  assert.equal((await api("owner", "GET", "/api/desk/tickets?sort=bogus")).status, 400);
+  assert.equal((await api("owner", "GET", "/api/desk/tickets?dir=sideways")).status, 400);
+
+  // filters
+  assert.deepEqual(keys(await list("severity=P1")), [t1.key]);
+  assert.deepEqual(keys(await list("severity=P0,P1")), [t1.key]); // several at once: "Críticos"
+  assert.deepEqual(keys(await list("severity=P1,P3&sort=created&dir=asc")), [t1.key, t4.key]);
+  assert.deepEqual(keys(await list("severity=P3,none&sort=created&dir=asc")), [t2.key, t3.key, t4.key]); // none = no severity yet
+  assert.equal((await api("owner", "GET", "/api/desk/tickets?severity=P9")).status, 400);
+  assert.deepEqual(keys(await list("severity=none&sort=created&dir=asc")), [t2.key, t3.key]);
+  assert.deepEqual(keys(await list("channel=email")), [t2.key]);
+  assert.deepEqual(keys(await list(`assignee=${agentId}`)), [t1.key]);
+  assert.deepEqual(keys(await list("assignee=none&sort=created&dir=asc")), [t2.key, t3.key, t4.key]);
+  assert.equal((await list("noResponse=1")).total, 4);
+  assert.equal((await api("owner", "POST", `/api/desk/tickets/${t2.id}/comments`, { body: "Hola, lo revisamos", visibility: "public" })).status, 201);
+  assert.ok(!keys(await list("noResponse=1")).includes(t2.key));
+  assert.equal((await list("productId=999999999")).total, 0);
+  const tomorrow = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), yesterday = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10); // 2 days: UTC and Mexico City can differ by a calendar day
+  assert.equal((await list(`createdFrom=${tomorrow}`)).total, 0);
+  assert.equal((await list(`createdTo=${yesterday}`)).total, 0);
+  assert.equal((await list(`createdFrom=${yesterday}&createdTo=${tomorrow}`)).total, 4);
+  assert.equal((await api("owner", "GET", "/api/desk/tickets?createdFrom=not-a-date")).status, 400);
+
+  // search: title, description and client name
+  const r = await api("owner", "GET", "/api/desk/tickets?q=bodega%20norte");
+  assert.deepEqual(keys(r.body), [t1.key]);
+  assert.ok(keys((await api("owner", "GET", "/api/desk/tickets?q=TMPT%20A&limit=200")).body).includes(t3.key));
+
+  // pagination keeps total and does not repeat rows
+  const p1 = await list("sort=created&dir=asc&limit=2&offset=0"), p2 = await list("sort=created&dir=asc&limit=2&offset=2");
+  assert.equal(p1.total, 4); assert.equal(p2.total, 4);
+  assert.deepEqual([...keys(p1), ...keys(p2)], [t1.key, t2.key, t3.key, t4.key]);
+
+  // row shape for the friendlier list
+  const row = (await list(`assignee=${agentId}`)).rows[0];
+  assert.equal(row.channel, "manual");
+  assert.ok(typeof row.assigneeName === "string" && row.assigneeName.length > 0);
+  assert.ok("createdAt" in row && "firstResponseAt" in row);
+
+  // summary chips are scoped like the list
+  const sum = await api("owner", "GET", "/api/desk/tickets/summary");
+  assert.equal(sum.status, 200);
+  assert.ok(sum.body.open >= 4 && sum.body.unassigned >= 3 && sum.body.critical >= 1 && sum.body.noResponse >= 3);
+  assert.equal(typeof sum.body.mine, "number");
+  const sumA = await api("agentA", "GET", "/api/desk/tickets/summary");
+  assert.ok(sumA.body.open >= 4);
+  assert.equal((await api("nobody", "GET", "/api/desk/tickets/summary")).body.open, 0);
+});

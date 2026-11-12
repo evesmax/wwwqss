@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, fmt } from "./ticketUi";
+import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, EVENT_TEXT, fmt } from "./ticketUi";
 import SlaPanel from "./SlaPanel";
+import { ContextPanel, AttachmentsCard, TechContext } from "./TicketContextPanel";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
-const EVENT_TEXT: Record<string, (d: any) => string> = {
-  created: (d) => `Ticket creado (${d.channel})`,
-  status_changed: (d) => `Estado: ${STATUS_LABEL[d.from] ?? d.from} → ${STATUS_LABEL[d.to] ?? d.to}${d.reason ? ` — ${d.reason}` : ""}`,
-  first_response: () => "Primera respuesta pública",
-  time_logged: (d) => `Horas registradas: ${d.minutes} min`,
-  fields_changed: (d) => `Campos cambiados: ${Object.keys(d.changed ?? {}).join(", ")}`,
-  attachment: (d) => `Adjunto: ${d.filename}`,
-  sla_excluded: (d) => `Excluido del SLA: ${d.reason}${d.note ? ` — ${d.note}` : ""}`,
-  sla_exclusion_removed: () => "Exclusión de SLA retirada",
-};
 
 export default function TicketDetailPage({ id }: { id: string; user?: any }) {
   const [d, setD] = useState<any>(null);
@@ -57,7 +49,7 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
       <div className="lg:col-span-2 space-y-4">
         <Link href="/soporte/tickets" className="text-sm text-[#0088c2]">← Tickets</Link>
         <div>
-          <p className="font-mono text-sm text-gray-500">{t.key} · {d.account?.cliente} · {TYPE_LABEL[t.type]}</p>
+          <p className="font-mono text-sm text-gray-500">{[t.key, d.account?.cliente, TYPE_LABEL[t.type], d.product?.name, d.instance?.name].filter(Boolean).join(" · ")}</p>
           <h1 className="text-2xl font-bold text-gray-900">{t.title}</h1>
           <p className="mt-1 text-sm"><b>{STATUS_LABEL[t.status] ?? t.status}</b>
             {t.severity && <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>}
@@ -65,6 +57,7 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
             {!t.slaApplicable && <span className="ml-2 text-xs bg-gray-100 px-2 py-0.5 rounded">Sin SLA</span>}</p>
         </div>
         {t.description && <div className="bg-white border rounded-xl p-4 whitespace-pre-wrap text-sm">{t.description}</div>}
+        <TechContext ctx={t.context} />
         {msg && <div className="bg-amber-50 text-amber-800 text-sm p-3 rounded-lg border border-amber-200">{msg}</div>}
 
         <div className="space-y-2">
@@ -81,7 +74,7 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
         <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); run(async () => { await apiRequest("POST", `/api/desk/tickets/${id}/comments`, { body, visibility: vis }); setBody(""); }); }}>
           <textarea className={`${inp} w-full ${vis === "internal" ? "bg-yellow-50" : ""}`} rows={3} required value={body} onChange={(e) => setBody(e.target.value)} placeholder={vis === "internal" ? "Nota interna (el cliente no la ve)" : "Respuesta pública (se envía al cliente por correo)"} />
           <div className="flex gap-3 items-center">
-            <select className={inp} value={vis} onChange={(e) => setVis(e.target.value as any)}><option value="public">Respuesta pública</option><option value="internal">Nota interna</option></select>
+            <SearchSelect className={inp} value={vis} onChange={(e) => setVis(e.target.value as any)}><option value="public">Respuesta pública</option><option value="internal">Nota interna</option></SearchSelect>
             <button className="bg-[#00aeef] text-white px-4 py-2 rounded-lg text-sm font-semibold">Enviar</button>
             <label className="text-sm text-[#0088c2] cursor-pointer">Adjuntar archivo
               <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) run(() => upload(f, vis), "Archivo adjuntado"); e.target.value = ""; }} /></label>
@@ -90,14 +83,15 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
       </div>
 
       <div className="space-y-4">
+        <ContextPanel d={d} />
         <SlaPanel ticketId={Number(id)} isManager={isManager} version={`${d.ticket.updatedAt}-${d.events.length}`} />
         <div className="bg-white border rounded-xl p-4 space-y-2 text-sm">
           <h3 className="font-semibold">Estado</h3>
-          <select className={`${inp} w-full`} value={tr.to} onChange={(e) => setTr({ ...tr, to: e.target.value })}><option value="">Cambiar a…</option>{d.nextStatuses.map((s: string) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
+          <SearchSelect className={`${inp} w-full`} value={tr.to} onChange={(e) => setTr({ ...tr, to: e.target.value })}><option value="">Cambiar a…</option>{d.nextStatuses.map((s: string) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</SearchSelect>
           {tr.to && <input className={`${inp} w-full`} placeholder="Motivo (requerido en tercero/rechazo/cancelación)" value={tr.reason} onChange={(e) => setTr({ ...tr, reason: e.target.value })} />}
           {needsRca && <div className="space-y-1 border rounded p-2 bg-gray-50"><p className="font-semibold text-xs">Causa raíz (P0/P1)</p>
             {(["cause", "fix", "prevention"] as const).map((k) => <input key={k} className={`${inp} w-full`} placeholder={{ cause: "Causa", fix: "Corrección", prevention: "Prevención" }[k]} value={tr[k]} onChange={(e) => setTr({ ...tr, [k]: e.target.value })} />)}
-            <select className={`${inp} w-full`} value={tr.kind} onChange={(e) => setTr({ ...tr, kind: e.target.value })}>{["code", "infrastructure", "third_party", "configuration", "usage"].map((k) => <option key={k}>{k}</option>)}</select></div>}
+            <SearchSelect className={`${inp} w-full`} value={tr.kind} onChange={(e) => setTr({ ...tr, kind: e.target.value })}>{["code", "infrastructure", "third_party", "configuration", "usage"].map((k) => <option key={k}>{k}</option>)}</SearchSelect></div>}
           {tr.to && <button className="bg-gray-900 text-white px-3 py-2 rounded-lg w-full" onClick={() => run(async () => {
             await apiRequest("POST", `/api/desk/tickets/${id}/transition`, { to: tr.to, reason: tr.reason || undefined, rca: needsRca ? { cause: tr.cause, fix: tr.fix, prevention: tr.prevention, kind: tr.kind } : undefined });
             setTr({ ...tr, to: "", reason: "" });
@@ -110,15 +104,15 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
           <p>Canal: {t.channel} · {t.environment === "prod" ? "Producción" : "Staging"}</p>
           <p>Recibido: {fmt(t.receivedAt)}</p><p>1ª respuesta: {fmt(t.firstResponseAt)}</p><p>Resuelto: {fmt(t.resolvedAt)}</p>
           <label className="block">Responsable
-            <select className={`${inp} w-full`} value={t.assigneeUserId ?? ""} onChange={(e) => patch({ assigneeUserId: e.target.value ? Number(e.target.value) : null })}>
-              <option value="">Sin asignar</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.username}</option>)}</select></label>
+            <SearchSelect className={`${inp} w-full`} value={t.assigneeUserId ?? ""} onChange={(e) => patch({ assigneeUserId: e.target.value ? Number(e.target.value) : null })}>
+              <option value="">Sin asignar</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.username}</option>)}</SearchSelect></label>
           <label className="block">Prioridad interna (1 alta – 5 baja)
             <input type="number" min={1} max={5} className={`${inp} w-full`} defaultValue={t.priorityInternal} onBlur={(e) => Number(e.target.value) !== t.priorityInternal && patch({ priorityInternal: Number(e.target.value) })} /></label>
           <label className="flex gap-2"><input type="checkbox" checked={t.sharedWithAccount} onChange={(e) => patch({ sharedWithAccount: e.target.checked })} />Compartido con la cuenta (portal)</label>
           {isManager && <label className="flex gap-2"><input type="checkbox" checked={t.slaApplicable} onChange={(e) => patch({ slaApplicable: e.target.checked })} />Aplica SLA</label>}
           {t.type === "incident" && <div className="border-t pt-2 space-y-1">
             <p className="font-semibold">Severidad</p>
-            <select className={`${inp} w-full`} value={sev.value || t.severity || ""} onChange={(e) => setSev({ ...sev, value: e.target.value })}><option value="">Sin definir</option>{["P0", "P1", "P2", "P3"].map((s) => <option key={s}>{s}</option>)}</select>
+            <SearchSelect className={`${inp} w-full`} value={sev.value || t.severity || ""} onChange={(e) => setSev({ ...sev, value: e.target.value })}><option value="">Sin definir</option>{["P0", "P1", "P2", "P3"].map((s) => <option key={s}>{s}</option>)}</SearchSelect>
             {sev.value === "P0" && <div className="text-xs space-y-1">
               {([["inaccessible", "Producto inaccesible"], ["criticalBlocked", "Proceso crítico bloqueado"], ["hasWorkaround", "Existe workaround"]] as const).map(([k, l]) => (
                 <label key={k} className="flex gap-1"><input type="checkbox" checked={(sev as any)[k]} onChange={(e) => setSev({ ...sev, [k]: e.target.checked })} />{l}</label>))}</div>}
@@ -140,8 +134,7 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
           </form>
         </div>
 
-        {d.attachments.length > 0 && <div className="bg-white border rounded-xl p-4 text-sm space-y-1"><h3 className="font-semibold">Adjuntos</h3>
-          {d.attachments.map((a: any) => <a key={a.id} className="block text-[#0088c2]" href={`/api/desk/attachments/${a.id}`}>{a.filename} {a.visibility === "internal" ? "🔒" : ""} ({Math.ceil(a.size / 1024)} KB)</a>)}</div>}
+        <AttachmentsCard d={d} />
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import type { Express, Request, Response, NextFunction, RequestHandler } from "express";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import {
-  users, clientes, sdProducts, sdAccounts, sdInstances, sdContracts, sdContacts, sdRoleAssignments,
+  users, clientes, sdProducts, sdAccounts, sdInstances, sdContracts, sdContacts, sdRoleAssignments, sdTickets, sdMonitors, sdReports, sdHolidays,
 } from "@shared/schema";
 import { loadActor, hasRole, visibleAccountIds, accountProductMap } from "./access";
 import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
@@ -102,6 +102,15 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     res.json(row);
   }));
 
+  app.delete("/api/desk/products/:id", ...auth, requireRole(...WRITERS), wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    const [cur] = Number.isInteger(id) ? await db.select().from(sdProducts).where(eq(sdProducts.id, id)) : [];
+    if (!cur) return res.status(404).json({ message: "No encontrado" });
+    await db.delete(sdProducts).where(eq(sdProducts.id, id)); // FKs refuse it while contracts, instances, tickets or keys use it (409 via wrap)
+    await writeAudit({ actorUserId: req.actor.userId, action: "product.deleted", entity: "sd_products", entityId: String(id), detail: cur });
+    res.json({ ok: true });
+  }));
+
   // ---- Accounts ----
   const accountSchema = z.object({
     clienteId: z.number().int().positive(), accountType: z.enum(ACCOUNT_TYPES),
@@ -129,6 +138,21 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     const [row] = await db.update(sdAccounts).set(rest).where(eq(sdAccounts.id, Number(req.params.id))).returning();
     await writeAudit({ actorUserId: req.actor.userId, action: "account.updated", entity: "sd_accounts", entityId: String(row.id), detail: row });
     res.json(row);
+  }));
+
+  // Only an empty account can be deleted: its instances, contracts, contacts, reports and holidays would cascade silently otherwise.
+  app.delete("/api/desk/accounts/:id", ...auth, requireRole(...WRITERS), wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!(await accountOr404(req.actor, id, res))) return;
+    const count = async (t: any) => (await db.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.accountId, id)))[0].n;
+    const [inst, con, ctc, rep, hol] = await Promise.all([count(sdInstances), count(sdContracts), count(sdContacts), count(sdReports), count(sdHolidays)]);
+    if (inst + con + ctc + rep + hol > 0) {
+      return res.status(409).json({ message: `Elimina primero sus instancias (${inst}), contratos (${con}), contactos (${ctc}), informes (${rep}) y días inhábiles (${hol}), o desactiva la cuenta.` });
+    }
+    const [cur] = await db.select().from(sdAccounts).where(eq(sdAccounts.id, id));
+    await db.delete(sdAccounts).where(eq(sdAccounts.id, id)); // tickets/projects/features still block it (409 via wrap)
+    await writeAudit({ actorUserId: req.actor.userId, action: "account.deleted", entity: "sd_accounts", entityId: String(id), detail: cur });
+    res.json({ ok: true });
   }));
 
   // ---- Per-account children: instances, contracts, contacts ----
@@ -181,6 +205,11 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
       const [cur] = (await db.select().from(t).where(eq(t.id, id))) as any[];
       if (!cur) return res.status(404).json({ message: "No encontrado" });
       if (!(await accountOr404(req.actor, cur.accountId, res))) return;
+      if (name === "instances") { // tickets would lose their instance and monitors would be deleted by cascade
+        const [tk] = await db.select({ n: sql<number>`count(*)::int` }).from(sdTickets).where(eq(sdTickets.instanceId, id));
+        const [mo] = await db.select({ n: sql<number>`count(*)::int` }).from(sdMonitors).where(eq(sdMonitors.instanceId, id));
+        if (tk.n + mo.n > 0) return res.status(409).json({ message: `No se puede eliminar: tiene ${tk.n} ticket(s) y ${mo.n} monitor(es). Desactívala en lugar de eliminarla.` });
+      }
       await db.delete(t).where(eq(t.id, id));
       await writeAudit({ actorUserId: req.actor.userId, action: `${name}.deleted`, entity: `sd_${name}`, entityId: String(id), detail: cur });
       res.json({ ok: true });

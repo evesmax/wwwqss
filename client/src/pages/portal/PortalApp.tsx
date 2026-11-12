@@ -4,6 +4,7 @@ import { Link, Route, Switch, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import qssLogo from "@assets/qss-logo.png";
 import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, fmt } from "../admin/desk/ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "w-full border rounded-lg px-3 py-2 text-sm";
 const btn = "bg-[#00aeef] text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50";
@@ -98,15 +99,15 @@ function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; o
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <form onSubmit={submit} className="bg-white rounded-xl p-5 w-full max-w-lg space-y-3 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold">Nuevo ticket</h2>
-        {me.accounts.length > 1 && <select className={inp} value={f.accountId} onChange={set("accountId")}>{me.accounts.map((a: any) => <option key={a.id} value={a.id}>{a.cliente}</option>)}</select>}
-        <select className={inp} value={f.type} onChange={set("type")}>{["incident", "service_request", "feature_request", "question"].map((k) => <option key={k} value={k}>{TYPE_LABEL[k]}</option>)}</select>
-        {acc?.instances.length > 0 && <select className={inp} value={f.instanceId} onChange={set("instanceId")}><option value="">¿En qué sistema? (opcional)</option>{acc.instances.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>}
-        {accMods.length > 0 && <select className={inp} value={f.moduleArea} onChange={set("moduleArea")}><option value="">¿Qué módulo? (opcional)</option>{accMods.map((m: any) => <option key={m.code} value={m.name}>{m.name}</option>)}</select>}
+        {me.accounts.length > 1 && <SearchSelect className={inp} value={f.accountId} onChange={set("accountId")}>{me.accounts.map((a: any) => <option key={a.id} value={a.id}>{a.cliente}</option>)}</SearchSelect>}
+        <SearchSelect className={inp} value={f.type} onChange={set("type")}>{["incident", "service_request", "feature_request", "question"].map((k) => <option key={k} value={k}>{TYPE_LABEL[k]}</option>)}</SearchSelect>
+        {acc?.instances.length > 0 && <SearchSelect className={inp} value={f.instanceId} onChange={set("instanceId")}><option value="">¿En qué sistema? (opcional)</option>{acc.instances.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}</SearchSelect>}
+        {accMods.length > 0 && <SearchSelect className={inp} value={f.moduleArea} onChange={set("moduleArea")}><option value="">¿Qué módulo? (opcional)</option>{accMods.map((m: any) => <option key={m.code} value={m.name}>{m.name}</option>)}</SearchSelect>}
         <input className={inp} required minLength={3} placeholder="Resumen del problema o solicitud" value={f.title} onChange={set("title")} />
         <textarea className={inp} rows={5} placeholder="Describe qué ocurre, pasos para reproducirlo y a cuántas personas afecta" value={f.description} onChange={set("description")} />
         {f.type === "incident" && <label className="block text-sm">¿Qué tan grave es para ti?
-          <select className={inp} value={f.perceivedSeverity} onChange={set("perceivedSeverity")}>
-            <option value="">No estoy seguro</option><option value="P0">Sistema caído / proceso crítico detenido</option><option value="P1">Función importante afectada</option><option value="P2">Molestia con alternativa</option><option value="P3">Detalle menor</option></select>
+          <SearchSelect className={inp} value={f.perceivedSeverity} onChange={set("perceivedSeverity")}>
+            <option value="">No estoy seguro</option><option value="P0">Sistema caído / proceso crítico detenido</option><option value="P1">Función importante afectada</option><option value="P2">Molestia con alternativa</option><option value="P3">Detalle menor</option></SearchSelect>
           <span className="text-xs text-gray-500">Nuestro equipo confirmará la severidad al revisar tu caso.</span></label>}
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="px-3 py-2 text-sm">Cancelar</button><button className={btn}>Enviar</button></div>

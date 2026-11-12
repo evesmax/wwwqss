@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
 import { fmtDur } from "./SlaPanel";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
@@ -96,7 +97,7 @@ export default function SlaConfigPage() {
             <label>1ª respuesta (min)<input className={`${inp} w-full`} inputMode="numeric" value={form.firstResponseMin} onChange={(e) => setForm({ ...form, firstResponseMin: e.target.value })} /></label>
             <label>Actualización cada (min, P0/P1)<input className={`${inp} w-full`} inputMode="numeric" value={form.updateMin} onChange={(e) => setForm({ ...form, updateMin: e.target.value })} /></label>
             <label>Resolución (min)<input className={`${inp} w-full`} inputMode="numeric" value={form.resolutionMin} onChange={(e) => setForm({ ...form, resolutionMin: e.target.value })} /></label>
-            <label>Calendario<select className={`${inp} w-full`} value={form.calendarKind} onChange={(e) => setForm({ ...form, calendarKind: e.target.value })}><option value="business">Laboral</option><option value="24x7">24x7</option></select></label>
+            <label>Calendario<SearchSelect className={`${inp} w-full`} value={form.calendarKind} onChange={(e) => setForm({ ...form, calendarKind: e.target.value })}><option value="business">Laboral</option><option value="24x7">24x7</option></SearchSelect></label>
             <label className="flex gap-2 items-center"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />Activa</label>
             <div className="sm:col-span-2 space-x-2"><button disabled={busy || !form.name} onClick={savePolicy} className="px-4 py-2 bg-[#00aeef] text-white rounded-lg disabled:opacity-50">Guardar y recalcular</button><button onClick={() => setForm(null)} className="px-4 py-2 border rounded-lg">Cancelar</button></div>
           </div>)}

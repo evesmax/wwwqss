@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const btn = "px-3 py-1.5 rounded-lg text-sm";
@@ -76,10 +77,10 @@ export default function FeaturesPage() {
                 {q.decisionNote && <i>“{q.decisionNote}”</i>}
                 {q.status === "draft" && <button className={`${btn} bg-green-600 text-white`} onClick={() => run(() => post(`/api/desk/quotes/${q.id}/send`), "Cotización enviada al cliente.")}>Enviar</button>}</div>)}
               <div className="grid sm:grid-cols-3 gap-2">
-                <select className={inp} value={qf.accountId} onChange={(e) => setQf({ ...qf, accountId: e.target.value })}><option value="">Cuenta…</option>{accIds.map((a) => <option key={a} value={a}>{accName(a)}</option>)}</select>
+                <SearchSelect className={inp} value={qf.accountId} onChange={(e) => setQf({ ...qf, accountId: e.target.value })}><option value="">Cuenta…</option>{accIds.map((a) => <option key={a} value={a}>{accName(a)}</option>)}</SearchSelect>
                 <input className={inp} type="number" placeholder="Horas" value={qf.hours} onChange={(e) => setQf({ ...qf, hours: e.target.value })} />
                 <input className={inp} type="number" placeholder="Costo" value={qf.cost} onChange={(e) => setQf({ ...qf, cost: e.target.value })} />
-                <select className={inp} value={qf.currency} onChange={(e) => setQf({ ...qf, currency: e.target.value })}><option>MXN</option><option>USD</option></select>
+                <SearchSelect className={inp} value={qf.currency} onChange={(e) => setQf({ ...qf, currency: e.target.value })}><option>MXN</option><option>USD</option></SearchSelect>
                 <input className={inp} type="date" value={qf.validUntil} onChange={(e) => setQf({ ...qf, validUntil: e.target.value })} />
                 <label className="text-xs flex gap-1 items-center"><input type="checkbox" checked={qf.outOfContract} onChange={(e) => setQf({ ...qf, outOfContract: e.target.checked })} />Fuera de contrato</label>
               </div>
@@ -93,7 +94,7 @@ export default function FeaturesPage() {
                 {u.comment && <i> “{u.comment}”</i>}{u.childTicketId && <span> · ticket hijo #{u.childTicketId}</span>}
                 {u.status === "pending" && <button className="ml-2 text-red-600" onClick={() => run(() => apiRequest("DELETE", `/api/desk/uat/${u.id}`), "Ítem eliminado.")}>quitar</button>}</div>)}
               <div className="grid sm:grid-cols-3 gap-2">
-                <select className={inp} value={uf.accountId} onChange={(e) => setUf({ ...uf, accountId: e.target.value })}><option value="">Cuenta…</option>{accIds.map((a) => <option key={a} value={a}>{accName(a)}</option>)}</select>
+                <SearchSelect className={inp} value={uf.accountId} onChange={(e) => setUf({ ...uf, accountId: e.target.value })}><option value="">Cuenta…</option>{accIds.map((a) => <option key={a} value={a}>{accName(a)}</option>)}</SearchSelect>
                 <input className={inp} placeholder="Qué hace" value={uf.what} onChange={(e) => setUf({ ...uf, what: e.target.value })} />
                 <input className={inp} placeholder="Cómo probarlo" value={uf.how} onChange={(e) => setUf({ ...uf, how: e.target.value })} />
               </div>

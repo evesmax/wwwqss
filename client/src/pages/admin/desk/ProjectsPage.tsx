@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import GanttChart from "./GanttChart";
 import ProjectItems from "./ProjectItems";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const btn = "px-3 py-1.5 rounded-lg text-sm";
@@ -31,7 +32,7 @@ export default function ProjectsPage() {
       <p className="text-sm text-gray-600">Cronograma en días hábiles con dependencias, línea base versionada, avance calculado (ponderado por horas) y gates con firma del cliente. Tras aprobar el plan, todo cambio de fechas genera una revisión con motivo y origen.</p>
       {msg && <div className={`text-sm p-3 rounded-lg border ${msg.ok ? "bg-green-50 border-green-200 text-green-900" : "bg-red-50 border-red-200 text-red-800"}`}>{msg.text}</div>}
       <div className="bg-white border rounded-xl p-4 grid sm:grid-cols-5 gap-2 items-end text-sm">
-        <select className={inp} value={nf.accountId} onChange={(e) => setNf({ ...nf, accountId: e.target.value })}><option value="">Cuenta…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select>
+        <SearchSelect className={inp} value={nf.accountId} onChange={(e) => setNf({ ...nf, accountId: e.target.value })}><option value="">Cuenta…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</SearchSelect>
         <input className={inp} placeholder="Nombre del proyecto" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} />
         <input className={inp} placeholder="Solución (TMS, MES…)" value={nf.solutionType} onChange={(e) => setNf({ ...nf, solutionType: e.target.value })} />
         <input className={inp} type="date" value={nf.startDate} onChange={(e) => setNf({ ...nf, startDate: e.target.value })} />
@@ -64,7 +65,7 @@ export default function ProjectsPage() {
                 {!needRev && <button className={`${btn} bg-green-600 text-white`} onClick={() => run(() => apiRequest("POST", `/api/desk/projects/${p.id}/approve-plan`), "Plan aprobado: línea base v1 congelada.")}>Aprobar plan (línea base)</button>}</div>
               {needRev && <div className="flex flex-wrap gap-2 items-center bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs">Cambios de fechas →
                 <input className={`${inp} flex-1`} placeholder="Motivo del cambio (obligatorio)" value={rev.reason} onChange={(e) => setRev({ ...rev, reason: e.target.value })} />
-                <select className={inp} value={rev.origin} onChange={(e) => setRev({ ...rev, origin: e.target.value })}>{Object.entries(ORIG).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>}
+                <SearchSelect className={inp} value={rev.origin} onChange={(e) => setRev({ ...rev, origin: e.target.value })}>{Object.entries(ORIG).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</SearchSelect></div>}
             </div>
             {sel.warnings.length > 0 && <details className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs" open><summary className="font-semibold text-amber-900">Validaciones de consistencia ({sel.warnings.length})</summary>
               <ul className="list-disc ml-5 mt-1 space-y-0.5">{sel.warnings.map((w: any, i: number) => <li key={i}>{w.message}</li>)}</ul></details>}

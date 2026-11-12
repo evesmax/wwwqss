@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { STATUS_LABEL, fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const FIELDS: [string, string][] = [
@@ -52,10 +53,10 @@ export default function ImportPage() {
       <p className="text-sm text-gray-600">Sube el CSV exportado de tu hoja (en Excel: Guardar como → CSV). Los tickets importados quedan <b>sin SLA</b>, con su fecha original y una marca de calidad de datos. Una prioridad P0 del archivo se guarda solo como "propuesta" porque P0 exige el cuestionario de clasificación.</p>
       {msg && <div className={`text-sm p-3 rounded-lg border ${msg.ok ? "bg-green-50 border-green-200 text-green-900" : "bg-red-50 border-red-200 text-red-800"}`}>{msg.text}</div>}
       <div className="bg-white border rounded-xl p-4 grid sm:grid-cols-3 gap-3 text-sm items-end">
-        <label>Cuenta destino<select className={`${inp} w-full`} value={accountId} onChange={(e) => { setAccountId(e.target.value); setPv(null); }}>
-          <option value="">Selecciona…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre} ({a.ticketPrefix})</option>)}</select></label>
-        <label>Tipo por defecto<select className={`${inp} w-full`} value={defaultType} onChange={(e) => { setDefaultType(e.target.value); setPv(null); }}>
-          <option value="incident">Incidente</option><option value="service_request">Solicitud</option><option value="question">Consulta</option><option value="feature_request">Nueva función</option></select></label>
+        <label>Cuenta destino<SearchSelect className={`${inp} w-full`} value={accountId} onChange={(e) => { setAccountId(e.target.value); setPv(null); }}>
+          <option value="">Selecciona…</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.nombre} ({a.ticketPrefix})</option>)}</SearchSelect></label>
+        <label>Tipo por defecto<SearchSelect className={`${inp} w-full`} value={defaultType} onChange={(e) => { setDefaultType(e.target.value); setPv(null); }}>
+          <option value="incident">Incidente</option><option value="service_request">Solicitud</option><option value="question">Consulta</option><option value="feature_request">Nueva función</option></SearchSelect></label>
         <label className="text-[#0088c2] cursor-pointer">{fileName || "Elegir archivo CSV"}<input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} /></label>
         <div className="sm:col-span-3"><button disabled={!accountId || !csv || busy} onClick={() => preview()} className="px-4 py-2 bg-[#00aeef] text-white rounded-lg disabled:opacity-50">Revisar archivo</button></div>
       </div>
@@ -66,8 +67,8 @@ export default function ImportPage() {
             <h2 className="font-semibold mb-2">Columnas</h2>
             <div className="grid sm:grid-cols-2 gap-2">{FIELDS.map(([k, label]) => (
               <label key={k} className="flex items-center gap-2"><span className="w-44">{label}</span>
-                <select className={`${inp} flex-1`} value={mapping[k] ?? ""} onChange={(e) => { const m = { ...mapping }; if (e.target.value) m[k] = e.target.value; else delete m[k]; setMapping(m); }}>
-                  <option value="">(no usar)</option>{pv.headers.map((h: string) => <option key={h}>{h}</option>)}</select></label>))}</div>
+                <SearchSelect className={`${inp} flex-1`} value={mapping[k] ?? ""} onChange={(e) => { const m = { ...mapping }; if (e.target.value) m[k] = e.target.value; else delete m[k]; setMapping(m); }}>
+                  <option value="">(no usar)</option>{pv.headers.map((h: string) => <option key={h}>{h}</option>)}</SearchSelect></label>))}</div>
             <button disabled={busy} onClick={() => preview(mapping)} className="mt-3 px-3 py-1.5 border rounded-lg">Actualizar vista previa</button>
           </div>
           <div className="bg-white border rounded-xl p-4 text-sm space-y-2">

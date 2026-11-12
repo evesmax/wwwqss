@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "border rounded-lg px-3 py-2 text-sm";
 const errMsg = (e: any, d: string) => { try { return JSON.parse(String(e.message).replace(/^\d+: /, "")).message ?? d; } catch { return d; } };
@@ -54,7 +55,7 @@ export default function AvailabilityPage() {
       <section className="bg-white border rounded-xl p-4 space-y-3 text-sm">
         <h2 className="font-semibold">Monitores (health check profundo)</h2>
         <div className="grid sm:grid-cols-5 gap-2 items-end">
-          <select className={inp} value={nm.instanceId} onChange={(e) => setNm({ ...nm, instanceId: e.target.value })}><option value="">Instancia…</option>{insts.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
+          <SearchSelect className={inp} value={nm.instanceId} onChange={(e) => setNm({ ...nm, instanceId: e.target.value })}><option value="">Instancia…</option>{insts.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</SearchSelect>
           <input className={inp} placeholder="Nombre del componente" value={nm.name} onChange={(e) => setNm({ ...nm, name: e.target.value })} />
           <input className={`${inp} sm:col-span-2`} placeholder="https://app.cliente.com/health/deep" value={nm.url} onChange={(e) => setNm({ ...nm, url: e.target.value })} />
           <label className="flex gap-1 items-center"><input type="checkbox" checked={nm.isPublic} onChange={(e) => setNm({ ...nm, isPublic: e.target.checked })} />Pública</label>
@@ -69,9 +70,9 @@ export default function AvailabilityPage() {
       <section className="bg-white border rounded-xl p-4 space-y-3 text-sm">
         <h2 className="font-semibold">Incidentes de plataforma</h2>
         <div className="grid sm:grid-cols-4 gap-2">
-          <select className={inp} value={ni.productId} onChange={(e) => setNi({ ...ni, productId: e.target.value })}><option value="">Producto…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <SearchSelect className={inp} value={ni.productId} onChange={(e) => setNi({ ...ni, productId: e.target.value })}><option value="">Producto…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</SearchSelect>
           <input className={inp} placeholder="Título" value={ni.title} onChange={(e) => setNi({ ...ni, title: e.target.value })} />
-          <select className={inp} value={ni.impact} onChange={(e) => setNi({ ...ni, impact: e.target.value })}><option value="minor">Menor</option><option value="major">Mayor</option><option value="critical">Crítico</option></select>
+          <SearchSelect className={inp} value={ni.impact} onChange={(e) => setNi({ ...ni, impact: e.target.value })}><option value="minor">Menor</option><option value="major">Mayor</option><option value="critical">Crítico</option></SearchSelect>
           <input className={inp} placeholder="Primer mensaje público" value={ni.body} onChange={(e) => setNi({ ...ni, body: e.target.value })} />
           <button className="px-3 py-2 bg-[#00aeef] text-white rounded-lg disabled:opacity-50" disabled={!ni.productId || ni.title.length < 3 || ni.body.length < 3}
             onClick={() => run(async () => { await apiRequest("POST", "/api/desk/platform-incidents", { productId: Number(ni.productId), title: ni.title, impact: ni.impact, body: ni.body }); setNi({ productId: "", title: "", impact: "minor", body: "" }); }, "Incidente publicado.")}>Publicar</button>
@@ -81,7 +82,7 @@ export default function AvailabilityPage() {
             <p className="font-medium">{i.title} <span className="text-xs text-gray-500">· {pn(i.productId)} · {IST[i.status]} · {i.auto ? "detectado automáticamente · " : ""}{i.isPublic ? "público" : "no público"} · {fmt(i.startedAt)}</span></p>
             {i.updates.map((x: any) => <p key={x.id} className="text-xs text-gray-600">{fmt(x.at)} · {IST[x.status]} — {x.body}</p>)}
             {i.status !== "resolved" && <div className="flex flex-wrap gap-2 items-center pt-1">
-              <select className={inp} value={u.status} onChange={(e) => setUpd({ ...upd, [i.id]: { ...u, status: e.target.value } })}>{Object.entries(IST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+              <SearchSelect className={inp} value={u.status} onChange={(e) => setUpd({ ...upd, [i.id]: { ...u, status: e.target.value } })}>{Object.entries(IST).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</SearchSelect>
               <input className={`${inp} flex-1 min-w-[200px]`} placeholder="Actualización" value={u.body} onChange={(e) => setUpd({ ...upd, [i.id]: { ...u, body: e.target.value } })} />
               {u.status === "resolved" && (["cause", "fix", "prevention"] as const).map((k) => <input key={k} className={inp} placeholder={{ cause: "Causa raíz", fix: "Corrección", prevention: "Prevención" }[k]} value={u[k]} onChange={(e) => setUpd({ ...upd, [i.id]: { ...u, [k]: e.target.value } })} />)}
               <button className="px-3 py-2 border rounded-lg" onClick={() => run(async () => { await apiRequest("POST", `/api/desk/platform-incidents/${i.id}/updates`, { status: u.status, body: u.body, ...(u.status === "resolved" && u.cause ? { rca: { cause: u.cause, fix: u.fix, prevention: u.prevention } } : {}) }); setUpd({ ...upd, [i.id]: undefined as any }); }, "Actualización publicada.")}>Publicar</button></div>}
@@ -91,7 +92,7 @@ export default function AvailabilityPage() {
       <section className="bg-white border rounded-xl p-4 space-y-3 text-sm">
         <h2 className="font-semibold">Mantenimiento programado</h2>
         <div className="grid sm:grid-cols-5 gap-2 items-end">
-          <select className={inp} value={nt.productId} onChange={(e) => setNt({ ...nt, productId: e.target.value })}><option value="">Producto…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <SearchSelect className={inp} value={nt.productId} onChange={(e) => setNt({ ...nt, productId: e.target.value })}><option value="">Producto…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</SearchSelect>
           <input className={inp} placeholder="Título" value={nt.title} onChange={(e) => setNt({ ...nt, title: e.target.value })} />
           <input className={inp} type="datetime-local" value={nt.startsAt} onChange={(e) => setNt({ ...nt, startsAt: e.target.value })} />
           <input className={inp} type="datetime-local" value={nt.endsAt} onChange={(e) => setNt({ ...nt, endsAt: e.target.value })} />

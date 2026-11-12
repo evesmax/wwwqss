@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { fmt } from "./ticketUi";
+import { SearchSelect } from "@/components/ui/search-select";
 
 export const fmtDur = (ms: number) => {
   const m = Math.round(ms / 60000);
@@ -59,9 +60,9 @@ export default function SlaPanel({ ticketId, isManager, version }: { ticketId: n
         ? <button onClick={() => act("DELETE")} className="text-xs text-[#0088c2]">Quitar exclusión</button>
         : <details><summary className="text-xs text-[#0088c2] cursor-pointer">Excluir del SLA</summary>
             <div className="space-y-1 mt-2">
-              <select className="border rounded px-2 py-1 text-sm w-full" value={reason} onChange={(e) => setReason(e.target.value)}>
+              <SearchSelect className="border rounded px-2 py-1 text-sm w-full" value={reason} onChange={(e) => setReason(e.target.value)}>
                 <option value="">Motivo…</option>{Object.entries(EXCLUSION_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              </SearchSelect>
               <input className="border rounded px-2 py-1 text-sm w-full" placeholder="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} />
               <button disabled={!reason} onClick={() => act("POST", { reason, note })} className="px-3 py-1 bg-gray-800 text-white rounded text-xs disabled:opacity-40">Excluir</button>
             </div></details>)}
