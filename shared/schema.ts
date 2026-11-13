@@ -332,7 +332,8 @@ export const sdTicketComments = pgTable("sd_ticket_comments", {
 export const sdTimeEntries = pgTable("sd_time_entries", {
   id: serial("id").primaryKey(),
   ticketId: integer("ticket_id").notNull().references(() => sdTickets.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").references(() => users.id),
+  agentKeyId: integer("agent_key_id"),
   minutes: integer("minutes").notNull(),
   billable: boolean("billable").notNull().default(true),
   workDate: text("work_date").notNull(),
@@ -419,6 +420,17 @@ export const sdSdkKeys = pgTable("sd_sdk_keys", {
   name: text("name").notNull(),
   secretEnc: text("secret_enc").notNull(),
   allowedOrigins: jsonb("allowed_origins").notNull().default([]),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at"),
+  lastUsedAt: timestamp("last_used_at"),
+});
+
+export const sdAgentKeys = pgTable("sd_agent_keys", {
+  id: serial("id").primaryKey(),
+  keyId: text("key_id").notNull().unique(),
+  name: text("name").notNull(),
+  secretHash: text("secret_hash").notNull(),
+  productIds: jsonb("product_ids").notNull().default([]),
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at"),
   lastUsedAt: timestamp("last_used_at"),

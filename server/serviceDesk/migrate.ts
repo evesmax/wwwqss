@@ -108,6 +108,12 @@ const STATEMENTS: string[] = [
      id serial PRIMARY KEY, key_id text NOT NULL UNIQUE, product_id integer NOT NULL REFERENCES sd_products(id), name text NOT NULL,
      secret_enc text NOT NULL, allowed_origins jsonb NOT NULL DEFAULT '[]', active boolean NOT NULL DEFAULT true,
      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at timestamp)`,
+  `CREATE TABLE IF NOT EXISTS sd_agent_keys (
+     id serial PRIMARY KEY, key_id text NOT NULL UNIQUE, name text NOT NULL, secret_hash text NOT NULL,
+     product_ids jsonb NOT NULL DEFAULT '[]', active boolean NOT NULL DEFAULT true,
+     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at timestamp)`,
+  `ALTER TABLE sd_time_entries ALTER COLUMN user_id DROP NOT NULL`,
+  `ALTER TABLE sd_time_entries ADD COLUMN IF NOT EXISTS agent_key_id integer`,
   `CREATE TABLE IF NOT EXISTS sd_monitors (
      id serial PRIMARY KEY, instance_id integer NOT NULL REFERENCES sd_instances(id) ON DELETE CASCADE, name text NOT NULL, url text NOT NULL,
      expected_status integer NOT NULL DEFAULT 200, is_public boolean NOT NULL DEFAULT false, active boolean NOT NULL DEFAULT true,
