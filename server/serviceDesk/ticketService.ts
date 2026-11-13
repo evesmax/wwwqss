@@ -12,7 +12,8 @@ import {
   type P0Questionnaire, type Rca,
 } from "./ticketRules";
 
-export type Who = { type: "user" | "contact"; id: number };
+export type Who = { type: "user" | "contact"; id: number } | { type: "agent"; id: null; name: string };
+export type TimeActor = number | { agentKeyId: number; name: string };
 export class TicketError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
@@ -22,7 +23,7 @@ export const publicBaseUrl = () => (process.env.PUBLIC_BASE_URL || "https://qsof
 const portalLink = (id: number) => `${publicBaseUrl()}/portal/tickets/${id}`;
 
 async function addEvent(tx: Tx, ticketId: number, who: Who | { type: "system"; id?: null }, kind: string, detail: Record<string, unknown> = {}) {
-  await tx.insert(sdTicketEvents).values({ ticketId, actorType: who.type, actorId: who.id ?? null, kind, detail });
+  await tx.insert(sdTicketEvents).values({ ticketId, actorType: who.type, actorId: who.id ?? null, kind, detail: who.type === "agent" ? { ...detail, agent: who.name } : detail });
 }
 
 export type CreateInput = {
@@ -105,10 +106,10 @@ export async function addComment(id: number, who: Who, body: string, visibility:
   const { ticket, comment } = await db.transaction(async (tx) => {
     const t = await lockTicket(tx, id);
     if (who.type === "contact" && ["closed", "duplicate", "cancelled", "rejected"].includes(t.status)) throw new TicketError("El ticket está cerrado", 409);
-    const [c] = await tx.insert(sdTicketComments).values({ ticketId: id, visibility, authorType: who.type, authorId: who.id, body, createdAt: now }).returning();
+    const [c] = await tx.insert(sdTicketComments).values({ ticketId: id, visibility, authorType: who.type, authorId: who.id ?? null, body, createdAt: now }).returning();
     await addEvent(tx, id, who, "comment", { commentId: c.id, visibility });
     const patch: Partial<typeof sdTickets.$inferInsert> = { updatedAt: now };
-    if (who.type === "user" && visibility === "public" && !t.firstResponseAt) {
+    if ((who.type === "user" || who.type === "agent") && visibility === "public" && !t.firstResponseAt) {
       patch.firstResponseAt = now;
       await addEvent(tx, id, who, "first_response", {});
     }
@@ -120,16 +121,18 @@ export async function addComment(id: number, who: Who, body: string, visibility:
     return { ticket: u, comment: c };
   });
   refreshSoon(id);
-  if (who.type === "user" && visibility === "public") void notifyRequester(ticket, (t) => commentEmail(t, body, portalLink(ticket.id)));
+  if ((who.type === "user" || who.type === "agent") && visibility === "public") void notifyRequester(ticket, (t) => commentEmail(t, body, portalLink(ticket.id)));
   return comment;
 }
 
-export async function addTimeEntry(id: number, userId: number, e: { minutes: number; billable: boolean; workDate: string; note?: string }) {
+export async function addTimeEntry(id: number, actor: TimeActor, e: { minutes: number; billable: boolean; workDate: string; note?: string }) {
   if (!Number.isInteger(e.minutes) || e.minutes < 1 || e.minutes > 1440) throw new TicketError("Minutos inválidos (1–1440)");
   return db.transaction(async (tx) => {
     await lockTicket(tx, id);
-    const [row] = await tx.insert(sdTimeEntries).values({ ticketId: id, userId, minutes: e.minutes, billable: e.billable, workDate: e.workDate, note: e.note ?? "" }).returning();
-    await addEvent(tx, id, { type: "user", id: userId }, "time_logged", { minutes: e.minutes, billable: e.billable });
+    const userId = typeof actor === "number" ? actor : null;
+    const agentKeyId = typeof actor === "number" ? null : actor.agentKeyId;
+    const [row] = await tx.insert(sdTimeEntries).values({ ticketId: id, userId, agentKeyId, minutes: e.minutes, billable: e.billable, workDate: e.workDate, note: e.note ?? "" }).returning();
+    await addEvent(tx, id, typeof actor === "number" ? { type: "user", id: actor } : { type: "agent", id: null, name: actor.name }, "time_logged", { minutes: e.minutes, billable: e.billable });
     return row;
   }).then(async (row) => {
     if (e.billable) {
