@@ -204,11 +204,16 @@ function Assignments({ accounts, products, meId, setErr }: { accounts: Row[]; pr
   const label = (a: Row) => `${ROLES.find((r) => r[0] === a.role)?.[1]} · ${a.scopeType === "global" ? "Global"
     : a.scopeType === "account" ? `Cuenta ${accounts.find((x) => x.id === a.scopeId)?.nombre ?? a.scopeId}` : `Producto ${products.find((x) => x.id === a.scopeId)?.name ?? a.scopeId}`}`;
 
+  // The role/scope being picked but not yet added with "Añadir" counts too: saving without adding used to wipe the user's access.
+  const pending: Row | null = nr.scopeType === "global" || nr.scopeId ? { role: nr.role, scopeType: nr.scopeType, scopeId: nr.scopeType === "global" ? null : Number(nr.scopeId) } : null;
+  const same = (a: Row, b: Row) => a.role === b.role && a.scopeType === b.scopeType && (a.scopeId ?? null) === (b.scopeId ?? null);
   const save = async () => {
     setErr(""); setSaved("");
+    const next = pending && !list.some((a) => same(a, pending)) ? [...list, pending] : list;
     try {
-      await apiRequest("PUT", `/api/desk/users/${sel}/assignments`, { assignments: list });
-      setSaved("Guardado."); setUsers(await get("/api/desk/users"));
+      await apiRequest("PUT", `/api/desk/users/${sel}/assignments`, { assignments: next });
+      setSaved(next.length ? `Guardado: ${next.length} asignación(es).` : "Guardado SIN asignaciones: este usuario no verá nada en Soporte.");
+      setNr({ ...nr, scopeId: "" }); setUsers(await get("/api/desk/users"));
     } catch (e: any) { setErr(e.message?.includes("Owner a ti mismo") ? "No puedes quitarte el rol de Owner a ti mismo." : "No se pudo guardar."); }
   };
 
@@ -230,6 +235,7 @@ function Assignments({ accounts, products, meId, setErr }: { accounts: Row[]; pr
           </SearchSelect>}
           <button className="px-3 py-2 border rounded-lg text-sm" onClick={() => (nr.scopeType === "global" || nr.scopeId) && setList([...list, { role: nr.role, scopeType: nr.scopeType, scopeId: nr.scopeType === "global" ? null : Number(nr.scopeId) }])}>Añadir</button>
           <button className={btn} onClick={save}>Guardar cambios</button>
+          {pending && !list.some((a) => same(a, pending)) && <span className="text-xs text-amber-700 self-center">Se agregará {ROLES.find((r) => r[0] === pending.role)?.[1]} al guardar.</span>}
           {saved && <span className="text-sm text-green-700 self-center">{saved}</span>}
         </div>
       </>}
