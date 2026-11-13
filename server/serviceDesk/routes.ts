@@ -11,6 +11,7 @@ import { registerTicketRoutes } from "./ticketRoutes";
 import { registerSlaRoutes } from "./slaRoutes";
 import { registerImportRoutes } from "./importRoutes";
 import { registerSdkRoutes } from "./sdkRoutes";
+import { registerAgentRoutes } from "./agentRoutes";
 import { registerMonitorRoutes } from "./monitorRoutes";
 import { registerReportRoutes } from "./reportRoutes";
 import { registerStatsRoutes } from "./statsRoutes";
@@ -81,6 +82,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
   registerSlaRoutes(app, auth);
   registerImportRoutes(app, auth);
   registerSdkRoutes(app, auth);
+  registerAgentRoutes(app, auth);
   registerMonitorRoutes(app, auth);
   registerReportRoutes(app, auth);
   registerFeatureRoutes(app, auth);
