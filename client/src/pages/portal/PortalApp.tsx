@@ -1,5 +1,5 @@
 import GanttChart from "@/pages/admin/desk/GanttChart";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import qssLogo from "@assets/qss-logo.png";
@@ -46,13 +46,17 @@ function Login() {
   );
 }
 
-function Verify({ onDone }: { onDone: () => void }) {
+function Verify({ onDone, auto = false }: { onDone: () => void; auto?: boolean }) {
   const [err, setErr] = useState("");
+  const started = useRef(false);
   const [, nav] = useLocation();
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   useEffect(() => { window.history.replaceState(null, "", window.location.pathname); }, []);
   // Requires a click so email link scanners that load the page cannot burn the single-use token.
   const go = () => apiRequest("POST", "/api/portal/auth/verify", { token }).then(() => { onDone(); nav("/"); }).catch(() => setErr("El enlace es inválido o ya venció. Solicita uno nuevo."));
+  // Widget sign-in (/sso): the link was just minted for a user already logged in to the host app, so enter without the extra click.
+  useEffect(() => { if (auto && token && !started.current) { started.current = true; go(); } }, []);
+  if (auto && !err) return <Shell><p className="text-center mt-10 text-gray-600">Entrando al portal…</p></Shell>;
   return <Shell><div className="max-w-md mx-auto mt-10 text-center space-y-3">
     {err ? <><p className="text-gray-700">{err}</p><Link href="/" className="text-[#0088c2]">Volver</Link></> : <><p className="text-gray-700">Confirma para entrar al portal de soporte.</p><button className={btn} onClick={go}>Entrar al portal</button></>}
   </div></Shell>;
@@ -346,6 +350,7 @@ export default function PortalApp() {
   return (
     <Switch>
       <Route path="/verify"><Verify onDone={loadMe} /></Route>
+      <Route path="/sso"><Verify onDone={loadMe} auto /></Route>
       <Route>
         {me === undefined ? <Shell>{null}</Shell> : me === null ? <Login /> : (
           <Shell email={me.email} onLogout={logout}>

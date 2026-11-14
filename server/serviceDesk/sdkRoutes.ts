@@ -7,6 +7,7 @@ import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdT
 import { decryptSecret, encryptSecret } from "./crypto";
 import { RateLimiter, originAllowed, sanitizeContext, verifyJwt, type SdkClaims } from "./sdkAuth";
 import { addComment, confirmByRequester, createTicket, TicketError } from "./ticketService";
+import { issueSsoLink } from "./portalAuth";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
@@ -17,6 +18,7 @@ type SReq = Request & { sdk: { key: KeyRow; claims: SdkClaims; instanceId: numbe
 const keyLimiter = new RateLimiter(120, 60_000);
 const userLimiter = new RateLimiter(10, 3_600_000);
 const commentLimiter = new RateLimiter(40, 3_600_000);
+const ssoLimiter = new RateLimiter(20, 3_600_000);
 const draftLimiter = new RateLimiter(30, 3_600_000);
 const SDK_TYPES = ["incident", "service_request", "question", "feature_request"] as const;
 
@@ -125,6 +127,13 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     if (!commentLimiter.hit(`c${req.sdk.key.id}:${req.sdk.claims.sub}`)) return void res.status(429).json({ message: "Límite de comentarios por hora alcanzado" });
     const c = await addComment(t.id, { type: "contact", id: req.sdk.contactId }, b.body, "public");
     res.status(201).json({ id: c.id, createdAt: c.createdAt });
+  }));
+
+  // "Ver todos en el portal": the user is already signed in to the host app (the widget token carries their email),
+  // so hand back a one-time portal sign-in link instead of asking them to log in again.
+  app.post("/api/v1/sdk/portal-link", sdkAuth, handle(async (req, res) => {
+    if (!ssoLimiter.hit(`s${req.sdk.key.id}:${req.sdk.claims.sub}`)) return void res.status(429).json({ message: "Demasiados intentos, espera un momento" });
+    res.json({ url: await issueSsoLink(req.sdk.claims.email) });
   }));
 
   // The requester validates the delivery: a ticket support marked "resolved" is closed by them.

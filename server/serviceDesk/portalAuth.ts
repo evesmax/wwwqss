@@ -25,6 +25,15 @@ export async function requestMagicLink(rawEmail: string): Promise<void> {
   await sendEmail({ to: email, ...magicLinkEmail(url) });
 }
 
+// Sign-in for a user already authenticated inside a host app: the widget token (signed by the host with the user's email)
+// is exchanged for a short-lived single-use portal link. It is returned to the browser, never emailed.
+export const SSO_TTL_MS = 2 * 60_000;
+export async function issueSsoLink(rawEmail: string): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  await db.insert(sdPortalTokens).values({ email: normEmail(rawEmail), tokenHash: hashToken(token), expiresAt: new Date(Date.now() + SSO_TTL_MS) });
+  return `${publicBaseUrl()}/portal/sso?token=${token}`;
+}
+
 // Single use: the UPDATE only matches an unused, unexpired token.
 export async function consumeMagicToken(token: string): Promise<string | null> {
   const [row] = await db.update(sdPortalTokens).set({ usedAt: new Date() })

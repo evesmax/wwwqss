@@ -556,6 +556,16 @@ test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, sco
   await db.update(sc.sdTickets).set({ status: "closed" }).where(eq(sc.sdTickets.id, r.body.id));
   assert.equal((await cm(tok(), r.body.id, { body: "tarde" })).status, 409);
 
+  // portal sign-in from the widget: one-time link for the user vouched for by the host's signed token
+  assert.equal((await call("POST", "/api/v1/sdk/portal-link", null, {}, O)).status, 401);
+  const pl = await call("POST", "/api/v1/sdk/portal-link", tok(), {}, O);
+  assert.equal(pl.status, 200, JSON.stringify(pl.body));
+  const ssoToken = new URL(pl.body.url).searchParams.get("token")!;
+  assert.match(pl.body.url, /\/portal\/sso\?token=/);
+  const verify = () => fetch(base + "/api/portal/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: ssoToken }) });
+  assert.equal((await verify()).status, 200);
+  assert.equal((await verify()).status, 401, "single use");
+
   const rot = await api("owner", "POST", `/api/desk/sdk/keys/${k.body.id}/rotate`);
   assert.equal(rot.status, 200);
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, O)).status, 401); // old secret no longer valid

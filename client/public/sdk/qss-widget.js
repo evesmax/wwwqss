@@ -164,6 +164,12 @@
     }
     function openReports() { panel.classList.remove("open"); rpanel.classList.add("open"); showList(); }
     back.onclick = showList;
+    // Already signed in to the host app: mint a one-time portal link from the widget token instead of asking for a login.
+    $(".portal").onclick = function (e) {
+      e.preventDefault(); var fallback = this.href, w = window.open("about:blank", "_blank");
+      sdk("/portal-link", {}).then(function (j) { if (w) { w.opener = null; w.location.href = j.url; } else location.href = j.url; })
+        .catch(function () { if (w) { w.opener = null; w.location.href = fallback; } });
+    };
     $(".rx").onclick = function () { rpanel.classList.remove("open"); };
     $(".mine").onclick = openReports;
 
