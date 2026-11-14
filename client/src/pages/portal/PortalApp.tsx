@@ -83,6 +83,13 @@ function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; o
   const [f, setF] = useState<any>({ accountId: me.accounts[0]?.id, type: "incident", title: "", description: "", perceivedSeverity: "", instanceId: "", moduleArea: "" });
   const [err, setErr] = useState("");
   const [mods, setMods] = useState<any[]>([]);
+  const [imgs, setImgs] = useState<File[]>([]);
+  const MAX_IMGS = 10;
+  const addImgs = (list: FileList | null) => {
+    const ok = Array.from(list ?? []).filter((x) => x.type.startsWith("image/") && x.size <= 5 * 1024 * 1024);
+    if (ok.length < (list?.length ?? 0)) setErr("Solo imágenes de hasta 5 MB; se omitieron algunas.");
+    setImgs((cur) => [...cur, ...ok].slice(0, MAX_IMGS));
+  };
   useEffect(() => { apiRequest("GET", "/api/portal/modules").then((r) => r.json()).then(setMods).catch(() => {}); }, []);
   const accMods = mods.filter((m) => m.accountId === Number(f.accountId));
   const acc = me.accounts.find((a: any) => a.id === Number(f.accountId));
@@ -90,8 +97,10 @@ function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; o
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr("");
     try {
-      await apiRequest("POST", "/api/portal/tickets", { accountId: Number(f.accountId), type: f.type, title: f.title, description: f.description,
-        perceivedSeverity: f.type === "incident" && f.perceivedSeverity ? f.perceivedSeverity : null, instanceId: f.instanceId ? Number(f.instanceId) : null, moduleArea: f.moduleArea });
+      const created = await (await apiRequest("POST", "/api/portal/tickets", { accountId: Number(f.accountId), type: f.type, title: f.title, description: f.description,
+        perceivedSeverity: f.type === "incident" && f.perceivedSeverity ? f.perceivedSeverity : null, instanceId: f.instanceId ? Number(f.instanceId) : null, moduleArea: f.moduleArea })).json();
+      const failed = (await Promise.all(imgs.map((file) => fetch(`/api/portal/tickets/${created.id}/attachments?filename=${encodeURIComponent(file.name)}`, { method: "POST", credentials: "include", headers: { "Content-Type": file.type }, body: file }).then((r) => r.ok).catch(() => false)))).filter((x) => !x).length;
+      if (failed) { setErr(`Ticket ${created.key} creado, pero ${failed} imagen(es) no se pudieron subir; adjúntalas desde el ticket.`); onCreated(); return; }
       onCreated();
     } catch (e) { setErr(errMsg(e, "No se pudo crear el ticket")); }
   };
@@ -109,6 +118,11 @@ function NewTicket({ me, onClose, onCreated }: { me: any; onClose: () => void; o
           <SearchSelect className={inp} value={f.perceivedSeverity} onChange={set("perceivedSeverity")}>
             <option value="">No estoy seguro</option><option value="P0">Sistema caído / proceso crítico detenido</option><option value="P1">Función importante afectada</option><option value="P2">Molestia con alternativa</option><option value="P3">Detalle menor</option></SearchSelect>
           <span className="text-xs text-gray-500">Nuestro equipo confirmará la severidad al revisar tu caso.</span></label>}
+        <div className="text-sm">
+          <label className="text-[#0088c2] cursor-pointer">Adjuntar imágenes ({imgs.length}/{MAX_IMGS})
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImgs(e.target.files); e.target.value = ""; }} /></label>
+          {imgs.length > 0 && <ul className="mt-1 space-y-1">{imgs.map((x, i) => <li key={i} className="flex justify-between text-xs text-gray-600"><span className="truncate">📎 {x.name}</span><button type="button" className="text-red-600 ml-2" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>Quitar</button></li>)}</ul>}
+        </div>
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="px-3 py-2 text-sm">Cancelar</button><button className={btn}>Enviar</button></div>
       </form>

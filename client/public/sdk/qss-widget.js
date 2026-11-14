@@ -37,6 +37,7 @@
       "<label>Resumen</label><input id='title' maxlength='200' placeholder='Ej. No me deja guardar la orden'>" +
       "<label>Detalle</label><textarea id='desc' placeholder='¿Qué hiciste y qué esperabas que pasara?'></textarea>" +
       "<div class='row'><input type='checkbox' id='shot'><label style='margin:0'>Adjuntar captura de pantalla (te pediremos permiso)</label></div>" +
+      "<label>Más imágenes (hasta 5)</label><input type='file' id='files' accept='image/*' multiple>" +
       "<button class='send'>Enviar</button><div class='msg'></div></div>";
     if (cfg.position === "header") { var hs = document.createElement("style"); hs.textContent = ".fab{display:none}.panel{top:64px;right:16px;bottom:auto}"; root.appendChild(hs); }
     if (cfg.position === "left") { var pos = document.createElement("style"); pos.textContent = ".fab,.panel{right:auto;left:20px}"; root.appendChild(pos); }
@@ -110,12 +111,15 @@
           body: JSON.stringify({ type: type, title: title, description: $("#desc").value + (transcript.trim() ? "\n\n— Transcripción original (dictado) —\n" + transcript.trim() : ""), perceivedSeverity: type === "incident" ? ($("#sev").value || null) : null, context: ctx }) })
           .then(function (res) { return res.json().then(function (j) { if (!res.ok) throw new Error(j.message || "Error " + res.status); return j; }); })
           .then(function (t) {
-            if (!blob) return t;
-            return fetch(endpoint + "/tickets/" + t.id + "/attachments?filename=captura.png", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: blob }).then(function () { return t; }).catch(function () { return t; });
+            var items = []; if (blob) items.push({ name: "captura.png", type: "image/png", body: blob });
+            Array.prototype.slice.call($("#files").files, 0, 5).forEach(function (f) { if (/^image\//.test(f.type) && f.size <= 3 * 1024 * 1024) items.push({ name: f.name, type: f.type, body: f }); });
+            return Promise.all(items.map(function (it) {
+              return fetch(endpoint + "/tickets/" + t.id + "/attachments?filename=" + encodeURIComponent(it.name), { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": it.type }, body: it.body }).catch(function () {});
+            })).then(function () { return t; });
           });
       }).then(function (t) {
         say("¡Listo! Tu folio es " + t.key + ". Te avisaremos por correo.", true);
-        $("#title").value = ""; $("#desc").value = ""; $("#shot").checked = false; transcript = ""; live.style.display = "none";
+        $("#title").value = ""; $("#desc").value = ""; $("#shot").checked = false; $("#files").value = ""; transcript = ""; live.style.display = "none";
         if (cfg.onSent) try { cfg.onSent(t); } catch (e) {}
       }).catch(function (e) { say("No se pudo enviar: " + (e && e.message ? e.message : e), false); }).then(function () { send.disabled = false; });
     };
