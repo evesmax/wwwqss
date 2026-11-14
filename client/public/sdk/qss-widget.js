@@ -20,7 +20,7 @@
     "input,select,textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:8px;font-size:14px}textarea{min-height:90px;resize:vertical}" +
     ".row{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px}.row input{width:auto}" +
     ".send{margin-top:12px;width:100%;background:#00aeef;color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}.send:disabled{opacity:.5}" +
-    ".mic{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}.mic.rec{background:#fee2e2;border-color:#ef4444;color:#b91c1c}.mic.rec i{animation:p 1s infinite}@keyframes p{50%{opacity:.25}}.mic i{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}.live{display:none;margin-top:6px;max-height:90px;overflow:auto;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:8px;font-size:13px;color:#334155}.hint{font-size:11px;color:#64748b;margin-top:4px}.x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
+    ".mic{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}.mic.rec{background:#fee2e2;border-color:#ef4444;color:#b91c1c}.mic.rec i{animation:p 1s infinite}@keyframes p{50%{opacity:.25}}.mic i{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}.live{display:none;margin-top:6px;max-height:90px;overflow:auto;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:8px;font-size:13px;color:#334155}.hint{font-size:11px;color:#64748b;margin-top:4px}.x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.mine{margin-top:10px;background:none;border:0;color:#0088c2;font-size:13px;cursor:pointer;padding:0}.portal{display:block;margin-top:8px;font-size:13px;color:#0088c2;text-decoration:none}.portal:hover{text-decoration:underline}.list{display:none;margin-top:6px;max-height:200px;overflow:auto;font-size:13px}.item{border-top:1px solid #e2e8f0;padding:6px 0}.item b{display:block}.ok2{margin-top:4px;background:#16a34a;color:#fff;border:0;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
 
   function init(cfg) {
     cfg = cfg || {};
@@ -38,7 +38,9 @@
       "<label>Detalle</label><textarea id='desc' placeholder='¿Qué hiciste y qué esperabas que pasara?'></textarea>" +
       "<div class='row'><input type='checkbox' id='shot'><label style='margin:0'>Adjuntar captura de pantalla (te pediremos permiso)</label></div>" +
       "<label>Más imágenes (hasta 5)</label><input type='file' id='files' accept='image/*' multiple>" +
-      "<button class='send'>Enviar</button><div class='msg'></div></div>";
+      "<button class='send'>Enviar</button><div class='msg'></div>" +
+      "<button class='mine' type='button'>Mis reportes</button><div class='list'></div>" +
+      "<a class='portal' target='_blank' rel='noopener' href='" + endpoint.replace(/\/api\/v1\/sdk$/, "") + "/portal'>Soporte QSS: ver todos mis tickets &rarr;</a></div>";
     if (cfg.position === "header") { var hs = document.createElement("style"); hs.textContent = ".fab{display:none}.panel{top:64px;right:16px;bottom:auto}"; root.appendChild(hs); }
     if (cfg.position === "left") { var pos = document.createElement("style"); pos.textContent = ".fab,.panel{right:auto;left:20px}"; root.appendChild(pos); }
     document.body.appendChild(host);
@@ -97,6 +99,34 @@
       setTimeout(draft, 600);
     };
     $(".x").addEventListener("click", function () { if (recording) { setMic(false); try { rec.stop(); } catch (e) {} } });
+
+    var LBL = { new: "Nuevo", triage: "En revisión", in_progress: "En progreso", waiting_customer: "Esperando tu respuesta", waiting_third_party: "En espera de un tercero", resolved: "Resuelto: valídalo", closed: "Cerrado" };
+    var list = $(".list");
+    function loadMine() {
+      return Promise.resolve(cfg.getToken()).then(function (token) {
+        return fetch(endpoint + "/tickets", { headers: { Authorization: "Bearer " + token } }).then(function (r) { return r.json(); }).then(function (rows) {
+          list.textContent = "";
+          if (!rows.length) { list.textContent = "Aún no tienes reportes."; return; }
+          rows.forEach(function (t) {
+            var d = document.createElement("div"); d.className = "item";
+            var b = document.createElement("b"); b.textContent = t.key + " · " + t.title; d.appendChild(b);
+            var s2 = document.createElement("span"); s2.textContent = LBL[t.status] || t.status; d.appendChild(s2);
+            if (t.status === "resolved") {
+              var btn = document.createElement("button"); btn.className = "ok2"; btn.type = "button"; btn.textContent = "Confirmar que quedó resuelto";
+              btn.onclick = function () {
+                btn.disabled = true;
+                fetch(endpoint + "/tickets/" + t.id + "/confirm", { method: "POST", headers: { Authorization: "Bearer " + token } })
+                  .then(function (r) { if (!r.ok) throw new Error(); say("¡Gracias! Cerramos " + t.key + ".", true); return loadMine(); })
+                  .catch(function () { btn.disabled = false; say("No se pudo confirmar, intenta de nuevo.", false); });
+              };
+              d.appendChild(document.createElement("br")); d.appendChild(btn);
+            }
+            list.appendChild(d);
+          });
+        });
+      }).catch(function () { list.textContent = "No se pudieron cargar tus reportes."; });
+    }
+    $(".mine").onclick = function () { var show = list.style.display !== "block"; list.style.display = show ? "block" : "none"; if (show) loadMine(); };
 
     send.onclick = function () {
       var title = $("#title").value.trim();

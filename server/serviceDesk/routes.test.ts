@@ -310,6 +310,18 @@ test("portal: customer reply resumes a waiting_customer ticket", { skip: !run },
   assert.equal((await api("owner", "GET", `/api/desk/tickets/${id}`)).body.ticket.status, "in_progress");
 });
 
+test("portal: customer confirms a resolved ticket and it closes", { skip: !run }, async () => {
+  await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
+  const id = (await papi("c1", "POST", "/api/portal/tickets", { accountId: accA, type: "question", title: "Validar entrega" })).body.id;
+  assert.equal((await papi("c1", "POST", `/api/portal/tickets/${id}/confirm`)).status, 409, "only resolved tickets");
+  await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "triage" });
+  await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "in_progress" });
+  await api("owner", "POST", `/api/desk/tickets/${id}/transition`, { to: "resolved" });
+  assert.equal((await papi("cb", "POST", `/api/portal/tickets/${id}/confirm`)).status, 404, "other account");
+  assert.equal((await papi("c1", "POST", `/api/portal/tickets/${id}/confirm`)).status, 200);
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${id}`)).body.ticket.status, "closed");
+});
+
 test("attachments: allow-list, size, and isolation", { skip: !run }, async () => {
   await portalLogin("c1", "c1@a.test"); await portalLogin("cb", "cb@b.test");
   const id = (await papi("c1", "POST", "/api/portal/tickets", { accountId: accA, type: "question", title: "Con adjunto" })).body.id;

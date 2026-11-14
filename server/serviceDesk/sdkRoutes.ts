@@ -6,7 +6,7 @@ import { db } from "../db";
 import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdTicketEvents, sdTicketComments } from "@shared/schema";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { RateLimiter, originAllowed, sanitizeContext, verifyJwt, type SdkClaims } from "./sdkAuth";
-import { addComment, createTicket, TicketError } from "./ticketService";
+import { addComment, createTicket, transitionTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
@@ -125,6 +125,16 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     if (!commentLimiter.hit(`c${req.sdk.key.id}:${req.sdk.claims.sub}`)) return void res.status(429).json({ message: "Límite de comentarios por hora alcanzado" });
     const c = await addComment(t.id, { type: "contact", id: req.sdk.contactId }, b.body, "public");
     res.status(201).json({ id: c.id, createdAt: c.createdAt });
+  }));
+
+  // The requester validates the delivery: a ticket support marked "resolved" is closed by them.
+  app.post("/api/v1/sdk/tickets/:id/confirm", sdkAuth, handle(async (req, res) => {
+    const id = Number(req.params.id);
+    const [t] = Number.isInteger(id) ? await db.select({ id: sdTickets.id, status: sdTickets.status, requesterContactId: sdTickets.requesterContactId }).from(sdTickets).where(eq(sdTickets.id, id)) : [];
+    if (!t || t.requesterContactId !== req.sdk.contactId) return void res.status(404).json({ message: "No encontrado" });
+    if (t.status !== "resolved") return void res.status(409).json({ message: "El reporte no está pendiente de tu validación" });
+    await transitionTicket(t.id, "closed", { type: "contact", id: req.sdk.contactId }, { reason: "Confirmado por el cliente" });
+    res.json({ ok: true });
   }));
 
   // Progress of one of the caller's own tickets: status history and public notes only (same rules as the customer portal:

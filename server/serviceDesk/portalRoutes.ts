@@ -11,7 +11,7 @@ import { LoginThrottle } from "../loginThrottle";
 import { accountProductMap } from "./access";
 import { canContactSeeTicket, PORTAL_TYPES, type PortalContact } from "./portalRules";
 import { consumeMagicToken, requestMagicLink, normEmail } from "./portalAuth";
-import { addComment, createTicket, TicketError } from "./ticketService";
+import { addComment, createTicket, transitionTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { nextStatuses } from "./ticketRules";
 import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@shared/schema";
@@ -143,6 +143,16 @@ export function registerPortalRoutes(app: Express) {
       history: events.map((e) => ({ at: e.at, from: (e.detail as any).from, to: (e.detail as any).to })), // reason omitted: may be internal
       canComment: !["closed", "duplicate", "cancelled", "rejected"].includes(t.status) && nextStatuses(t.type, t.status) !== undefined,
     });
+  }));
+
+  // The customer validates the delivery: a ticket support marked "resolved" is closed by the contact (same transition as support's resolved -> closed).
+  app.post("/api/portal/tickets/:id/confirm", portalAuth, handle(async (req, res) => {
+    const t = await ticketFor(req, res); if (!t) return;
+    const me = req.contacts.find((c) => c.accountId === t.accountId);
+    if (!me) return void res.status(404).json({ message: "No encontrado" });
+    if (t.status !== "resolved") return void res.status(409).json({ message: "El ticket no está pendiente de tu validación" });
+    await transitionTicket(t.id, "closed", { type: "contact", id: me.id }, { reason: "Confirmado por el cliente" });
+    res.json({ ok: true });
   }));
 
   // Monthly reports: only account admins, only delivered (sent) reports of their own accounts (RF-REP-06).
