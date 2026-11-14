@@ -6,7 +6,7 @@ import { db } from "../db";
 import { sdSdkKeys, sdInstances, sdContacts, sdTickets, sdTicketAttachments, sdTicketEvents, sdTicketComments } from "@shared/schema";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { RateLimiter, originAllowed, sanitizeContext, verifyJwt, type SdkClaims } from "./sdkAuth";
-import { addComment, createTicket, transitionTicket, TicketError } from "./ticketService";
+import { addComment, confirmByRequester, createTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
@@ -132,8 +132,7 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     const id = Number(req.params.id);
     const [t] = Number.isInteger(id) ? await db.select({ id: sdTickets.id, status: sdTickets.status, requesterContactId: sdTickets.requesterContactId }).from(sdTickets).where(eq(sdTickets.id, id)) : [];
     if (!t || t.requesterContactId !== req.sdk.contactId) return void res.status(404).json({ message: "No encontrado" });
-    if (t.status !== "resolved") return void res.status(409).json({ message: "El reporte no está pendiente de tu validación" });
-    await transitionTicket(t.id, "closed", { type: "contact", id: req.sdk.contactId }, { reason: "Confirmado por el cliente" });
+    await confirmByRequester(t.id, req.sdk.contactId);
     res.json({ ok: true });
   }));
 

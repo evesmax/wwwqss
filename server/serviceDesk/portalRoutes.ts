@@ -11,7 +11,7 @@ import { LoginThrottle } from "../loginThrottle";
 import { accountProductMap } from "./access";
 import { canContactSeeTicket, PORTAL_TYPES, type PortalContact } from "./portalRules";
 import { consumeMagicToken, requestMagicLink, normEmail } from "./portalAuth";
-import { addComment, createTicket, transitionTicket, TicketError } from "./ticketService";
+import { addComment, confirmByRequester, createTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { nextStatuses } from "./ticketRules";
 import { sdFeatureQuotes, sdFeatureRequests, sdFeatures, sdUatItems } from "@shared/schema";
@@ -150,8 +150,7 @@ export function registerPortalRoutes(app: Express) {
     const t = await ticketFor(req, res); if (!t) return;
     const me = req.contacts.find((c) => c.accountId === t.accountId);
     if (!me) return void res.status(404).json({ message: "No encontrado" });
-    if (t.status !== "resolved") return void res.status(409).json({ message: "El ticket no está pendiente de tu validación" });
-    await transitionTicket(t.id, "closed", { type: "contact", id: me.id }, { reason: "Confirmado por el cliente" });
+    await confirmByRequester(t.id, me.id);
     res.json({ ok: true });
   }));
 

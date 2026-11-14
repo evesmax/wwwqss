@@ -100,6 +100,15 @@ export async function transitionTicket(id: number, to: string, who: Who, o: { re
   return { ticket, from };
 }
 
+// The requester validates a delivery: support's "resolved" (or "waiting for you" with the fix to validate) ends closed.
+export async function confirmByRequester(id: number, contactId: number) {
+  const who: Who = { type: "contact", id: contactId };
+  const [t] = await db.select({ status: sdTickets.status }).from(sdTickets).where(eq(sdTickets.id, id));
+  if (!t || !["resolved", "waiting_customer"].includes(t.status)) throw new TicketError("El reporte no está pendiente de tu validación", 409);
+  if (t.status === "waiting_customer") await transitionTicket(id, "resolved", who, { reason: "Validado por el cliente" });
+  await transitionTicket(id, "closed", who, { reason: "Confirmado por el cliente" });
+}
+
 export async function addComment(id: number, who: Who, body: string, visibility: "public" | "internal") {
   const now = new Date();
   if (who.type === "contact" && visibility !== "public") throw new TicketError("Sin permiso", 403);
