@@ -112,7 +112,7 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
 
   app.get("/api/v1/sdk/tickets", sdkAuth, handle(async (req, res) => {
     const rows = await db.select({ id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, status: sdTickets.status, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt })
-      .from(sdTickets).where(eq(sdTickets.requesterContactId, req.sdk.contactId)).orderBy(desc(sdTickets.updatedAt)).limit(50);
+      .from(sdTickets).where(eq(sdTickets.requesterContactId, req.sdk.contactId)).orderBy(desc(sdTickets.updatedAt)).limit(200);
     res.json(rows);
   }));
 

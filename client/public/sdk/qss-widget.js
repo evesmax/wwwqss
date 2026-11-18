@@ -20,7 +20,7 @@
     "input,select,textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:8px;font-size:14px}textarea{min-height:90px;resize:vertical}" +
     ".row{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px}.row input{width:auto}" +
     ".send{margin-top:12px;width:100%;background:#00aeef;color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}.send:disabled{opacity:.5}" +
-    ".mic{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}.mic.rec{background:#fee2e2;border-color:#ef4444;color:#b91c1c}.mic.rec i{animation:p 1s infinite}@keyframes p{50%{opacity:.25}}.mic i{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}.live{display:none;margin-top:6px;max-height:90px;overflow:auto;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:8px;font-size:13px;color:#334155}.hint{font-size:11px;color:#64748b;margin-top:4px}.x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.mine{margin-top:10px;background:none;border:0;color:#0088c2;font-size:13px;cursor:pointer;padding:0}.rpanel{width:380px;padding:0}.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:12px 40px 10px 14px;border-bottom:1px solid #e2e8f0}.rhead h3{margin:0;font-size:15px}.back{display:none;border:0;background:none;font-size:18px;cursor:pointer;color:#334155;padding:0 4px}.portal{margin-left:auto;font-size:12px;font-weight:600;color:#0088c2;text-decoration:none}.portal:hover{text-decoration:underline}.rbody{max-height:60vh;overflow:auto;font-size:13px}.item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #e2e8f0;padding:9px 14px;cursor:pointer;color:#222}.item:hover{background:#f8fafc}.item .l1{display:flex;justify-content:space-between;font-size:12px;color:#64748b}.item .st{font-weight:600;color:#1d4ed8}.item .st.done{color:#15803d}.item .tt{font-size:14px;margin-top:2px}.item .up{font-size:12px;color:#94a3b8}.empty{padding:14px;color:#64748b}.det{padding:12px 14px}.tl{margin:10px 0 0;padding:0 0 0 12px;border-left:2px solid #e2e8f0;list-style:none}.tl li{position:relative;margin-bottom:10px}.tl li:before{content:'';position:absolute;left:-17px;top:5px;width:8px;height:8px;border-radius:50%;background:#94a3b8}.tl li.note:before{background:#2563eb}.tl .w{font-size:11px;color:#64748b}.tl .tx{white-space:pre-wrap}.tl li.status .tx{font-weight:600}.cm{border-top:1px solid #e2e8f0;margin-top:8px;padding-top:8px}.cm textarea{min-height:70px}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.btn{border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:#00aeef}.btn.g{background:#16a34a}.btn:disabled{opacity:.5}.note2{font-size:12px;color:#64748b}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
+    ".mic{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}.mic.rec{background:#fee2e2;border-color:#ef4444;color:#b91c1c}.mic.rec i{animation:p 1s infinite}@keyframes p{50%{opacity:.25}}.mic i{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}.live{display:none;margin-top:6px;max-height:90px;overflow:auto;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:8px;font-size:13px;color:#334155}.hint{font-size:11px;color:#64748b;margin-top:4px}.x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:22px;line-height:1;color:#666;cursor:pointer}.x:hover{color:#000}.mine{margin-top:10px;background:none;border:0;color:#0088c2;font-size:13px;cursor:pointer;padding:0}.rpanel{width:380px;padding:0}.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:12px 40px 10px 14px;border-bottom:1px solid #e2e8f0}.rhead h3{margin:0;font-size:15px}.back{display:none;border:0;background:none;font-size:18px;cursor:pointer;color:#334155;padding:0 4px}.portal{margin-left:auto;font-size:12px;font-weight:600;color:#0088c2;text-decoration:none}.portal:hover{text-decoration:underline}.rbody{max-height:60vh;overflow:auto;font-size:13px}.item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #e2e8f0;padding:9px 14px;cursor:pointer;color:#222}.item:hover{background:#f8fafc}.item .l1{display:flex;justify-content:space-between;font-size:12px;color:#64748b}.item .st{font-weight:600;color:#1d4ed8}.item .st.done{color:#15803d}.item .tt{font-size:14px;margin-top:2px}.item .up{font-size:12px;color:#94a3b8}.fbar{display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff}.fbar input{flex:1;min-width:0;margin:0}.fbar select{width:auto;margin:0}.empty{padding:14px;color:#64748b}.det{padding:12px 14px}.tl{margin:10px 0 0;padding:0 0 0 12px;border-left:2px solid #e2e8f0;list-style:none}.tl li{position:relative;margin-bottom:10px}.tl li:before{content:'';position:absolute;left:-17px;top:5px;width:8px;height:8px;border-radius:50%;background:#94a3b8}.tl li.note:before{background:#2563eb}.tl .w{font-size:11px;color:#64748b}.tl .tx{white-space:pre-wrap}.tl li.status .tx{font-weight:600}.cm{border-top:1px solid #e2e8f0;margin-top:8px;padding-top:8px}.cm textarea{min-height:70px}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.btn{border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:#00aeef}.btn.g{background:#16a34a}.btn:disabled{opacity:.5}.note2{font-size:12px;color:#64748b}.msg{margin-top:8px;font-size:13px}.err{color:#b00020}.ok{color:#0a7d33}";
 
   function init(cfg) {
     cfg = cfg || {};
@@ -113,18 +113,35 @@
         return fetch(endpoint + path, { method: body === undefined ? "GET" : "POST", headers: body === undefined ? { Authorization: "Bearer " + token } : { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
       }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.message || "Error " + r.status); return j; }); });
     }
-    function showList() {
-      back.style.display = "none"; rtitle.textContent = "Mis reportes a Soporte QSS"; rbody.textContent = ""; rbody.appendChild(el("div", "empty", "Cargando…"));
-      sdk("/tickets").then(function (rows) {
-        rbody.textContent = "";
-        if (!rows.length) { rbody.appendChild(el("div", "empty", "Aún no has enviado reportes.")); return; }
+    var CLOSED = { closed: 1, duplicate: 1, cancelled: 1, rejected: 1 }, flt = { q: "", st: "open" }, cache = null;
+    function drawList() {
+      rbody.textContent = "";
+      var bar = el("div", "fbar"), q = el("input"), sel = el("select");
+      q.type = "search"; q.placeholder = "Buscar folio o título"; q.value = flt.q;
+      [["open", "Abiertos"], ["all", "Todos"], ["closed", "Cerrados"]].concat(Object.keys(LBL).filter(function (k) { return cache.some(function (t) { return t.status === k; }); }).map(function (k) { return [k, LBL[k]]; })).forEach(function (o) { var op = el("option", null, o[1]); op.value = o[0]; sel.appendChild(op); });
+      sel.value = flt.st; bar.appendChild(q); bar.appendChild(sel); rbody.appendChild(bar);
+      var list = el("div"); rbody.appendChild(list);
+      function paint() {
+        list.textContent = ""; var term = flt.q.trim().toLowerCase();
+        var rows = cache.filter(function (t) {
+          if (flt.st === "open" && CLOSED[t.status]) return false;
+          if (flt.st === "closed" && !CLOSED[t.status]) return false;
+          if (flt.st !== "open" && flt.st !== "all" && flt.st !== "closed" && t.status !== flt.st) return false;
+          return !term || (t.key + " " + t.title).toLowerCase().indexOf(term) >= 0;
+        }).sort(function (a, b) { return (CLOSED[a.status] ? 1 : 0) - (CLOSED[b.status] ? 1 : 0) || new Date(b.updatedAt) - new Date(a.updatedAt); });
+        if (!rows.length) { list.appendChild(el("div", "empty", cache.length ? "Ningún reporte coincide con los filtros." : "Aún no has enviado reportes.")); return; }
         rows.forEach(function (t) {
           var b = el("button", "item"); b.type = "button";
           var l1 = el("div", "l1"); l1.appendChild(el("span", null, t.key)); l1.appendChild(el("span", "st" + (DONE[t.status] ? " done" : ""), LBL[t.status] || t.status));
           b.appendChild(l1); b.appendChild(el("div", "tt", t.title)); b.appendChild(el("div", "up", "Actualizado " + fmtD(t.updatedAt)));
-          b.onclick = function () { showDetail(t.id); }; rbody.appendChild(b);
+          b.onclick = function () { showDetail(t.id); }; list.appendChild(b);
         });
-      }).catch(function () { rbody.textContent = ""; rbody.appendChild(el("div", "empty", "No se pudieron cargar tus reportes. Intenta de nuevo.")); });
+      }
+      q.oninput = function () { flt.q = q.value; paint(); }; sel.onchange = function () { flt.st = sel.value; paint(); }; paint();
+    }
+    function showList() {
+      back.style.display = "none"; rtitle.textContent = "Mis reportes a Soporte QSS"; rbody.textContent = ""; rbody.appendChild(el("div", "empty", "Cargando…"));
+      sdk("/tickets").then(function (rows) { cache = rows; drawList(); }).catch(function () { rbody.textContent = ""; rbody.appendChild(el("div", "empty", "No se pudieron cargar tus reportes. Intenta de nuevo.")); });
     }
     function showDetail(id) {
       back.style.display = "inline-block"; rbody.textContent = ""; rbody.appendChild(el("div", "empty", "Cargando…"));
