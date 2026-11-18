@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import qssLogo from "@assets/qss-logo.png";
-import { STATUS_LABEL, TYPE_LABEL, SEV_COLOR, fmt } from "../admin/desk/ticketUi";
+import { STATUS_LABEL, STATUS_COLOR, TYPE_LABEL, SEV_COLOR, fmt } from "../admin/desk/ticketUi";
 import { SearchSelect } from "@/components/ui/search-select";
 
 const inp = "w-full border rounded-lg px-3 py-2 text-sm";
@@ -62,21 +62,51 @@ function Verify({ onDone, auto = false }: { onDone: () => void; auto?: boolean }
   </div></Shell>;
 }
 
+const CLOSED_ST = ["closed", "duplicate", "cancelled", "rejected"];
+const PORTAL_ST_COLOR: Record<string, string> = { ...STATUS_COLOR, duplicate: "bg-gray-200 text-gray-700", cancelled: "bg-gray-200 text-gray-700", rejected: "bg-red-100 text-red-800" };
+const stColor = (s: string) => PORTAL_ST_COLOR[s] ?? "bg-slate-100 text-slate-700";
+const CONFIRM_TIP = "Resolvimos este ticket y necesitamos tu confirmación: ábrelo y pulsa «Confirmar que está resuelto», o respóndenos si aún persiste.";
+
 function TicketList({ me }: { me: any }) {
   const [rows, setRows] = useState<any[]>([]);
   const [show, setShow] = useState(false);
+  const [q, setQ] = useState("");
+  const [st, setSt] = useState("open");
+  const [type, setType] = useState("");
   const load = () => apiRequest("GET", "/api/portal/tickets").then((r) => r.json()).then(setRows);
   useEffect(() => { load(); }, []);
+  const term = q.trim().toLowerCase();
+  const shown = rows.filter((t) => {
+    if (st === "open" ? CLOSED_ST.includes(t.status) : st === "closed" ? !CLOSED_ST.includes(t.status) : st !== "all" && t.status !== st) return false;
+    if (type && t.type !== type) return false;
+    return !term || `${t.key} ${t.title}`.toLowerCase().includes(term);
+  }).sort((a, b) => Number(CLOSED_ST.includes(a.status)) - Number(CLOSED_ST.includes(b.status)) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const toConfirm = rows.filter((t) => t.status === "resolved").length;
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center"><h1 className="text-xl font-bold">Mis tickets</h1><button className={btn} onClick={() => setShow(true)}>Nuevo ticket</button></div>
+      {toConfirm > 0 && <button className="w-full text-left text-sm bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-3 py-2" onClick={() => setSt("resolved")}>🔔 Tienes {toConfirm} ticket{toConfirm > 1 ? "s" : ""} resuelto{toConfirm > 1 ? "s" : ""} esperando tu confirmación. Ver</button>}
+      <div className="flex flex-wrap gap-2">
+        <input className={`${inp} flex-1 min-w-[180px]`} type="search" placeholder="Buscar folio o título" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className={`${inp} w-auto`} value={st} onChange={(e) => setSt(e.target.value)}>
+          <option value="open">Abiertos</option><option value="all">Todos</option><option value="closed">Cerrados</option>
+          {Object.keys(STATUS_LABEL).filter((k) => rows.some((t) => t.status === k)).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
+        </select>
+        <select className={`${inp} w-auto`} value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">Todos los tipos</option>
+          {Object.entries(TYPE_LABEL).filter(([k]) => rows.some((t) => t.type === k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
       <div className="bg-white rounded-xl border divide-y">
-        {rows.map((t) => (
-          <Link key={t.id} href={`/tickets/${t.id}`} className="flex justify-between p-3 hover:bg-gray-50 text-sm">
+        {shown.map((t) => (
+          <Link key={t.id} href={`/tickets/${t.id}`} className="flex justify-between items-center gap-2 p-3 hover:bg-gray-50 text-sm">
             <span><b className="font-mono">{t.key}</b> · {t.title}</span>
-            <span className="text-gray-500">{STATUS_LABEL[t.status] ?? t.status} · {fmt(t.updatedAt)}</span>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${stColor(t.status)}`} title={t.status === "resolved" ? CONFIRM_TIP : undefined}>{t.status === "resolved" && "🔔 "}{STATUS_LABEL[t.status] ?? t.status}</span>
+              <span className="text-gray-500 text-xs">{fmt(t.updatedAt)}</span>
+            </span>
           </Link>))}
-        {!rows.length && <p className="p-6 text-center text-gray-400 text-sm">Aún no tienes tickets.</p>}
+        {!shown.length && <p className="p-6 text-center text-gray-400 text-sm">{rows.length ? "Ningún ticket coincide con los filtros." : "Aún no tienes tickets."}</p>}
       </div>
       {show && <NewTicket me={me} onClose={() => setShow(false)} onCreated={() => { setShow(false); load(); }} />}
     </div>
@@ -159,7 +189,7 @@ function TicketView({ id }: { id: string }) {
     <div className="space-y-4">
       <Link href="/" className="text-sm text-[#0088c2]">← Mis tickets</Link>
       <div><p className="font-mono text-sm text-gray-500">{t.key} · {TYPE_LABEL[t.type]}</p><h1 className="text-xl font-bold">{t.title}</h1>
-        <p className="text-sm mt-1"><b>{STATUS_LABEL[t.status] ?? t.status}</b>{t.severity && <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>}</p></div>
+        <p className="text-sm mt-1"><b className={`px-2 py-0.5 rounded text-xs ${stColor(t.status)}`}>{STATUS_LABEL[t.status] ?? t.status}</b>{t.severity && <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>}</p></div>
       {t.status === "resolved" && <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm space-y-2">
         <p><b>Marcamos este ticket como resuelto.</b> Por favor valida que todo quedó bien.</p>
         <div className="flex flex-wrap gap-3 items-center"><button type="button" onClick={confirm} className="px-3 py-2 bg-green-600 text-white rounded-lg">Confirmar que quedó resuelto</button>
