@@ -7,7 +7,7 @@ import { db } from "../db";
 import { sdAgentKeys, sdProducts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdAccounts, clientes } from "@shared/schema";
 import { agentAuth, hashSecret, type AgentReq } from "./agentAuth";
 import { wrap, requireRole, type Req } from "./httpUtil";
-import { addComment, addTimeEntry, transitionTicket, type Who } from "./ticketService";
+import { addComment, addTimeEntry, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
 import { nextStatuses, statusesFor } from "./ticketRules";
 import { writeAudit } from "./audit";
 
@@ -89,6 +89,8 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
       ticket, product, account: acc?.cliente ?? null, events, comments, time, attachments,
       nextStatuses: nextStatuses(t.type, t.status), allStatuses: statusesFor(t.type),
       totalMinutes: time.reduce((a, e) => a + e.minutes, 0),
+      agentMinutes: time.filter((e) => e.agentKeyId != null).reduce((a, e) => a + e.minutes, 0),
+      humanMinutes: time.filter((e) => e.agentKeyId == null).reduce((a, e) => a + e.minutes, 0),
     });
   }));
 
@@ -113,6 +115,17 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
     const b = z.object({ minutes: z.number().int(), workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: z.string().max(500).default("") }).parse(req.body);
     // Internal record only: never billable, never touches the hours bank.
     res.status(201).json(await addTimeEntry(t.id, { agentKeyId: agent(req).key.id, name: agent(req).key.name }, { ...b, billable: false }));
+  }));
+
+  app.patch(`${A}/tickets/:ref/time/:entryId`, agentAuth, wrap(async (req, res) => {
+    const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
+    const b = z.object({ minutes: z.number().int().optional(), workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), note: z.string().max(500).optional() }).parse(req.body);
+    res.json(await updateTimeEntry(t.id, Number(req.params.entryId), { agentKeyId: agent(req).key.id, name: agent(req).key.name }, b));
+  }));
+  app.delete(`${A}/tickets/:ref/time/:entryId`, agentAuth, wrap(async (req, res) => {
+    const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
+    await deleteTimeEntry(t.id, Number(req.params.entryId), { agentKeyId: agent(req).key.id, name: agent(req).key.name });
+    res.status(204).end();
   }));
 
   app.post(`${A}/tickets/:ref/effort`, agentAuth, wrap(async (req, res) => {

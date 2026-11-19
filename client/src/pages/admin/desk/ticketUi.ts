@@ -17,6 +17,8 @@ export const EVENT_TEXT: Record<string, (d: any) => string> = {
   status_changed: (d) => `Estado: ${STATUS_LABEL[d.from] ?? d.from} → ${STATUS_LABEL[d.to] ?? d.to}${d.reason ? ` — ${d.reason}` : ""}`,
   first_response: () => "Primera respuesta pública",
   time_logged: (d) => `Horas registradas: ${d.minutes} min`,
+  time_updated: (d) => `Tiempo corregido: ${d.from} → ${d.to} min`,
+  time_deleted: (d) => `Tiempo eliminado: ${d.minutes} min`,
   fields_changed: (d) => `Campos cambiados: ${Object.keys(d.changed ?? {}).join(", ")}`,
   attachment: (d) => `Adjunto: ${d.filename}`,
   sla_excluded: (d) => `Excluido del SLA: ${d.reason}${d.note ? ` — ${d.note}` : ""}`,

@@ -152,6 +152,39 @@ export async function addTimeEntry(id: number, actor: TimeActor, e: { minutes: n
   });
 }
 
+export type TimePatch = Partial<{ minutes: number; workDate: string; note: string }>;
+/** Edits a time entry. Agents may only touch non-billable entries (never the hours bank). */
+export async function updateTimeEntry(ticketId: number, entryId: number, actor: TimeActor, p: TimePatch) {
+  if (p.minutes !== undefined && (!Number.isInteger(p.minutes) || p.minutes < 1 || p.minutes > 1440)) throw new TicketError("Minutos inválidos (1–1440)");
+  const who = typeof actor === "number" ? { type: "user" as const, id: actor } : { type: "agent" as const, id: null, name: actor.name };
+  return db.transaction(async (tx) => {
+    await lockTicket(tx, ticketId);
+    const [cur] = await tx.select().from(sdTimeEntries).where(and(eq(sdTimeEntries.id, entryId), eq(sdTimeEntries.ticketId, ticketId)));
+    if (!cur) throw new TicketError("Entrada de tiempo no encontrada");
+    if (typeof actor !== "number" && cur.billable) throw new TicketError("Los agentes no pueden editar tiempo facturable");
+    const set: Record<string, unknown> = {};
+    if (p.minutes !== undefined) set.minutes = p.minutes;
+    if (p.workDate !== undefined) set.workDate = p.workDate;
+    if (p.note !== undefined) set.note = p.note;
+    if (!Object.keys(set).length) return cur;
+    const [row] = await tx.update(sdTimeEntries).set(set).where(eq(sdTimeEntries.id, entryId)).returning();
+    await addEvent(tx, ticketId, who, "time_updated", { entryId, from: cur.minutes, to: row.minutes, billable: cur.billable });
+    return row;
+  });
+}
+
+export async function deleteTimeEntry(ticketId: number, entryId: number, actor: TimeActor) {
+  const who = typeof actor === "number" ? { type: "user" as const, id: actor } : { type: "agent" as const, id: null, name: actor.name };
+  await db.transaction(async (tx) => {
+    await lockTicket(tx, ticketId);
+    const [cur] = await tx.select().from(sdTimeEntries).where(and(eq(sdTimeEntries.id, entryId), eq(sdTimeEntries.ticketId, ticketId)));
+    if (!cur) throw new TicketError("Entrada de tiempo no encontrada");
+    if (typeof actor !== "number" && cur.billable) throw new TicketError("Los agentes no pueden borrar tiempo facturable");
+    await tx.delete(sdTimeEntries).where(eq(sdTimeEntries.id, entryId));
+    await addEvent(tx, ticketId, who, "time_deleted", { entryId, minutes: cur.minutes, billable: cur.billable });
+  });
+}
+
 export type UpdateInput = Partial<{
   title: string; description: string; severity: string | null; p0: Partial<P0Questionnaire> | null; priorityInternal: number;
   assigneeUserId: number | null; moduleArea: string; environment: string; sharedWithAccount: boolean;

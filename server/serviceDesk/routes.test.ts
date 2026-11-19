@@ -257,6 +257,14 @@ test("tickets: agent_l1/time entry validation", { skip: !run }, async () => {
   assert.equal((await api("owner", "POST", `/api/desk/tickets/${t.id}/time`, { minutes: 90, workDate: "2026-11-08" })).status, 201);
   assert.equal((await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.totalMinutes, 90);
   assert.equal((await api("nobody", "POST", `/api/desk/tickets/${t.id}/time`, { minutes: 5, workDate: "2026-11-08" })).status, 403);
+  // humans can correct and delete entries; totals follow
+  const entry = (await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.time[0];
+  assert.equal((await api("owner", "PATCH", `/api/desk/tickets/${t.id}/time/${entry.id}`, { minutes: 45 })).status, 200);
+  const d = (await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body;
+  assert.equal(d.totalMinutes, 45); assert.equal(d.humanMinutes, 45); assert.equal(d.agentMinutes, 0);
+  assert.equal((await api("nobody", "PATCH", `/api/desk/tickets/${t.id}/time/${entry.id}`, { minutes: 5 })).status, 403);
+  assert.equal((await api("owner", "DELETE", `/api/desk/tickets/${t.id}/time/${entry.id}`)).status, 204);
+  assert.equal((await api("owner", "GET", `/api/desk/tickets/${t.id}`)).body.totalMinutes, 0);
 });
 
 test("portal: magic token is single use and unauthenticated access is refused", { skip: !run }, async () => {

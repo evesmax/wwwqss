@@ -7,7 +7,7 @@ import {
 } from "@shared/schema";
 import { hasRole, visibleAccountIds } from "./access";
 import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
-import { addComment, addTimeEntry, createTicket, transitionTicket, updateTicket, TicketError } from "./ticketService";
+import { addComment, addTimeEntry, updateTimeEntry, deleteTimeEntry, createTicket, transitionTicket, updateTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
 import { CHANNELS, SEVERITIES, TICKET_TYPES, nextStatuses, statusesFor } from "./ticketRules";
 
@@ -155,6 +155,8 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
       ticket: t, requester: requester ?? null, account: acc, instance: instance ?? null, product: product ?? null, events, comments, time, attachments,
       nextStatuses: nextStatuses(t.type, t.status), allStatuses: statusesFor(t.type),
       totalMinutes: time.reduce((a, e) => a + e.minutes, 0),
+      agentMinutes: time.filter((e) => e.agentKeyId != null).reduce((a, e) => a + e.minutes, 0),
+      humanMinutes: time.filter((e) => e.agentKeyId == null).reduce((a, e) => a + e.minutes, 0),
     });
   }));
 
@@ -182,6 +184,17 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
     const t = await ticketOr404(req, res); if (!t) return;
     const b = z.object({ minutes: z.number().int(), billable: z.boolean().default(true), workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: z.string().max(500).default("") }).parse(req.body);
     res.status(201).json(await addTimeEntry(t.id, req.actor.userId, b));
+  }));
+
+  const timePatch = z.object({ minutes: z.number().int().optional(), workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), note: z.string().max(500).optional() });
+  app.patch("/api/desk/tickets/:id/time/:entryId", ...auth, requireRole(...WORKERS), wrap(async (req, res) => {
+    const t = await ticketOr404(req, res); if (!t) return;
+    res.json(await updateTimeEntry(t.id, Number(req.params.entryId), req.actor.userId, timePatch.parse(req.body)));
+  }));
+  app.delete("/api/desk/tickets/:id/time/:entryId", ...auth, requireRole(...WORKERS), wrap(async (req, res) => {
+    const t = await ticketOr404(req, res); if (!t) return;
+    await deleteTimeEntry(t.id, Number(req.params.entryId), req.actor.userId);
+    res.status(204).end();
   }));
 
   app.post("/api/desk/tickets/:id/attachments", ...auth, requireRole(...WORKERS), express.raw({ type: () => true, limit: "6mb" }), wrap(async (req, res) => {

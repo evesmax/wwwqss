@@ -124,8 +124,14 @@ export default function TicketDetailPage({ id }: { id: string; user?: any }) {
         </div>
 
         <div className="bg-white border rounded-xl p-4 space-y-2 text-sm">
-          <h3 className="font-semibold">Horas · total {(d.totalMinutes / 60).toFixed(2)} h</h3>
-          {d.time.map((e: any) => <p key={e.id} className="text-xs text-gray-600">{e.workDate} · {e.minutes} min {e.billable ? "" : "(no facturable)"} {e.note}</p>)}
+          <h3 className="font-semibold">Horas · total {d.totalMinutes} min ({(d.totalMinutes / 60).toFixed(2)} h) · 👤 humano {d.humanMinutes} min · 🤖 agente IA {d.agentMinutes} min</h3>
+          {d.time.map((e: any) => (
+            <p key={e.id} className="text-xs text-gray-600 flex gap-2 items-center flex-wrap">
+              <span>{e.agentKeyId != null ? "🤖" : "👤"} {e.workDate} · {e.minutes} min {e.billable ? "" : "(no facturable)"} {e.note}</span>
+              <button type="button" className="text-blue-600 underline" onClick={() => { const v = window.prompt("Minutos (1–1440)", String(e.minutes)); if (v === null) return; const n = Number(v); if (!Number.isInteger(n)) return; const note = window.prompt("Nota", e.note ?? ""); run(async () => { await apiRequest("PATCH", `/api/desk/tickets/${id}/time/${e.id}`, { minutes: n, ...(note !== null ? { note } : {}) }); }); }}>Editar</button>
+              <button type="button" className="text-red-600 underline" onClick={() => { if (window.confirm("¿Eliminar esta entrada de tiempo?")) run(async () => { await apiRequest("DELETE", `/api/desk/tickets/${id}/time/${e.id}`); }); }}>Eliminar</button>
+            </p>
+          ))}
           <form className="flex gap-2 flex-wrap" onSubmit={(e) => { e.preventDefault(); run(async () => { await apiRequest("POST", `/api/desk/tickets/${id}/time`, { minutes: Number(time.minutes), billable: time.billable, workDate: new Date().toISOString().slice(0, 10), note: time.note }); setTime({ ...time, note: "" }); }); }}>
             <input type="number" min={1} className={`${inp} w-20`} value={time.minutes} onChange={(e) => setTime({ ...time, minutes: e.target.value })} />
             <input className={`${inp} flex-1`} placeholder="Nota" value={time.note} onChange={(e) => setTime({ ...time, note: e.target.value })} />

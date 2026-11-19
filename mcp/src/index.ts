@@ -73,6 +73,18 @@ server.tool("log_time", "Registra tiempo trabajado como bitácora interna (no fa
   return text(`Registrados ${a.minutes} min (${date}).`);
 }));
 
+server.tool("update_time", "Corrige una entrada de tiempo interna (minutos y/o nota). Solo entradas no facturables. El id sale de get_ticket (campo time).", {
+  ticket: ref, entry_id: z.number().int().min(1), minutes: z.number().int().min(1).max(1440).optional(), note: z.string().max(500).optional(),
+}, (a) => run(async () => {
+  await api.call("PATCH", `/tickets/${parseTicketRef(a.ticket)}/time/${a.entry_id}`, { minutes: a.minutes, note: a.note });
+  return text(`Entrada ${a.entry_id} actualizada.`);
+}));
+
+server.tool("delete_time", "Elimina una entrada de tiempo interna no facturable (por error de captura).", { ticket: ref, entry_id: z.number().int().min(1) }, (a) => run(async () => {
+  await api.call("DELETE", `/tickets/${parseTicketRef(a.ticket)}/time/${a.entry_id}`);
+  return text(`Entrada ${a.entry_id} eliminada.`);
+}));
+
 server.tool("log_effort", "Agrega una nota interna con el esfuerzo en tokens y costo estimado acumulado desde que se abrió el ticket. Llamar al terminar el trabajo (sin aprobación: es interna).", { ticket: ref, note: z.string().max(500).default("") }, (a) => run(async () => {
   const r = parseTicketRef(a.ticket), d = await api.call<any>("GET", `/tickets/${r}`), key = d.ticket.key;
   const since = getMark(key);

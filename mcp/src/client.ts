@@ -1,6 +1,6 @@
 export class Api {
   constructor(private url: string, private key: string) {}
-  async call<T = any>(method: "GET" | "POST", p: string, body?: unknown): Promise<T> {
+  async call<T = any>(method: "GET" | "POST" | "PATCH" | "DELETE", p: string, body?: unknown): Promise<T> {
     const r = await fetch(`${this.url}/api/v1/agent${p}`, {
       method, headers: { Authorization: `Bearer ${this.key}`, ...(body ? { "Content-Type": "application/json" } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -9,6 +9,7 @@ export class Api {
       let m = r.statusText; try { m = (await r.json()).message ?? m; } catch { /* keep */ }
       throw new Error(`QSS ${r.status}: ${m}`);
     }
+    if (r.status === 204) return undefined as T;
     return (await r.json()) as T;
   }
   async raw(p: string) {
