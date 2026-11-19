@@ -111,6 +111,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           {renderMenuItem({ path: "/kpi-tracking", label: "Seguimiento de KPIs", icon: BarChart3 })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/tickets", label: "Tickets", icon: Ticket })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/dashboard", label: "Dashboard de tickets", icon: BarChart3 })}
+          {user.deskEnabled && renderMenuItem({ path: "/soporte/inversion-tiempo", label: "Inversión de tiempo", icon: Timer })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/catalogo", label: "Catálogo de soporte", icon: LifeBuoy })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sla", label: "Motor de SLA", icon: Timer })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/disponibilidad", label: "Disponibilidad", icon: Activity })}

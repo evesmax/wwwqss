@@ -15,6 +15,7 @@ import { registerAgentRoutes } from "./agentRoutes";
 import { registerMonitorRoutes } from "./monitorRoutes";
 import { registerReportRoutes } from "./reportRoutes";
 import { registerStatsRoutes } from "./statsRoutes";
+import { registerTimeReportRoutes } from "./timeReportRoutes";
 import { registerFeatureRoutes } from "./featureRoutes";
 import { registerProjectRoutes } from "./projectRoutes";
 import { registerProjectItemRoutes } from "./projectItemRoutes";
@@ -77,6 +78,7 @@ export function registerDeskRoutes(app: Express, requireAuth: RequestHandler) {
     res.json(r);
   }));
 
+  registerTimeReportRoutes(app, auth);
   registerStatsRoutes(app, auth); // before ticket routes: "/tickets/stats" must not be read as /tickets/:id
   registerTicketRoutes(app, auth);
   registerSlaRoutes(app, auth);

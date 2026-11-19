@@ -18,6 +18,7 @@ import ImportPage from "./desk/ImportPage";
 import SdkPage from "./desk/SdkPage";
 import ReportsPage from "./desk/ReportsPage";
 import TicketDashboardPage from "./desk/TicketDashboardPage";
+import TimeReportPage from "./desk/TimeReportPage";
 import FeaturesPage from "./desk/FeaturesPage";
 import ProjectsPage from "./desk/ProjectsPage";
 import AvailabilityPage from "./desk/AvailabilityPage";
@@ -67,6 +68,7 @@ export default function AdminApp() {
     <AdminLayout user={user} onLogout={handleLogout}>
       <Switch>
         <Route path="/soporte/dashboard" component={TicketDashboardPage} />
+        <Route path="/soporte/inversion-tiempo" component={TimeReportPage} />
         <Route path="/soporte/tickets/:id">
           {(params) => <TicketDetailPage id={params.id} user={user} />}
         </Route>
