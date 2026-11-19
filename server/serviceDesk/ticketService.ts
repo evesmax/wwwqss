@@ -190,7 +190,8 @@ export type UpdateInput = Partial<{
   assigneeUserId: number | null; moduleArea: string; environment: string; sharedWithAccount: boolean;
   slaApplicable: boolean; productId: number | null; instanceId: number | null;
 }>;
-export async function updateTicket(id: number, userId: number, u: UpdateInput) {
+export async function updateTicket(id: number, actor: number | { agentName: string }, u: UpdateInput) {
+  const userId = typeof actor === "number" ? actor : 0;
   const now = new Date();
   const out = await db.transaction(async (tx) => {
     const t = await lockTicket(tx, id);
@@ -215,7 +216,7 @@ export async function updateTicket(id: number, userId: number, u: UpdateInput) {
     const [row] = await tx.update(sdTickets).set({ ...rest, updatedAt: now }).where(eq(sdTickets.id, id)).returning();
     const changed: Record<string, unknown> = {};
     for (const k of Object.keys(rest) as (keyof typeof rest)[]) if ((t as any)[k] !== (row as any)[k]) changed[k] = { from: (t as any)[k], to: (row as any)[k] };
-    if (Object.keys(changed).length) await addEvent(tx, id, { type: "user", id: userId }, "fields_changed", { changed, ...(p0 ? { p0 } : {}) });
+    if (Object.keys(changed).length) await addEvent(tx, id, typeof actor === "number" ? { type: "user", id: actor } : { type: "agent", id: null, name: actor.agentName }, "fields_changed", { changed, ...(p0 ? { p0 } : {}) });
     return row;
   });
   refreshSoon(id);

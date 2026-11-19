@@ -7,7 +7,7 @@ import { db } from "../db";
 import { sdAgentKeys, sdProducts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdAccounts, clientes } from "@shared/schema";
 import { agentAuth, hashSecret, type AgentReq } from "./agentAuth";
 import { wrap, requireRole, type Req } from "./httpUtil";
-import { addComment, addTimeEntry, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
+import { addComment, addTimeEntry, updateTicket, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
 import { nextStatuses, statusesFor } from "./ticketRules";
 import { writeAudit } from "./audit";
 
@@ -126,6 +126,17 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
     const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
     await deleteTimeEntry(t.id, Number(req.params.entryId), { agentKeyId: agent(req).key.id, name: agent(req).key.name });
     res.status(204).end();
+  }));
+
+  app.patch(`${A}/tickets/:ref`, agentAuth, wrap(async (req, res) => {
+    const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
+    const b = z.object({
+      severity: z.enum(["P0", "P1", "P2", "P3"]).nullable().optional(),
+      p0: z.object({ inaccessible: z.boolean(), criticalBlocked: z.boolean(), hasWorkaround: z.boolean(), users: z.number().int().min(0) }).partial().nullish(),
+      moduleArea: z.string().trim().max(100).optional(),
+      environment: z.string().trim().max(100).optional(),
+    }).parse(req.body);
+    res.json(await updateTicket(t.id, { agentName: agent(req).key.name }, b));
   }));
 
   app.post(`${A}/tickets/:ref/effort`, agentAuth, wrap(async (req, res) => {
