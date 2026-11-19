@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sendEmail } from "./emailService";
+import { sendEmail, useImplicitTls } from "./emailService";
 
 const cfg = { host: "h", port: 587, secure: false, user: "u", password: "SECRET-PW", fromName: "QSS", fromEmail: "a@b.c" };
 const rows: any[] = [];
@@ -29,4 +29,11 @@ test("failure is captured and logged without password", async () => {
 test("log failure does not break sending", async () => {
   const r = await sendEmail(mail, { getConfig: async () => null, log: async () => { throw new Error("db down"); } });
   assert.equal(r.status, "not_configured");
+});
+
+test("useImplicitTls ignores a wrong secure flag on the standard ports", () => {
+  assert.equal(useImplicitTls({ port: 587, secure: true }), false);
+  assert.equal(useImplicitTls({ port: 25, secure: true }), false);
+  assert.equal(useImplicitTls({ port: 465, secure: false }), true);
+  assert.equal(useImplicitTls({ port: 2525, secure: true }), true);
 });

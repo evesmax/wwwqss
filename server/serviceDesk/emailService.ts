@@ -7,9 +7,12 @@ export type Mail = { to: string | string[]; subject: string; html: string; text?
 export type Transport = { sendMail(opts: any): Promise<unknown> };
 export type SendStatus = "sent" | "failed" | "not_configured";
 
+/** 465 is always implicit TLS; 587/25 are always STARTTLS. A wrong "secure" flag on those ports gives "wrong version number". */
+export const useImplicitTls = (c: Pick<SmtpConfig, "port" | "secure">) => (c.port === 465 ? true : c.port === 587 || c.port === 25 ? false : c.secure);
+
 export function buildTransport(c: SmtpConfig): Transport {
   return nodemailer.createTransport({
-    host: c.host, port: c.port, secure: c.secure,
+    host: c.host, port: c.port, secure: useImplicitTls(c),
     auth: c.user ? { user: c.user, pass: c.password } : undefined,
   });
 }
