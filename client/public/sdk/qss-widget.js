@@ -51,7 +51,7 @@
     document.body.appendChild(host);
     var $ = function (s) { return root.querySelector(s); };
     var panel = $(".panel"), msg = $(".msg"), send = $(".send");
-    $(".fab").onclick = function () { rpanel.classList.remove("open"); panel.classList.toggle("open"); };
+    $(".fab").onclick = function () { if (panel.classList.contains("open")) { panel.classList.remove("open"); return; } rpanel.classList.remove("open"); openForm(); };
     $(".x").onclick = function () { panel.classList.remove("open"); };
     var onKey = function (e) { if (e.key === "Escape") { panel.classList.remove("open"); rpanel.classList.remove("open"); } };
     document.addEventListener("keydown", onKey);
@@ -181,7 +181,35 @@
         actions.appendChild(err); box.appendChild(actions); rbody.appendChild(box);
       }).catch(function () { rbody.textContent = ""; rbody.appendChild(el("div", "empty", "No se pudo cargar el reporte. Intenta de nuevo.")); });
     }
-    function openReports() { panel.classList.remove("open"); rpanel.classList.add("open"); showList(); }
+    // --- Registro del negocio: si el tenant aún no existe en Soporte QSS, pedimos sus datos y lo damos de alta ---
+    var regOk = false;
+    function showRegister(go, info) {
+      panel.classList.remove("open"); rpanel.classList.add("open"); back.style.display = "none"; rtitle.textContent = "Registra tu negocio"; rbody.textContent = "";
+      rbody.appendChild(el("p", "empty", "Aún no tenemos registrado tu negocio en Soporte. Cuéntanos unos datos y podrás reportar de inmediato."));
+      var f1 = el("input"), f2 = el("input"), f3 = el("input"), err = el("div", "msg err"), ok = el("button", "send", "Registrar y continuar");
+      f1.placeholder = "Nombre de tu negocio"; f1.maxLength = 120; f2.placeholder = "Tu nombre"; f2.maxLength = 120; f2.value = (info && info.name) || ""; f3.placeholder = "Teléfono (opcional)"; f3.maxLength = 40;
+      [["Negocio", f1], ["Tu nombre", f2], ["Teléfono", f3]].forEach(function (p) { rbody.appendChild(el("label", null, p[0])); rbody.appendChild(p[1]); });
+      rbody.appendChild(ok); rbody.appendChild(err);
+      ok.onclick = function () {
+        if (f1.value.trim().length < 2 || f2.value.trim().length < 2) { err.textContent = "Escribe el nombre del negocio y el tuyo."; return; }
+        ok.disabled = true; err.textContent = "";
+        sdk("/register", { businessName: f1.value.trim(), contactName: f2.value.trim(), phone: f3.value.trim() })
+          .then(function () { regOk = true; back.style.display = ""; rpanel.classList.remove("open"); go(); })
+          .catch(function (e) { ok.disabled = false; err.textContent = (e && e.message) || "No se pudo registrar. Inténtalo de nuevo."; });
+      };
+    }
+    function ensureRegistered(go) {
+      if (regOk) return go();
+      sdk("/registration").then(function (j) {
+        if (j.registered) { regOk = true; return go(); }
+        if (!j.canRegister) return go();
+        showRegister(go, j);
+      }).catch(function () { go(); });
+    }
+    function openReportsNow() { panel.classList.remove("open"); rpanel.classList.add("open"); showList(); }
+    function openReports() { ensureRegistered(openReportsNow); }
+    function openFormNow() { rpanel.classList.remove("open"); panel.classList.add("open"); }
+    function openForm() { ensureRegistered(openFormNow); }
     back.onclick = showList;
     // Already signed in to the host app: mint a one-time portal link from the widget token instead of asking for a login.
     $(".portal").onclick = function (e) {
@@ -217,7 +245,7 @@
         if (cfg.onSent) try { cfg.onSent(t); } catch (e) {}
       }).catch(function (e) { say("No se pudo enviar: " + (e && e.message ? e.message : e), false); }).then(function () { send.disabled = false; });
     };
-    return { open: function () { rpanel.classList.remove("open"); panel.classList.add("open"); }, openReports: function () { openReports(); }, close: function () { panel.classList.remove("open"); rpanel.classList.remove("open"); }, destroy: function () { document.removeEventListener("keydown", onKey); host.remove(); } };
+    return { open: function () { openForm(); }, openReports: function () { openReports(); }, close: function () { panel.classList.remove("open"); rpanel.classList.remove("open"); }, destroy: function () { document.removeEventListener("keydown", onKey); host.remove(); } };
   }
   window.QSSWidget = { init: init };
 })();

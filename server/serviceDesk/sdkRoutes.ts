@@ -11,6 +11,7 @@ import { issueSsoLink } from "./portalAuth";
 import { validateAttachment } from "./attachments";
 import { requireRole, wrap, type Req } from "./httpUtil";
 import { writeAudit } from "./audit";
+import { registerSchema, registerTenant } from "./sdkProvision";
 import { draftFromTranscript, MAX_TRANSCRIPT } from "./ticketDraft";
 
 type KeyRow = typeof sdSdkKeys.$inferSelect;
@@ -20,6 +21,7 @@ const userLimiter = new RateLimiter(10, 3_600_000);
 const commentLimiter = new RateLimiter(40, 3_600_000);
 const ssoLimiter = new RateLimiter(20, 3_600_000);
 const draftLimiter = new RateLimiter(30, 3_600_000);
+const registerLimiter = new RateLimiter(3, 3_600_000);
 const SDK_TYPES = ["incident", "service_request", "question", "feature_request"] as const;
 
 const createSchema = z.object({
@@ -48,30 +50,66 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
     next();
   });
 
+  type Base = { key: KeyRow; claims: SdkClaims };
+  // Step 1: signed token + key + origin + rate limit. Does not need a registered instance.
+  const verifyBase = async (req: Request, res: Response): Promise<Base | null> => {
+    const h = String(req.headers.authorization ?? "");
+    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+    const [key] = token ? await db.select().from(sdSdkKeys).where(and(eq(sdSdkKeys.keyId, peekKid(token)), eq(sdSdkKeys.active, true))) : [];
+    const v = verifyJwt(token, (kid) => (key && key.keyId === kid ? decryptSecret(key.secretEnc) : null));
+    if (!key || !v.ok) { res.status(401).json({ message: "No autorizado" }); return null; }
+    const origin = req.headers.origin;
+    if (origin && !originAllowed(origin, (key.allowedOrigins as string[]) ?? [])) { res.status(403).json({ message: "Origen no permitido" }); return null; }
+    if (!keyLimiter.hit(`k${key.id}`)) { res.status(429).json({ message: "Demasiadas solicitudes" }); return null; }
+    return { key, claims: v.claims };
+  };
+  // The tenant claim selects the customer's instance of this product; with a single active instance it may be omitted.
+  const findInstance = async (b: Base) => {
+    const insts = await db.select().from(sdInstances).where(and(eq(sdInstances.productId, b.key.productId), eq(sdInstances.active, true)));
+    const wanted = b.claims.tenant?.trim().toLowerCase();
+    const matches = wanted ? insts.filter((i) => i.name.toLowerCase() === wanted) : insts.length === 1 ? insts : [];
+    return { wanted, inst: matches.length === 1 ? matches[0] : null };
+  };
   const sdkAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const h = String(req.headers.authorization ?? "");
-      const token = h.startsWith("Bearer ") ? h.slice(7) : "";
-      const [key] = token ? await db.select().from(sdSdkKeys).where(and(eq(sdSdkKeys.keyId, peekKid(token)), eq(sdSdkKeys.active, true))) : [];
-      const v = verifyJwt(token, (kid) => (key && key.keyId === kid ? decryptSecret(key.secretEnc) : null));
-      if (!key || !v.ok) return void res.status(401).json({ message: "No autorizado" });
-      const origin = req.headers.origin;
-      if (origin && !originAllowed(origin, (key.allowedOrigins as string[]) ?? [])) return void res.status(403).json({ message: "Origen no permitido" });
-      if (!keyLimiter.hit(`k${key.id}`)) return void res.status(429).json({ message: "Demasiadas solicitudes" });
-      // The tenant claim selects the customer's instance of this product; with a single active instance it may be omitted.
-      const insts = await db.select().from(sdInstances).where(and(eq(sdInstances.productId, key.productId), eq(sdInstances.active, true)));
-      const wanted = v.claims.tenant?.trim().toLowerCase();
-      const matches = wanted ? insts.filter((i) => i.name.toLowerCase() === wanted) : insts.length === 1 ? insts : [];
-      if (matches.length !== 1) return void res.status(400).json({ message: wanted ? "tenant no reconocido" : "tenant requerido" });
-      const inst = matches[0];
-      let [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, v.claims.email)));
-      if (!c) [c] = await db.insert(sdContacts).values({ accountId: inst.accountId, email: v.claims.email, name: v.claims.name ?? "", role: "contact" }).onConflictDoNothing().returning();
-      if (!c) [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, v.claims.email)));
-      (req as SReq).sdk = { key, claims: v.claims, instanceId: inst.id, accountId: inst.accountId, contactId: c.id };
+      const b = await verifyBase(req, res); if (!b) return;
+      const { key, claims } = b;
+      const { wanted, inst } = await findInstance(b);
+      if (!inst) return void res.status(400).json({ message: wanted ? "tenant no reconocido" : "tenant requerido", code: wanted ? "tenant_unregistered" : "tenant_missing" });
+      let [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, claims.email)));
+      if (!c) [c] = await db.insert(sdContacts).values({ accountId: inst.accountId, email: claims.email, name: claims.name ?? "", role: "contact" }).onConflictDoNothing().returning();
+      if (!c) [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, claims.email)));
+      (req as SReq).sdk = { key, claims, instanceId: inst.id, accountId: inst.accountId, contactId: c.id };
       db.update(sdSdkKeys).set({ lastUsedAt: new Date() }).where(eq(sdSdkKeys.id, key.id)).catch(() => {});
       next();
     } catch (e: any) { console.error("sdk auth error:", e.message); res.status(500).json({ message: "Error" }); }
   };
+
+  // Is this tenant registered? The widget asks before showing the ticket form.
+  app.get("/api/v1/sdk/registration", async (req, res) => {
+    try {
+      const b = await verifyBase(req, res); if (!b) return;
+      const { wanted, inst } = await findInstance(b);
+      res.json({ registered: !!inst, canRegister: !!wanted, name: b.claims.name ?? "" });
+    } catch (e: any) { console.error("sdk registration error:", e.message); res.status(500).json({ message: "Error" }); }
+  });
+  // Unknown tenant vouched for by the host's signed token: register the business (client + account + instance + contact).
+  app.post("/api/v1/sdk/register", express.json(), async (req, res) => {
+    try {
+      const b = await verifyBase(req, res); if (!b) return;
+      const tenant = b.claims.tenant?.trim();
+      if (!tenant) return void res.status(400).json({ message: "Tu sistema no envió el identificador del negocio (tenant). Contacta a soporte." });
+      if ((await findInstance(b)).inst) return void res.json({ registered: true });
+      if (!registerLimiter.hit(`r${b.key.id}:${b.claims.sub}`) || !registerLimiter.hit(`t${b.key.id}:${tenant.toLowerCase()}`)) return void res.status(429).json({ message: "Demasiados intentos, inténtalo más tarde" });
+      const input = registerSchema.parse(req.body);
+      const r = await registerTenant(input, { productId: b.key.productId, tenant, email: b.claims.email });
+      res.status(201).json({ registered: true, ticketPrefix: r.ticketPrefix });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return void res.status(400).json({ message: "Escribe el nombre del negocio y el tuyo (mínimo 2 letras)" });
+      if (e?.status === 409) return void res.json({ registered: true });
+      console.error("sdk register error:", e.message); res.status(500).json({ message: "No se pudo registrar el negocio" });
+    }
+  });
   const handle = (fn: (req: SReq, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
     fn(req as SReq, res).catch((e) => {
       if (e instanceof z.ZodError) return res.status(400).json({ message: "Datos inválidos" });

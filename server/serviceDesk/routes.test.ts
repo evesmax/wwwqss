@@ -509,6 +509,23 @@ test("SDK: JWT ingest creates a widget ticket for the right tenant; origins, sco
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok({ tenant: "Nadie" }), good, O)).status, 400);
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok({ tenant: undefined }), good, O)).status, 400);
   assert.equal((await call("POST", "/api/v1/sdk/tickets", tok(), good, { origin: "https://evil.com" })).status, 403);
+  // self-registration: an unknown tenant vouched for by the signed token registers its business and can then open tickets
+  const newTenant = tok({ tenant: "TMPT Nuevo Negocio", email: "dueno@nuevo.test", sub: "u-new" });
+  assert.deepEqual((await call("GET", "/api/v1/sdk/registration", newTenant, undefined, O)).body, { registered: false, canRegister: true, name: "Ana" });
+  assert.equal((await call("GET", "/api/v1/sdk/registration", tok({}, "x".repeat(64)), undefined, O)).status, 401);
+  assert.equal((await call("POST", "/api/v1/sdk/register", newTenant, { businessName: "N", contactName: "Beto" }, O)).status, 400);
+  assert.equal((await call("POST", "/api/v1/sdk/register", tok({ tenant: undefined }), { businessName: "Nuevo Negocio", contactName: "Beto" }, O)).status, 400);
+  const reg = await call("POST", "/api/v1/sdk/register", newTenant, { businessName: "TMPT Nuevo Negocio SA", contactName: "Beto Dueño", phone: "3300000000" }, O);
+  assert.equal(reg.status, 201, JSON.stringify(reg.body));
+  assert.match(reg.body.ticketPrefix, /^[A-Z]{2,6}$/);
+  assert.equal((await call("GET", "/api/v1/sdk/registration", newTenant, undefined, O)).body.registered, true);
+  assert.equal((await call("POST", "/api/v1/sdk/register", newTenant, { businessName: "Otro", contactName: "Beto" }, O)).body.registered, true);
+  const nt = await call("POST", "/api/v1/sdk/tickets", newTenant, good, O);
+  assert.equal(nt.status, 201, JSON.stringify(nt.body));
+  {
+    const [acc] = await db.select().from(sc.sdAccounts).where(eq(sc.sdAccounts.ticketPrefix, reg.body.ticketPrefix));
+    ids.accounts.push(acc.id); ids.clientes.push(acc.clienteId);
+  }
   const pre = await fetch(base + "/api/v1/sdk/tickets", { method: "OPTIONS", headers: { origin: "https://app.cliente.com", "access-control-request-method": "POST" } });
   assert.equal(pre.status, 204);
   assert.equal(pre.headers.get("access-control-allow-origin"), "https://app.cliente.com");
