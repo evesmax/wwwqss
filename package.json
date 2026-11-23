@@ -12,7 +12,8 @@
     "test": "tsx --import ./server/testSetup.ts --test \"server/**/*.test.ts\"",
     "desk:seed": "tsx server/scripts/seedDesk.ts",
     "desk:create-owner": "tsx server/scripts/createOwner.ts",
-    "desk:seed-jarvis": "tsx server/scripts/seedJarvis.ts"
+    "desk:seed-jarvis": "tsx server/scripts/seedJarvis.ts",
+    "test:client": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@google/genai": "^1.43.0",
@@ -92,6 +93,9 @@
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "4.17.21",
     "@types/express-session": "^1.18.0",
@@ -107,11 +111,13 @@
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.30.4",
     "esbuild": "^0.25.0",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
-    "vite": "^5.4.14"
+    "vite": "^5.4.14",
+    "vitest": "^2.1.9"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

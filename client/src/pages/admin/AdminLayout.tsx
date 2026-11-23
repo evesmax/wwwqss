@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import {
   Shield,
@@ -28,6 +29,7 @@ import {
   Code2,
   Activity,
   FileText,
+  KeyRound,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 import GeminiChat from "./GeminiChat";
@@ -58,6 +60,12 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
   const [showChat, setShowChat] = useState(false);
   const [location, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // The agent-keys screen is for the support Owner only: don't even list it for anyone else (the API enforces it too).
+  const [deskOwner, setDeskOwner] = useState(false);
+  useEffect(() => {
+    if (!user.deskEnabled) return;
+    apiRequest("GET", "/api/desk/me").then((r) => r.json()).then((m) => setDeskOwner(Array.isArray(m.roles) && m.roles.includes("owner"))).catch(() => setDeskOwner(false));
+  }, [user.deskEnabled, user.id]);
   const [catalogsOpen, setCatalogsOpen] = useState(() => location.startsWith("/catalogs"));
 
   const renderMenuItem = (item: typeof mainMenuItems[0]) => {
@@ -119,6 +127,7 @@ export default function AdminLayout({ user, onLogout, children }: AdminLayoutPro
           {user.deskEnabled && renderMenuItem({ path: "/soporte/funcionalidades", label: "Funcionalidades", icon: Rocket })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/informes", label: "Informes mensuales", icon: FileText })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/sdk", label: "SDK / Widget", icon: Code2 })}
+          {user.deskEnabled && deskOwner && renderMenuItem({ path: "/soporte/llaves-agente", label: "Llaves de agente", icon: KeyRound })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/importar", label: "Importar tickets", icon: Upload })}
           {user.deskEnabled && renderMenuItem({ path: "/soporte/correo", label: "Correo saliente", icon: Mail })}
           {renderMenuItem({ path: "/security", label: "Seguridad", icon: Lock })}
