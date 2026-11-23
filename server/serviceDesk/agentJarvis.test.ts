@@ -169,13 +169,13 @@ test("cuenta interna: no envía correos ni genera SLA, aun con solicitante y cam
   const { createTicket, transitionTicket } = await import("./ticketService");
   const { refreshTicketSla, computeForTicket } = await import("./slaService");
   const [contact] = await db.insert(s.sdContacts).values({ accountId: T.internalAcc, email: "interno@qss.test", name: "x" }).returning();
-  const emails = async () => (await db.select().from(s.sdEmailLog)).length;
-  const n0 = await emails();
+  // Other test files run in parallel on the same DB, so only count mail about THIS ticket / THIS contact.
+  const emailsAbout = async (key: string) => (await db.select().from(s.sdEmailLog)).filter((e: any) => e.subject.includes(key) || e.toAddress.includes("interno@qss.test")).length;
   const t = await createTicket({ accountId: T.internalAcc, instanceId: T.internalInst, type: "incident", title: "TMPT interno con solicitante", channel: "api", severity: "P1", requesterContactId: contact.id, origin: "transversal" }, { type: "user", id: 3 });
   await transitionTicket(t.id, "in_progress", { type: "user", id: 3 });
   await new Promise((r) => setTimeout(r, 1500)); // notifications and SLA refresh are fire-and-forget
   const view = await refreshTicketSla(t.id, new Date(), { alert: true });
-  assert.equal(await emails(), n0, "ningún correo (cliente ni alertas SLA) salió de la cuenta interna");
+  assert.equal(await emailsAbout(t.key), 0, "ningún correo (cliente ni alertas SLA) salió de la cuenta interna");
   assert.equal(view?.applicable, false); assert.equal(view?.excludedReason, "internal_account"); assert.deepEqual(view?.metrics, []);
   assert.equal((await db.select().from(s.sdSlaInstances).where(eq(s.sdSlaInstances.ticketId, t.id))).length, 0, "sin instancias de SLA");
   assert.equal((await db.select().from(s.sdSlaAlerts).where(eq(s.sdSlaAlerts.ticketId, t.id))).length, 0, "sin alertas de SLA");
