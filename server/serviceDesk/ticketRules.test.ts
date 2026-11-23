@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateTransition, validateSeverity, timestampsFor, ticketKey, initialStatus, nextStatuses } from "./ticketRules";
+import { validateTransition, validateSeverity, timestampsFor, ticketKey, initialStatus, nextStatuses, canDeliverFeature } from "./ticketRules";
 
 const base = { type: "incident", severity: "P2" as string | null };
 test("ticketKey pads and keeps prefix", () => { assert.equal(ticketKey("ROT", 142), "ROT-0142"); assert.equal(ticketKey("ROT", 12345), "ROT-12345"); });
@@ -46,4 +46,18 @@ test("timestampsFor sets and clears", () => {
   assert.deepEqual(timestampsFor("resolved", now), { resolvedAt: now });
   assert.deepEqual(timestampsFor("closed", now), { closedAt: now });
   assert.deepEqual(timestampsFor("in_progress", now), { resolvedAt: null, closedAt: null });
+});
+
+test("feature_request: entrega directa solo desde in_review/quoted/approved/planned/in_development; nunca por transición común", () => {
+  for (const from of ["in_review", "quoted", "approved", "planned", "in_development"]) {
+    assert.equal(canDeliverFeature("feature_request", from), true, from);
+    assert.equal(validateTransition({ type: "feature_request", severity: null, from, to: "resolved" }).ok, false, from);
+  }
+  for (const from of ["requested", "in_testing", "released", "blocked", "deferred", "closed", "rejected", "resolved"]) assert.equal(canDeliverFeature("feature_request", from), false, from);
+  for (const t of ["incident", "service_request", "question", "internal_task"]) assert.equal(canDeliverFeature(t, "in_review"), false, t);
+});
+test("feature_request resuelto: el cliente lo cierra; una respuesta lo reabre en desarrollo", () => {
+  assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "closed" }).ok, true);
+  assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "in_development" }).ok, true);
+  assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "in_progress" }).ok, false);
 });

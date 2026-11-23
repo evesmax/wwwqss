@@ -8,7 +8,7 @@ import { sendEmail } from "./emailService";
 import { refreshSoon } from "./slaService";
 import { ackEmail, commentEmail, statusEmail } from "./emailTemplates";
 import {
-  initialStatus, ticketKey, validateSeverity, validateTransition, timestampsFor,
+  initialStatus, isFeature, canDeliverFeature, ticketKey, validateSeverity, validateTransition, timestampsFor,
   type P0Questionnaire, type Rca,
 } from "./ticketRules";
 
@@ -102,6 +102,21 @@ export async function transitionTicket(id: number, to: string, who: Who, o: { re
   return { ticket, from };
 }
 
+/** Direct delivery of a feature_request (release_ticket): from its real status to "resolved", no fake intermediate states. */
+export async function deliverFeature(id: number, who: Who, o: { reason?: string } = {}) {
+  const now = new Date();
+  const { ticket, from } = await db.transaction(async (tx) => {
+    const t = await lockTicket(tx, id);
+    if (!canDeliverFeature(t.type, t.status)) throw new TicketError(`Transición no permitida: ${t.status} → resolved`);
+    const [u] = await tx.update(sdTickets).set({ status: "resolved", updatedAt: now, ...timestampsFor("resolved", now) }).where(eq(sdTickets.id, id)).returning();
+    await addEvent(tx, id, who, "status_changed", { from: t.status, to: "resolved", reason: o.reason ?? null, delivered: true });
+    return { ticket: u, from: t.status };
+  });
+  refreshSoon(id);
+  void notifyRequester(ticket, (t) => statusEmail(t, "resolved", portalLink(ticket.id)));
+  return { ticket, from };
+}
+
 // The requester validates a delivery: support's "resolved" (or "waiting for you" with the fix to validate) ends closed.
 export async function confirmByRequester(id: number, contactId: number) {
   const who: Who = { type: "contact", id: contactId };
@@ -125,8 +140,9 @@ export async function addComment(id: number, who: Who, body: string, visibility:
       await addEvent(tx, id, who, "first_response", {});
     }
     if (who.type === "contact" && (t.status === "waiting_customer" || t.status === "resolved")) {
-      patch.status = "in_progress"; Object.assign(patch, timestampsFor("in_progress", now));
-      await addEvent(tx, id, { type: "system" }, "status_changed", { from: t.status, to: "in_progress", reason: "Respuesta del cliente" });
+      const reopenTo = isFeature(t.type) ? "in_development" : "in_progress"; // features have no in_progress
+      patch.status = reopenTo; Object.assign(patch, { resolvedAt: null, closedAt: null });
+      await addEvent(tx, id, { type: "system" }, "status_changed", { from: t.status, to: reopenTo, reason: "Respuesta del cliente" });
     }
     const [u] = await tx.update(sdTickets).set(patch).where(eq(sdTickets.id, id)).returning();
     return { ticket: u, comment: c };

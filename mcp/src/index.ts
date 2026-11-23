@@ -178,8 +178,13 @@ server.tool("release_ticket", "Libera un ticket: publica al cliente qué se hizo
   if (!a.confirmed_by_user) return text(`VISTA PREVIA (nada se ha enviado). Muestra esto al usuario, dile "lo voy a marcar como resuelto y le mandaré este texto al cliente" y espera su visto bueno; luego vuelve a llamar con confirmed_by_user=true.\n\n---\n${body}\n---${a.rca ? "\nRCA: " + JSON.stringify(a.rca) : ""}`);
   await api.call("POST", `/tickets/${r}/comments`, { body, visibility: "public" });
   const d = await api.call<any>("GET", `/tickets/${r}`);
-  if (d.ticket.status !== "in_progress") await api.call("POST", `/tickets/${r}/transition`, { to: "in_progress", reason: "Trabajo completado" }).catch(() => undefined);
-  const t = await api.call<any>("POST", `/tickets/${r}/transition`, { to: "resolved", reason: "Liberado con resumen y pasos de prueba", rca: a.rca });
+  // feature_request: entrega directa desde su estado real (sin pasar por estados intermedios falsos); el servidor lo registra como "Entregado".
+  let t: any;
+  if (d.ticket.type === "feature_request") t = await api.call<any>("POST", `/tickets/${r}/release`, { reason: "Entregado con resumen y pasos de prueba" });
+  else {
+    if (d.ticket.status !== "in_progress") await api.call("POST", `/tickets/${r}/transition`, { to: "in_progress", reason: "Trabajo completado" }).catch(() => undefined);
+    t = await api.call<any>("POST", `/tickets/${r}/transition`, { to: "resolved", reason: "Liberado con resumen y pasos de prueba", rca: a.rca });
+  }
   const notes: string[] = [];
   if (a.minutes) { await api.call("POST", `/tickets/${r}/time`, { minutes: a.minutes, workDate: new Date().toLocaleDateString("sv-SE", { timeZone: "America/Mexico_City" }), note: "Liberación" }); notes.push(`${a.minutes} min registrados`); } else notes.push("sin tiempo registrado (usa log_time)");
   notes.push("recuerda log_effort");

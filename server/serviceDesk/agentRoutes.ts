@@ -8,7 +8,7 @@ import { sdAgentKeys, sdAgentAudit, sdProducts, sdInstances, sdTickets, sdTicket
 import { agentAuth, hashSecret, setAuditReason, type AgentReq } from "./agentAuth";
 import { AGENT_PERMISSIONS, CREATE_ORIGINS, CREATE_PER_HOUR, CREATE_PRODUCT_CODE, CREATE_ALLOWED_TYPES, checkCreate, checkTransition } from "./agentPermissions";
 import { wrap, requireRole, type Req } from "./httpUtil";
-import { createTicket, TicketError, addComment, addTimeEntry, updateTicket, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
+import { createTicket, TicketError, addComment, addTimeEntry, updateTicket, updateTimeEntry, deleteTimeEntry, transitionTicket, deliverFeature, type Who } from "./ticketService";
 import { nextStatuses, statusesFor } from "./ticketRules";
 import { writeAudit } from "./audit";
 
@@ -195,6 +195,15 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
     const denied = checkTransition(perms(req), b.to);
     if (denied) { setAuditReason(res, `${t.key}: ${t.status} → ${b.to} rechazado por permisos`); return void res.status(403).json({ message: denied }); }
     res.json((await transitionTicket(t.id, b.to, who(req), { reason: b.reason, rca: b.rca ?? null })).ticket);
+  }));
+
+  // Direct delivery of a feature_request (only release_ticket calls this): from its real status to "resolved".
+  app.post(`${A}/tickets/:ref/release`, agentAuth, wrap(async (req, res) => {
+    const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
+    const b = z.object({ reason: z.string().trim().max(1000).optional() }).parse(req.body ?? {});
+    act(res, "release:resolved");
+    if (!perms(req).includes("release")) { setAuditReason(res, `${t.key}: entrega rechazada por permisos`); return void res.status(403).json({ message: checkTransition(perms(req), "resolved") }); }
+    res.json((await deliverFeature(t.id, who(req), { reason: b.reason ?? "Entregado" })).ticket);
   }));
 
   // --- admin: agent keys (owner only) ---

@@ -24,10 +24,15 @@ const FEATURE_TRANSITIONS: Record<string, string[]> = {
   in_development: ["in_testing", "blocked"],
   in_testing: ["released", "in_development"],
   released: ["closed"],
+  resolved: ["closed", "in_development"], // direct delivery (see DELIVERY_FROM); the customer closes it, a reply reopens it
   blocked: ["planned", "in_development"],
   deferred: ["in_review"],
   closed: [], rejected: [],
 };
+
+/** Feature statuses from which release_ticket may deliver straight to "resolved" (only the release path; never via a plain transition). */
+export const DELIVERY_FROM = ["in_review", "quoted", "approved", "planned", "in_development"] as const;
+export const canDeliverFeature = (type: string, from: string) => type === "feature_request" && (DELIVERY_FROM as readonly string[]).includes(from);
 
 export const isFeature = (t: string) => t === "feature_request";
 export const initialStatus = (t: string) => (isFeature(t) ? "requested" : "new");

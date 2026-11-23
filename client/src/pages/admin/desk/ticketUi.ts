@@ -14,7 +14,7 @@ export const fmt = (d?: string | null) => (d ? new Date(d.endsWith("Z") ? d : d 
 export const CHANNEL_LABEL: Record<string, string> = { manual: "Manual", email: "Correo", api: "API", portal: "Portal", widget: "Widget" };
 export const EVENT_TEXT: Record<string, (d: any) => string> = {
   created: (d) => `Ticket creado (${d.channel})`,
-  status_changed: (d) => `Estado: ${STATUS_LABEL[d.from] ?? d.from} → ${STATUS_LABEL[d.to] ?? d.to}${d.reason ? ` — ${d.reason}` : ""}`,
+  status_changed: (d) => d.delivered ? `Entregado (desde ${STATUS_LABEL[d.from] ?? d.from})${d.reason ? ` — ${d.reason}` : ""}` : `Estado: ${STATUS_LABEL[d.from] ?? d.from} → ${STATUS_LABEL[d.to] ?? d.to}${d.reason ? ` — ${d.reason}` : ""}`,
   first_response: () => "Primera respuesta pública",
   time_logged: (d) => `Horas registradas: ${d.minutes} min`,
   time_updated: (d) => `Tiempo corregido: ${d.from} → ${d.to} min`,
