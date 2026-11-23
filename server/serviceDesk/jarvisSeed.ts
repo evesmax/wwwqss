@@ -8,7 +8,7 @@ import { CREATE_PRODUCT_CODE } from "./agentPermissions";
 import { writeAudit } from "./audit";
 
 export const NEW_PRODUCTS = [
-  ["TROOXER", "Trooxer"], ["QNEXUSAPP", "QNexusApp"], ["HOLAKURA", "HolaKura"], ["QFACTURAHUB", "QFactura Hub"],
+  ["TROOXER", "Trooxer"], ["TMSTROOXER", "TMS Trooxer"], ["QNEXUSAPP", "QNexusApp"], ["HOLAKURA", "HolaKura"], ["QFACTURAHUB", "QFactura Hub"],
   ["APPMINISTRA", "Appministra"], ["AURANUBA", "AuraNuba"], ["WWWQSS", "wwwqss"], [CREATE_PRODUCT_CODE, "Plataforma QSS"],
 ] as const;
 export const INTERNAL = { codigo: "QSS-INTERNO", nombre: "QSS interno", prefix: "QSI" } as const;
