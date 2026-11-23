@@ -268,6 +268,17 @@ const STATEMENTS: string[] = [
      id serial PRIMARY KEY, project_id integer NOT NULL REFERENCES sd_projects(id) ON DELETE CASCADE, cut_date text NOT NULL, status text NOT NULL DEFAULT 'draft', data jsonb NOT NULL,
      note text NOT NULL DEFAULT '', created_by integer, approved_by integer, approved_at timestamp, sent_at timestamp, send_log jsonb NOT NULL DEFAULT '[]',
      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (project_id, cut_date))`,
+  // --- Jarvis QSS (additive, idempotent; rollback in migrations/2026-11-22-jarvis.down.sql) ---
+  `ALTER TABLE sd_accounts ADD COLUMN IF NOT EXISTS internal boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS parent_id integer REFERENCES sd_tickets(id) ON DELETE SET NULL`,
+  `ALTER TABLE sd_tickets ADD COLUMN IF NOT EXISTS origin text NOT NULL DEFAULT 'cliente'`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_tickets_parent ON sd_tickets(parent_id) WHERE parent_id IS NOT NULL`,
+  `ALTER TABLE sd_agent_keys ADD COLUMN IF NOT EXISTS all_products boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE sd_agent_keys ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '["transition_terminal","release"]'`,
+  `CREATE TABLE IF NOT EXISTS sd_agent_audit (
+     id bigserial PRIMARY KEY, at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, key_id integer NOT NULL, method text NOT NULL, route text NOT NULL,
+     action text NOT NULL DEFAULT '', ticket_ref text, status integer NOT NULL, outcome text NOT NULL, reason text)`,
+  `CREATE INDEX IF NOT EXISTS idx_sd_agent_audit_key_at ON sd_agent_audit(key_id, at)`,
 ];
 
 export async function ensureServiceDeskSchema() {

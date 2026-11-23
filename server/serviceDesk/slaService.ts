@@ -57,6 +57,8 @@ import { lifecycleAt, type LifecycleEntry } from "./projectItemRules";
 export async function computeForTicket(ticketId: number, now = new Date()): Promise<TicketSlaView | null> {
   const [t] = await db.select().from(sdTickets).where(eq(sdTickets.id, ticketId));
   if (!t) return null;
+  const [own] = await db.select({ internal: sdAccounts.internal }).from(sdAccounts).where(eq(sdAccounts.id, t.accountId));
+  if (own?.internal) return { policy: null, applicable: false, excludedReason: "internal_account", metrics: [] }; // QSS's own tickets: no SLA, no alerts
   const evs = await db.select().from(sdTicketEvents).where(eq(sdTicketEvents.ticketId, ticketId)).orderBy(asc(sdTicketEvents.at), asc(sdTicketEvents.id));
   const events: SlaEvent[] = evs.map((e) => ({ at: e.at, kind: e.kind, actorType: e.actorType, detail: (e.detail ?? {}) as Record<string, unknown> }));
   const contracts = t.productId

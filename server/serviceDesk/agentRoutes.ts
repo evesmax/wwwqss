@@ -1,13 +1,14 @@
 // API for coding agents (MCP). Auth: Bearer <keyId>.<secret> (see agentAuth.ts). Scope: the key's product_ids.
 import crypto from "crypto";
 import { type Express, type RequestHandler, type Response } from "express";
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
-import { sdAgentKeys, sdProducts, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdAccounts, clientes } from "@shared/schema";
-import { agentAuth, hashSecret, type AgentReq } from "./agentAuth";
+import { sdAgentKeys, sdAgentAudit, sdProducts, sdInstances, sdTickets, sdTicketEvents, sdTicketComments, sdTimeEntries, sdTicketAttachments, sdAccounts, clientes } from "@shared/schema";
+import { agentAuth, hashSecret, setAuditReason, type AgentReq } from "./agentAuth";
+import { AGENT_PERMISSIONS, CREATE_ORIGINS, CREATE_PER_HOUR, CREATE_PRODUCT_CODE, CREATE_ALLOWED_TYPES, checkCreate, checkTransition } from "./agentPermissions";
 import { wrap, requireRole, type Req } from "./httpUtil";
-import { addComment, addTimeEntry, updateTicket, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
+import { createTicket, TicketError, addComment, addTimeEntry, updateTicket, updateTimeEntry, deleteTimeEntry, transitionTicket, type Who } from "./ticketService";
 import { nextStatuses, statusesFor } from "./ticketRules";
 import { writeAudit } from "./audit";
 
@@ -38,7 +39,9 @@ export function formatEffortNote(e: z.infer<typeof effortSchema>, agent: string)
 export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
   const A = "/api/v1/agent";
   const agent = (req: unknown) => (req as AgentReq).agent;
-  const who = (req: unknown): Who => ({ type: "agent", id: null, name: agent(req).key.name });
+  const who = (req: unknown): Who => ({ type: "agent", id: agent(req).key.id, name: agent(req).key.name });
+  const perms = (req: unknown) => agent(req).permissions;
+  const act = (res: Response, a: string) => { res.locals.auditAction = a; };
   const scoped = (req: unknown) => agent(req).productIds;
 
   async function ticketOr404(req: unknown, res: Response, ref: string) {
@@ -104,6 +107,46 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
     res.end(a.data);
   }));
 
+  app.get(`${A}/me`, agentAuth, wrap(async (req, res) => {
+    const k = agent(req).key;
+    res.json({ name: k.name, allProducts: k.allProducts, permissions: perms(req) });
+  }));
+
+  app.post(`${A}/tickets`, agentAuth, wrap(async (req, res) => {
+    act(res, "create_ticket");
+    const b = z.object({
+      product: z.string().trim().min(1).max(50), origin: z.enum(CREATE_ORIGINS), type: z.enum(CREATE_ALLOWED_TYPES).default("internal_task"),
+      title: z.string().trim().min(5).max(200), description: z.string().trim().max(20000).default(""),
+      parentId: z.number().int().positive().optional(), severity: z.enum(["P1", "P2", "P3"]).nullish(),
+    }).strict().parse(req.body);
+    const deny = (status: number, message: string) => { setAuditReason(res, message); return void res.status(status).json({ message }); };
+    const bad = checkCreate({ perms: perms(req), productCode: b.product.toUpperCase(), origin: b.origin, type: b.type });
+    if (bad) return deny(403, bad);
+    const keyRow = agent(req).key;
+    const since = new Date(Date.now() - 3_600_000);
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(sdAgentAudit)
+      .where(and(eq(sdAgentAudit.keyId, keyRow.id), eq(sdAgentAudit.action, "create_ticket"), eq(sdAgentAudit.outcome, "ok"), gte(sdAgentAudit.at, since)));
+    if (n >= CREATE_PER_HOUR) return deny(429, `Límite de ${CREATE_PER_HOUR} tickets creados por hora alcanzado`);
+    const [p] = await db.select().from(sdProducts).where(and(eq(sdProducts.code, CREATE_PRODUCT_CODE), eq(sdProducts.active, true)));
+    if (!p || !agent(req).productIds.includes(p.id)) return deny(403, "Producto no disponible para esta llave");
+    const [inst] = await db.select({ id: sdInstances.id, accountId: sdInstances.accountId }).from(sdInstances)
+      .innerJoin(sdAccounts, eq(sdAccounts.id, sdInstances.accountId))
+      .where(and(eq(sdInstances.productId, p.id), eq(sdAccounts.internal, true), eq(sdAccounts.active, true), eq(sdInstances.active, true))).limit(1);
+    if (!inst) return deny(409, "No hay cuenta interna configurada para este producto");
+    if (b.parentId != null) {
+      const [par] = await db.select().from(sdTickets).where(eq(sdTickets.id, b.parentId));
+      if (!par || par.productId !== p.id) return deny(404, "Ticket padre no encontrado");
+      if (par.parentId != null) return deny(400, "El ticket padre ya es hijo de otro: solo se permite un nivel (épica → hijos)");
+    }
+    try {
+      const t = await createTicket({
+        accountId: inst.accountId, instanceId: inst.id, productId: p.id, type: b.type, title: b.title, description: b.description,
+        channel: "api", severity: b.severity ?? null, origin: b.origin, parentId: b.parentId ?? null,
+      }, who(req), { notify: false });
+      res.status(201).json({ id: t.id, key: t.key, status: t.status, origin: t.origin, parentId: t.parentId });
+    } catch (e) { if (e instanceof TicketError) return deny(e.status, e.message); throw e; }
+  }));
+
   app.post(`${A}/tickets/:ref/comments`, agentAuth, wrap(async (req, res) => {
     const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
     const b = z.object({ body: z.string().trim().min(1).max(20000), visibility: z.enum(["public", "internal"]).default("internal") }).parse(req.body);
@@ -148,21 +191,24 @@ export function registerAgentRoutes(app: Express, auth: RequestHandler[]) {
   app.post(`${A}/tickets/:ref/transition`, agentAuth, wrap(async (req, res) => {
     const t = await ticketOr404(req, res, String(req.params.ref)); if (!t) return;
     const b = z.object({ to: z.string(), reason: z.string().trim().max(1000).optional(), rca: rcaSchema.nullish() }).parse(req.body);
+    act(res, `transition:${b.to}`);
+    const denied = checkTransition(perms(req), b.to);
+    if (denied) { setAuditReason(res, `${t.key}: ${t.status} → ${b.to} rechazado por permisos`); return void res.status(403).json({ message: denied }); }
     res.json((await transitionTicket(t.id, b.to, who(req), { reason: b.reason, rca: b.rca ?? null })).ticket);
   }));
 
   // --- admin: agent keys (owner only) ---
   const owner = requireRole("owner");
-  const keySchema = z.object({ name: z.string().trim().min(2).max(100), productIds: z.array(z.number().int().positive()).max(50) });
-  const view = (k: typeof sdAgentKeys.$inferSelect) => ({ id: k.id, keyId: k.keyId, name: k.name, productIds: k.productIds, active: k.active, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt });
+  const keySchema = z.object({ name: z.string().trim().min(2).max(100), productIds: z.array(z.number().int().positive()).max(50), allProducts: z.boolean().default(false), permissions: z.array(z.enum(AGENT_PERMISSIONS)).max(10).default(["transition_terminal", "release"]) });
+  const view = (k: typeof sdAgentKeys.$inferSelect) => ({ id: k.id, keyId: k.keyId, name: k.name, productIds: k.productIds, allProducts: k.allProducts, permissions: k.permissions, active: k.active, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt });
   const mint = () => { const secret = crypto.randomBytes(32).toString("hex"); return { secret, secretHash: hashSecret(secret) }; };
 
   app.get("/api/desk/agent-keys", ...auth, owner, wrap(async (_req, res) => { res.json((await db.select().from(sdAgentKeys).orderBy(sdAgentKeys.id)).map(view)); }));
   app.post("/api/desk/agent-keys", ...auth, owner, wrap(async (req, res) => {
     const b = keySchema.parse(req.body), { secret, secretHash } = mint();
     const keyId = `qa_${crypto.randomBytes(8).toString("hex")}`;
-    const [k] = await db.insert(sdAgentKeys).values({ keyId, name: b.name, secretHash, productIds: b.productIds }).returning();
-    await writeAudit({ actorUserId: (req as Req).actor.userId, action: "agent.key.create", entity: "agent_key", entityId: String(k.id), detail: { name: b.name, productIds: b.productIds } });
+    const [k] = await db.insert(sdAgentKeys).values({ keyId, name: b.name, secretHash, productIds: b.productIds, allProducts: b.allProducts, permissions: b.permissions }).returning();
+    await writeAudit({ actorUserId: (req as Req).actor.userId, action: "agent.key.create", entity: "agent_key", entityId: String(k.id), detail: { name: b.name, productIds: b.productIds, allProducts: b.allProducts, permissions: b.permissions } });
     res.status(201).json({ ...view(k), secret, token: `${keyId}.${secret}` }); // shown once
   }));
   app.put("/api/desk/agent-keys/:id", ...auth, owner, wrap(async (req, res) => {

@@ -202,6 +202,7 @@ export const sdAccounts = pgTable("sd_accounts", {
   accountType: text("account_type").notNull().default("suscripcion"),
   ticketPrefix: text("ticket_prefix").notNull().unique(),
   ticketSeq: integer("ticket_seq").notNull().default(0),
+  internal: boolean("internal").notNull().default(false), // QSS's own account: never emails a customer, never has SLA
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at"),
 });
@@ -301,6 +302,8 @@ export const sdTickets = pgTable("sd_tickets", {
   importFlags: jsonb("import_flags"),
   context: jsonb("context"),
   rca: jsonb("rca"),
+  parentId: integer("parent_id"), // epic -> child tickets (self reference, enforced in DB by migrate.ts)
+  origin: text("origin").notNull().default("cliente"), // cliente | transversal | negocio
   receivedAt: ts("received_at"),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at"),
@@ -431,9 +434,25 @@ export const sdAgentKeys = pgTable("sd_agent_keys", {
   name: text("name").notNull(),
   secretHash: text("secret_hash").notNull(),
   productIds: jsonb("product_ids").notNull().default([]),
+  allProducts: boolean("all_products").notNull().default(false), // sees every product (incl. future ones); only set explicitly
+  permissions: jsonb("permissions").notNull().default(["transition_terminal", "release"]), // see agentPermissions.ts
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at"),
   lastUsedAt: timestamp("last_used_at"),
+});
+
+// One row per request made with an agent key (accepted AND rejected), keyed by the key's numeric id.
+export const sdAgentAudit = pgTable("sd_agent_audit", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  at: ts("at"),
+  keyId: integer("key_id").notNull(),
+  method: text("method").notNull(),
+  route: text("route").notNull(),
+  action: text("action").notNull().default(""),
+  ticketRef: text("ticket_ref"),
+  status: integer("status").notNull(),
+  outcome: text("outcome").notNull(), // ok | denied | rejected | error
+  reason: text("reason"),
 });
 
 export const sdMonitors = pgTable("sd_monitors", {
