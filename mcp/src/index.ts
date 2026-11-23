@@ -176,8 +176,10 @@ server.tool("release_ticket", "Libera un ticket: publica al cliente qué se hizo
   if (me && !me.permissions.includes("release")) return text("Esta llave NO puede liberar tickets (lo impone el servidor). Deja una nota interna con add_comment y pide a una persona que lo libere. No se envió nada al cliente.");
   const body = ["Hola, ya resolvimos este ticket.", "", "Qué hicimos:", a.what_was_done, "", "Qué quedó resuelto:", a.what_is_resolved, "", "Cómo puedes probarlo:", ...a.how_to_verify.map((x, i) => `${i + 1}. ${x}`), "", "Si todo funciona, abre el ticket en el portal y pulsa «Confirmar que quedó resuelto». Si el problema persiste, respóndenos aquí y lo retomamos."].join("\n");
   if (!a.confirmed_by_user) return text(`VISTA PREVIA (nada se ha enviado). Muestra esto al usuario, dile "lo voy a marcar como resuelto y le mandaré este texto al cliente" y espera su visto bueno; luego vuelve a llamar con confirmed_by_user=true.\n\n---\n${body}\n---${a.rca ? "\nRCA: " + JSON.stringify(a.rca) : ""}`);
-  await api.call("POST", `/tickets/${r}/comments`, { body, visibility: "public" });
   const d = await api.call<any>("GET", `/tickets/${r}`);
+  // Antes de publicar nada: si ya está liberado, el cambio de estado fallaría y el cliente recibiría el texto repetido.
+  if (["resolved", "closed"].includes(d.ticket.status)) return text(`${d.ticket.key ?? a.ticket} ya está en ${d.ticket.status}: no se envió nada al cliente.`);
+  await api.call("POST", `/tickets/${r}/comments`, { body, visibility: "public" });
   // feature_request: entrega directa desde su estado real (sin pasar por estados intermedios falsos); el servidor lo registra como "Entregado".
   let t: any;
   if (d.ticket.type === "feature_request") t = await api.call<any>("POST", `/tickets/${r}/release`, { reason: "Entregado con resumen y pasos de prueba" });
