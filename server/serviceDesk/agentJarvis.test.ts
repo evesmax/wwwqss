@@ -39,6 +39,7 @@ before(async () => {
   const { ensureServiceDeskSchema } = await import("./migrate"); await ensureServiceDeskSchema();
   const { registerAgentRoutes } = await import("./agentRoutes");
   const { seedProducts, seedInternalAccount } = await import("./jarvisSeed");
+  await db.delete(s.sdContacts).where(eq(s.sdContacts.email, "interno@qss.test")); // stale leftovers from an aborted run
   await seedProducts(); const ia = await seedInternalAccount(); T.internalAcc = ia.accountId; T.internalInst = ia.instanceId;
   T.plataforma = (await db.select().from(s.sdProducts).where(eq(s.sdProducts.code, "PLATAFORMAQSS")))[0].id;
   const [pa] = await db.insert(s.sdProducts).values({ code: "TMPT_A", name: "TMPT A" }).returning(); const [pb] = await db.insert(s.sdProducts).values({ code: "TMPT_B", name: "TMPT B" }).returning();
@@ -60,6 +61,7 @@ before(async () => {
 after(async () => {
   if (!run) return;
   server?.close();
+  await db.delete(s.sdContacts).where(eq(s.sdContacts.accountId, T.internalAcc));
   const tids = (await db.select({ id: s.sdTickets.id }).from(s.sdTickets).where(inArray(s.sdTickets.accountId, [T.accA, T.accB, T.internalAcc]))).map((x: any) => x.id);
   if (tids.length) { await db.update(s.sdTickets).set({ parentId: null }).where(inArray(s.sdTickets.id, tids)); await db.delete(s.sdTickets).where(inArray(s.sdTickets.id, tids)); }
   if (T.keys.length) { await db.delete(s.sdAgentAudit).where(inArray(s.sdAgentAudit.keyId, T.keys)); await db.delete(s.sdAgentKeys).where(inArray(s.sdAgentKeys.id, T.keys)); }
@@ -170,17 +172,18 @@ test("cuenta interna: no envía correos ni genera SLA, aun con solicitante y cam
   const { refreshTicketSla, computeForTicket } = await import("./slaService");
   const [contact] = await db.insert(s.sdContacts).values({ accountId: T.internalAcc, email: "interno@qss.test", name: "x" }).returning();
   // Other test files run in parallel on the same DB, so only count mail about THIS ticket / THIS contact.
-  const emailsAbout = async (key: string) => (await db.select().from(s.sdEmailLog)).filter((e: any) => e.subject.includes(key) || e.toAddress.includes("interno@qss.test")).length;
-  const t = await createTicket({ accountId: T.internalAcc, instanceId: T.internalInst, type: "incident", title: "TMPT interno con solicitante", channel: "api", severity: "P1", requesterContactId: contact.id, origin: "transversal" }, { type: "user", id: 3 });
-  await transitionTicket(t.id, "in_progress", { type: "user", id: 3 });
-  await new Promise((r) => setTimeout(r, 1500)); // notifications and SLA refresh are fire-and-forget
-  const view = await refreshTicketSla(t.id, new Date(), { alert: true });
-  assert.equal(await emailsAbout(t.key), 0, "ningún correo (cliente ni alertas SLA) salió de la cuenta interna");
-  assert.equal(view?.applicable, false); assert.equal(view?.excludedReason, "internal_account"); assert.deepEqual(view?.metrics, []);
-  assert.equal((await db.select().from(s.sdSlaInstances).where(eq(s.sdSlaInstances.ticketId, t.id))).length, 0, "sin instancias de SLA");
-  assert.equal((await db.select().from(s.sdSlaAlerts).where(eq(s.sdSlaAlerts.ticketId, t.id))).length, 0, "sin alertas de SLA");
-  assert.equal((await computeForTicket(t.id))?.excludedReason, "internal_account");
-  await db.delete(s.sdContacts).where(eq(s.sdContacts.id, contact.id));
+  try {
+    const emailsAbout = async (key: string) => (await db.select().from(s.sdEmailLog)).filter((e: any) => e.subject.includes(key) || e.toAddress.includes("interno@qss.test")).length;
+    const t = await createTicket({ accountId: T.internalAcc, instanceId: T.internalInst, type: "incident", title: "TMPT interno con solicitante", channel: "api", severity: "P1", requesterContactId: contact.id, origin: "transversal" }, { type: "user", id: 3 });
+    await transitionTicket(t.id, "in_progress", { type: "user", id: 3 });
+    await new Promise((r) => setTimeout(r, 1500)); // notifications and SLA refresh are fire-and-forget
+    const view = await refreshTicketSla(t.id, new Date(), { alert: true });
+    assert.equal(await emailsAbout(t.key), 0, "ningún correo (cliente ni alertas SLA) salió de la cuenta interna");
+    assert.equal(view?.applicable, false); assert.equal(view?.excludedReason, "internal_account"); assert.deepEqual(view?.metrics, []);
+    assert.equal((await db.select().from(s.sdSlaInstances).where(eq(s.sdSlaInstances.ticketId, t.id))).length, 0, "sin instancias de SLA");
+    assert.equal((await db.select().from(s.sdSlaAlerts).where(eq(s.sdSlaAlerts.ticketId, t.id))).length, 0, "sin alertas de SLA");
+    assert.equal((await computeForTicket(t.id))?.excludedReason, "internal_account");
+  } finally { await db.delete(s.sdContacts).where(eq(s.sdContacts.id, contact.id)); }
 });
 
 test("migración: columnas y valores por omisión esperados", { skip: !run }, async () => {
