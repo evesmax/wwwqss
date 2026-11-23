@@ -131,6 +131,17 @@ server.tool("transition_ticket", "Cambia el estatus (in_progress, triage, waitin
   return text(`Estatus actualizado: ${t.key ?? a.ticket} → ${t.status}.`);
 }));
 
+server.tool("create_ticket", "Crea un ticket propio de QSS (no de un cliente) en el producto PLATAFORMAQSS, con origen transversal o negocio y, opcionalmente, un ticket padre (épica). Solo lo permite una llave con ese permiso; el servidor valida, limita la frecuencia y audita.", {
+  product: z.string().default("PLATAFORMAQSS").describe("Código del producto; solo PLATAFORMAQSS"),
+  origin: z.enum(["cliente", "transversal", "negocio"]).describe("transversal (CI, auth, observabilidad, migraciones) o negocio; 'cliente' será rechazado"),
+  type: z.enum(["incident", "service_request", "question", "internal_task"]).default("internal_task"),
+  title: z.string().min(5).max(200), description: z.string().max(20000).default(""),
+  parent_ticket: z.number().int().positive().optional().describe("id numérico del ticket padre (épica) de PLATAFORMAQSS"),
+}, (a) => run(async () => {
+  const t = await api.call<any>("POST", "/tickets", { product: a.product, origin: a.origin, type: a.type, title: a.title, description: a.description, parentId: a.parent_ticket });
+  return text(`Ticket creado: ${t.key} (id ${t.id}, estatus ${t.status}, origen ${t.origin}${t.parentId ? ", padre " + t.parentId : ""}).`);
+}));
+
 server.tool("classify_ticket", "Fija la severidad de un incidente según el IMPACTO REAL y deja la justificación como nota interna. P0 producto inaccesible/proceso crítico bloqueado sin alternativa; P1 función importante rota o muchos usuarios; P2 falla parcial o con workaround; P3 menor. Sin aprobación.", {
   ticket: ref, severity: z.enum(["P0", "P1", "P2", "P3"]), why: z.string().min(5).max(500).describe("Justificación del impacto real"),
   p0: z.object({ inaccessible: z.boolean(), criticalBlocked: z.boolean(), hasWorkaround: z.boolean(), users: z.number().int().min(0) }).optional().describe("Obligatorio solo para P0"),
@@ -161,6 +172,8 @@ server.tool("release_ticket", "Libera un ticket: publica al cliente qué se hizo
   confirmed_by_user: confirmed.optional(),
 }, (a) => run(async () => {
   const r = parseTicketRef(a.ticket);
+  const me = await api.call<any>("GET", "/me").catch(() => null);
+  if (me && !me.permissions.includes("release")) return text("Esta llave NO puede liberar tickets (lo impone el servidor). Deja una nota interna con add_comment y pide a una persona que lo libere. No se envió nada al cliente.");
   const body = ["Hola, ya resolvimos este ticket.", "", "Qué hicimos:", a.what_was_done, "", "Qué quedó resuelto:", a.what_is_resolved, "", "Cómo puedes probarlo:", ...a.how_to_verify.map((x, i) => `${i + 1}. ${x}`), "", "Si todo funciona, abre el ticket en el portal y pulsa «Confirmar que quedó resuelto». Si el problema persiste, respóndenos aquí y lo retomamos."].join("\n");
   if (!a.confirmed_by_user) return text(`VISTA PREVIA (nada se ha enviado). Muestra esto al usuario, dile "lo voy a marcar como resuelto y le mandaré este texto al cliente" y espera su visto bueno; luego vuelve a llamar con confirmed_by_user=true.\n\n---\n${body}\n---${a.rca ? "\nRCA: " + JSON.stringify(a.rca) : ""}`);
   await api.call("POST", `/tickets/${r}/comments`, { body, visibility: "public" });

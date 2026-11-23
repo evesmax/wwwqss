@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push",
     "test": "tsx --import ./server/testSetup.ts --test \"server/**/*.test.ts\"",
     "desk:seed": "tsx server/scripts/seedDesk.ts",
-    "desk:create-owner": "tsx server/scripts/createOwner.ts"
+    "desk:create-owner": "tsx server/scripts/createOwner.ts",
+    "desk:seed-jarvis": "tsx server/scripts/seedJarvis.ts"
   },
   "dependencies": {
     "@google/genai": "^1.43.0",

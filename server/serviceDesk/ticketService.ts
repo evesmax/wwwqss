@@ -12,7 +12,7 @@ import {
   type P0Questionnaire, type Rca,
 } from "./ticketRules";
 
-export type Who = { type: "user" | "contact"; id: number } | { type: "agent"; id: null; name: string };
+export type Who = { type: "user" | "contact"; id: number } | { type: "agent"; id: number | null; name: string };
 export type TimeActor = number | { agentKeyId: number; name: string };
 export class TicketError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -30,7 +30,7 @@ export type CreateInput = {
   accountId: number; type: string; title: string; description?: string; productId?: number | null; instanceId?: number | null;
   requesterContactId?: number | null; channel: string; environment?: string; moduleArea?: string;
   perceivedSeverity?: string | null; severity?: string | null; p0?: Partial<P0Questionnaire> | null;
-  receivedAt?: Date | null; sharedWithAccount?: boolean;
+  receivedAt?: Date | null; sharedWithAccount?: boolean; origin?: string; parentId?: number | null;
 };
 
 export async function createTicket(input: CreateInput, who: Who, opts: { notify?: boolean } = {}) {
@@ -59,9 +59,10 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
       title: input.title, description: input.description ?? "", severity: input.severity ?? null,
       perceivedSeverity: input.perceivedSeverity ?? null, status: initialStatus(input.type), channel: input.channel,
       environment: input.environment ?? "prod", moduleArea,
+      origin: input.origin ?? "cliente", parentId: input.parentId ?? null, slaApplicable: !acc.internal,
       sharedWithAccount: input.sharedWithAccount ?? false, receivedAt: input.receivedAt ?? now, createdAt: now, updatedAt: now,
     }).returning();
-    await addEvent(tx, t.id, who, "created", { channel: input.channel, type: input.type, severity: input.severity ?? null, ...(input.p0 ? { p0: input.p0 } : {}) });
+    await addEvent(tx, t.id, who, "created", { channel: input.channel, type: input.type, origin: input.origin ?? "cliente", severity: input.severity ?? null, ...(input.p0 ? { p0: input.p0 } : {}) });
     return t;
   });
   refreshSoon(ticket.id);
@@ -70,9 +71,10 @@ export async function createTicket(input: CreateInput, who: Who, opts: { notify?
   return ticket;
 }
 
-async function notifyRequester(t: { id: number; key: string; title: string; type?: string; requesterContactId: number | null }, build: (t: { key: string; title: string }) => { subject: string; html: string }) {
+async function notifyRequester(t: { id: number; key: string; title: string; type?: string; accountId?: number; requesterContactId: number | null }, build: (t: { key: string; title: string }) => { subject: string; html: string }) {
   try {
     if (!t.requesterContactId || t.type === "internal_task") return;
+    if (t.accountId != null) { const [a] = await db.select({ internal: sdAccounts.internal }).from(sdAccounts).where(eq(sdAccounts.id, t.accountId)); if (a?.internal) return; } // QSS's own account never emails anyone
     const [c] = await db.select({ email: sdContacts.email }).from(sdContacts).where(eq(sdContacts.id, t.requesterContactId));
     if (c) await sendEmail({ to: c.email, ...build(t) });
   } catch (e: any) { console.error("ticket notify error:", e.message); }
