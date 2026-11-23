@@ -43,6 +43,15 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
   }
   const who = (req: Req) => ({ type: "user" as const, id: req.actor.userId });
 
+  // Contacts that have raised at least one visible ticket, for the "Solicitante" filter.
+  app.get("/api/desk/requesters", ...auth, wrap(async (req, res) => {
+    const ids = await visibleAccountIds(req.actor);
+    if (!ids.length) return res.json([]);
+    const rows = await db.selectDistinct({ id: sdContacts.id, name: sdContacts.name, email: sdContacts.email }).from(sdContacts)
+      .innerJoin(sdTickets, eq(sdTickets.requesterContactId, sdContacts.id)).where(inArray(sdTickets.accountId, ids)).orderBy(sdContacts.name, sdContacts.email);
+    res.json(rows);
+  }));
+
   app.get("/api/desk/agents", ...auth, wrap(async (req, res) => {
     if (!req.actor.roles.length) return res.json([]);
     const rows = await db.selectDistinct({ id: users.id, username: users.username }).from(users)
@@ -57,7 +66,7 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
   const listQuery = z.object({
     status: z.string().optional(), type: z.string().optional(), accountId: z.coerce.number().int().optional(), productId: z.coerce.number().int().optional(),
     severity: z.string().regex(/^(P[0-3]|none)(,(P[0-3]|none))*$/).optional(), channel: z.string().max(30).optional(),
-    assignee: z.string().regex(/^(me|none|\d+)$/).optional(), q: z.string().trim().max(100).optional(), open: z.enum(["1", "0"]).optional(),
+    assignee: z.string().regex(/^(me|none|\d+)$/).optional(), requester: z.coerce.number().int().optional(), q: z.string().trim().max(100).optional(), open: z.enum(["1", "0"]).optional(),
     noResponse: z.enum(["1", "0"]).optional(), createdFrom: isoDay.optional(), createdTo: isoDay.optional(),
     sort: z.enum(["priority", "created", "updated", "title", "severity", "status", "client"]).default("priority"), dir: z.enum(["asc", "desc"]).optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50), offset: z.coerce.number().int().min(0).default(0),
@@ -81,6 +90,7 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
       conds.push(parts.length === 1 ? parts[0] : or(...parts)!);
     }
     if (q.channel) conds.push(eq(sdTickets.channel, q.channel));
+    if (q.requester) conds.push(eq(sdTickets.requesterContactId, q.requester));
     if (q.assignee === "me") conds.push(eq(sdTickets.assigneeUserId, req.actor.userId));
     else if (q.assignee === "none") conds.push(sql`${sdTickets.assigneeUserId} is null`);
     else if (q.assignee) conds.push(eq(sdTickets.assigneeUserId, Number(q.assignee)));
@@ -90,7 +100,7 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
     if (q.createdTo) conds.push(sql`${mxDay} <= ${q.createdTo}::date`);
     if (q.q) {
       const like = `%${q.q.replace(/[%_]/g, "\\$&")}%`;
-      conds.push(or(ilike(sdTickets.title, like), ilike(sdTickets.key, like), ilike(sdTickets.description, like), ilike(clientes.nombreNegocio, like))!);
+      conds.push(or(ilike(sdTickets.title, like), ilike(sdTickets.key, like), ilike(sdTickets.description, like), ilike(clientes.nombreNegocio, like), ilike(sdContacts.name, like), ilike(sdContacts.email, like))!);
     }
     const where = and(...conds);
     const d = (dir: "asc" | "desc") => (q.dir ?? dir) === "asc" ? sql`asc` : sql`desc`;
@@ -107,12 +117,14 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
       id: sdTickets.id, key: sdTickets.key, title: sdTickets.title, type: sdTickets.type, status: sdTickets.status, severity: sdTickets.severity,
       perceivedSeverity: sdTickets.perceivedSeverity, assigneeUserId: sdTickets.assigneeUserId, assigneeName: users.username, accountId: sdTickets.accountId,
       cliente: clientes.nombreNegocio, productCode: sdProducts.code, channel: sdTickets.channel, createdAt: sdTickets.createdAt, updatedAt: sdTickets.updatedAt,
-      firstResponseAt: sdTickets.firstResponseAt,
+      firstResponseAt: sdTickets.firstResponseAt, requesterName: sql<string | null>`coalesce(nullif(${sdContacts.name}, ''), ${sdContacts.email})`,
     }).from(sdTickets).innerJoin(sdAccounts, eq(sdAccounts.id, sdTickets.accountId)).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId))
-      .leftJoin(sdProducts, eq(sdProducts.id, sdTickets.productId)).leftJoin(users, eq(users.id, sdTickets.assigneeUserId));
+      .leftJoin(sdProducts, eq(sdProducts.id, sdTickets.productId)).leftJoin(users, eq(users.id, sdTickets.assigneeUserId))
+      .leftJoin(sdContacts, eq(sdContacts.id, sdTickets.requesterContactId));
     const rows = await base.where(where).orderBy(...order).limit(q.limit).offset(q.offset);
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(sdTickets)
-      .innerJoin(sdAccounts, eq(sdAccounts.id, sdTickets.accountId)).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId)).where(where);
+      .innerJoin(sdAccounts, eq(sdAccounts.id, sdTickets.accountId)).innerJoin(clientes, eq(clientes.id, sdAccounts.clienteId))
+      .leftJoin(sdContacts, eq(sdContacts.id, sdTickets.requesterContactId)).where(where);
     res.json({ rows, total: n });
   }));
 

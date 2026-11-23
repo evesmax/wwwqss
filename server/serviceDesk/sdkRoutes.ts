@@ -79,6 +79,8 @@ export function registerSdkRoutes(app: Express, auth: RequestHandler[]) {
       let [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, claims.email)));
       if (!c) [c] = await db.insert(sdContacts).values({ accountId: inst.accountId, email: claims.email, name: claims.name ?? "", role: "contact" }).onConflictDoNothing().returning();
       if (!c) [c] = await db.select().from(sdContacts).where(and(eq(sdContacts.accountId, inst.accountId), eq(sdContacts.email, claims.email)));
+      // The name is optional in the token: fill it in once a later token carries it (never overwrite one already stored).
+      if (!c.name && claims.name?.trim()) { await db.update(sdContacts).set({ name: claims.name.trim() }).where(eq(sdContacts.id, c.id)); c.name = claims.name.trim(); }
       (req as SReq).sdk = { key, claims, instanceId: inst.id, accountId: inst.accountId, contactId: c.id };
       db.update(sdSdkKeys).set({ lastUsedAt: new Date() }).where(eq(sdSdkKeys.id, key.id)).catch(() => {});
       next();
