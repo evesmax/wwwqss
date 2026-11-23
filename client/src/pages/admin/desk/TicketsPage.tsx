@@ -11,8 +11,8 @@ const TYPES = ["incident", "service_request", "feature_request", "question", "in
 const CHANNELS = ["manual", "email", "api", "portal", "widget"];
 const VIEW_KEY = "desk.tickets.view.v1";
 
-type Filters = { q: string; status: string; type: string; severity: string; channel: string; accountId: string; productId: string; assignee: string; createdFrom: string; createdTo: string; open: string; noResponse: string };
-const DEFAULTS: Filters = { q: "", status: "", type: "", severity: "", channel: "", accountId: "", productId: "", assignee: "", createdFrom: "", createdTo: "", open: "1", noResponse: "" };
+type Filters = { q: string; status: string; type: string; severity: string; channel: string; accountId: string; productId: string; assignee: string; requester: string; createdFrom: string; createdTo: string; open: string; noResponse: string };
+const DEFAULTS: Filters = { q: "", status: "", type: "", severity: "", channel: "", accountId: "", productId: "", assignee: "", requester: "", createdFrom: "", createdTo: "", open: "1", noResponse: "" };
 type Sort = { sort: string; dir: "asc" | "desc" };
 const SORTS: [string, Sort][] = [
   ["Prioridad (severidad y actividad)", { sort: "priority", dir: "desc" }], ["Actualizados recientemente", { sort: "updated", dir: "desc" }], ["Menos recientes", { sort: "updated", dir: "asc" }],
@@ -45,6 +45,7 @@ export default function TicketsPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
+  const [requesters, setRequesters] = useState<any[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -59,6 +60,7 @@ export default function TicketsPage() {
     apiRequest("GET", "/api/desk/accounts").then((r) => r.json()).then(setAccounts).catch(() => {});
     apiRequest("GET", "/api/desk/products").then((r) => r.json()).then(setProducts).catch(() => {});
     apiRequest("GET", "/api/desk/agents").then((r) => r.json()).then(setAgents).catch(() => {});
+    apiRequest("GET", "/api/desk/requesters").then((r) => r.json()).then(setRequesters).catch(() => {});
   }, []);
 
   const loadSummary = useCallback(() => { apiRequest("GET", "/api/desk/tickets/summary").then((r) => r.json()).then(setSummary).catch(() => {}); }, []);
@@ -93,7 +95,7 @@ export default function TicketsPage() {
   ];
   const chipKeys: (keyof Filters)[] = ["open", "assignee", "severity", "noResponse"];
   const isActive = (c: (typeof CHIPS)[number]) => chipKeys.every((k) => (f[k] ?? "") === ((c.patch as any)[k] ?? ""));
-  const others: (keyof Filters)[] = ["q", "status", "type", "channel", "accountId", "productId", "createdFrom", "createdTo"];
+  const others: (keyof Filters)[] = ["q", "status", "type", "channel", "requester", "accountId", "productId", "createdFrom", "createdTo"];
   const activeCount = others.filter((k) => f[k]).length + (chipKeys.some((k) => f[k] !== DEFAULTS[k]) ? 1 : 0);
 
   const headSort = (key: string, dflt: "asc" | "desc") => setSort((s) => ({ sort: key, dir: s.sort === key ? (s.dir === "asc" ? "desc" : "asc") : dflt }));
@@ -137,7 +139,7 @@ export default function TicketsPage() {
 
       <div className="bg-white border rounded-xl p-3 space-y-3">
         <div className="flex gap-2 flex-wrap items-center">
-          <input className={`${inp} flex-1 min-w-[16rem]`} placeholder="Buscar folio, título o cliente…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={`${inp} flex-1 min-w-[16rem]`} placeholder="Buscar folio, título, cliente o solicitante…" value={q} onChange={(e) => setQ(e.target.value)} />
           <SearchSelect className={`${inp} w-52`} value={f.status} onChange={(e: any) => set({ status: e.target.value })}>
             <option value="">Todos los estados</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </SearchSelect>
@@ -155,6 +157,9 @@ export default function TicketsPage() {
           <div className="flex gap-2 flex-wrap items-center border-t pt-3">
             <SearchSelect className={`${inp} w-52`} value={f.accountId} onChange={(e: any) => set({ accountId: e.target.value })}>
               <option value="">Todos los clientes</option>{accounts.map((a) => <option key={a.id} value={String(a.id)}>{a.nombre}</option>)}
+            </SearchSelect>
+            <SearchSelect className={`${inp} w-52`} value={f.requester} onChange={(e: any) => set({ requester: e.target.value })}>
+              <option value="">Cualquier solicitante</option>{requesters.map((r) => <option key={r.id} value={String(r.id)}>{r.name || r.email}</option>)}
             </SearchSelect>
             <SearchSelect className={`${inp} w-48`} value={f.productId} onChange={(e: any) => set({ productId: e.target.value })}>
               <option value="">Todos los productos</option>{products.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
@@ -191,7 +196,8 @@ export default function TicketsPage() {
                 <td className="p-3 font-mono whitespace-nowrap"><Link href={`/soporte/tickets/${t.id}`} onClick={(e) => e.stopPropagation()} className="text-[#0088c2] font-semibold">{t.key}</Link>
                   <div className="text-[11px] text-gray-400 font-sans" title={fmt(t.createdAt)}>{ago(t.createdAt)}</div></td>
                 <td className="px-3 py-2 max-w-md"><div className="font-medium text-gray-900 truncate">{t.title}</div>
-                  <div className="text-xs text-gray-500 truncate">{[t.cliente, t.productCode, TYPE_LABEL[t.type]].filter(Boolean).join(" · ")}</div></td>
+                  <div className="text-xs text-gray-500 truncate">{[t.cliente, t.productCode, TYPE_LABEL[t.type]].filter(Boolean).join(" · ")}</div>
+                  {t.requesterName && <div className="text-xs text-gray-400 truncate" title="Quién levantó el ticket">Solicitó: {t.requesterName}</div>}</td>
                 <td className="px-3">{t.severity ? <span className={`px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>
                   : t.perceivedSeverity ? <span className="text-xs text-gray-400" title="Severidad propuesta por el cliente (sin triage)">~{t.perceivedSeverity}</span> : <span className="text-gray-300">—</span>}</td>
                 <td className="px-3 whitespace-nowrap"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[t.status] ?? "bg-gray-100 text-gray-700"}`}>{STATUS_LABEL[t.status] ?? t.status}</span>

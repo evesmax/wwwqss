@@ -1241,6 +1241,22 @@ test("tickets list: filters, sorting, pagination, search and summary", { skip: !
   assert.equal((await api("nobody", "GET", "/api/desk/tickets/summary")).body.open, 0);
 });
 
+test("lista de tickets: muestra, filtra y busca por solicitante", { skip: !run }, async () => {
+  const t = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "service_request", title: "Con solicitante visible", requesterContactId: contactIds.c1 })).body;
+  const noReq = (await api("owner", "POST", "/api/desk/tickets", { accountId: accA, type: "service_request", title: "Sin solicitante visible" })).body;
+  const reqs = (await api("owner", "GET", "/api/desk/requesters")).body as any[];
+  assert.ok(reqs.some((c) => c.id === contactIds.c1));
+  const byReq = (await api("owner", "GET", `/api/desk/tickets?requester=${contactIds.c1}&limit=200`)).body;
+  assert.ok(byReq.rows.some((r: any) => r.key === t.key));
+  assert.ok(!byReq.rows.some((r: any) => r.key === noReq.key));
+  const row = byReq.rows.find((r: any) => r.key === t.key);
+  assert.ok(typeof row.requesterName === "string" && row.requesterName.length > 0);
+  const all = (await api("owner", "GET", "/api/desk/tickets?limit=200")).body.rows;
+  assert.equal(all.find((r: any) => r.key === noReq.key).requesterName, null);
+  const bySearch = (await api("owner", "GET", `/api/desk/tickets?q=${encodeURIComponent(row.requesterName)}&limit=200`)).body;
+  assert.ok(bySearch.rows.some((r: any) => r.key === t.key));
+});
+
 test("tickets stats dashboard: kpis, volume, urgency, repeats", { skip: !run }, async () => {
   const mk = async (b: any) => { const r = await api("owner", "POST", "/api/desk/tickets", { accountId: accA, channel: "manual", type: "incident", ...b }); assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body; };
   await mk({ title: "ZZSTAT No imprime etiqueta", moduleArea: "Etiquetas", severity: "P1" });
