@@ -16,6 +16,7 @@ import SmtpSettingsPage from "./desk/SmtpSettingsPage";
 import SlaConfigPage from "./desk/SlaConfigPage";
 import ImportPage from "./desk/ImportPage";
 import SdkPage from "./desk/SdkPage";
+import AgentKeysPage from "./desk/AgentKeysPage";
 import ReportsPage from "./desk/ReportsPage";
 import TicketDashboardPage from "./desk/TicketDashboardPage";
 import TimeReportPage from "./desk/TimeReportPage";
@@ -80,6 +81,7 @@ export default function AdminApp() {
         <Route path="/soporte/sla" component={SlaConfigPage} />
         <Route path="/soporte/importar" component={ImportPage} />
         <Route path="/soporte/sdk" component={SdkPage} />
+        <Route path="/soporte/llaves-agente" component={AgentKeysPage} />
         <Route path="/soporte/informes" component={ReportsPage} />
         <Route path="/soporte/funcionalidades" component={FeaturesPage} />
         <Route path="/soporte/proyectos" component={ProjectsPage} />
