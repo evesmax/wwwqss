@@ -9,7 +9,7 @@ import { hasRole, visibleAccountIds } from "./access";
 import { wrap, requireRole, accountOr404, type Req } from "./httpUtil";
 import { addComment, addTimeEntry, updateTimeEntry, deleteTimeEntry, createTicket, transitionTicket, updateTicket, TicketError } from "./ticketService";
 import { validateAttachment } from "./attachments";
-import { CHANNELS, SEVERITIES, TICKET_TYPES, nextStatuses, statusesFor } from "./ticketRules";
+import { CHANNELS, SEVERITIES, TICKET_TYPES, nextStatuses, parseStatusFilter, statusesFor } from "./ticketRules";
 
 const WORKERS = ["owner", "support_manager", "agent_l2", "agent_l1"];
 const MANAGERS = ["owner", "support_manager"];
@@ -81,7 +81,8 @@ export function registerTicketRoutes(app: Express, auth: RequestHandler[]) {
     const conds = [inArray(sdTickets.accountId, ids)];
     if (q.accountId) conds.push(eq(sdTickets.accountId, q.accountId));
     if (q.productId) conds.push(eq(sdTickets.productId, q.productId));
-    if (q.status) conds.push(eq(sdTickets.status, q.status));
+    const statuses = parseStatusFilter(q.status);
+    if (statuses.length) conds.push(inArray(sdTickets.status, statuses));
     if (q.type) conds.push(eq(sdTickets.type, q.type));
     if (q.severity) {
       const want = q.severity.split(",");

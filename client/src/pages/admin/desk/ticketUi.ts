@@ -5,6 +5,8 @@ export const STATUS_LABEL: Record<string, string> = {
   approved: "Aprobado", planned: "Planificado", in_development: "En desarrollo", in_testing: "En pruebas",
   released: "Liberado", deferred: "Diferido", blocked: "Bloqueado",
 };
+// Same set the server leaves out of "solo abiertos" (CLOSED_SQL in ticketRoutes).
+export const CLOSED_STATUSES = ["resolved", "closed", "duplicate", "cancelled", "rejected", "released", "deferred"];
 export const TYPE_LABEL: Record<string, string> = {
   incident: "Incidente", service_request: "Solicitud de servicio", feature_request: "Nueva función", question: "Consulta", internal_task: "Tarea interna",
 };
