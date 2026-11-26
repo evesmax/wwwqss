@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateTransition, validateSeverity, timestampsFor, ticketKey, initialStatus, nextStatuses, canDeliverFeature } from "./ticketRules";
+import { validateTransition, validateSeverity, timestampsFor, ticketKey, initialStatus, nextStatuses, canDeliverFeature, parseStatusFilter } from "./ticketRules";
 
 const base = { type: "incident", severity: "P2" as string | null };
 test("ticketKey pads and keeps prefix", () => { assert.equal(ticketKey("ROT", 142), "ROT-0142"); assert.equal(ticketKey("ROT", 12345), "ROT-12345"); });
@@ -60,4 +60,13 @@ test("feature_request resuelto: el cliente lo cierra; una respuesta lo reabre en
   assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "closed" }).ok, true);
   assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "in_development" }).ok, true);
   assert.equal(validateTransition({ type: "feature_request", severity: null, from: "resolved", to: "in_progress" }).ok, false);
+});
+test("status filter accepts one or several comma separated statuses", () => {
+  assert.deepEqual(parseStatusFilter("new"), ["new"]);
+  assert.deepEqual(parseStatusFilter("new,in_progress,resolved"), ["new", "in_progress", "resolved"]);
+});
+test("status filter ignores blanks and repeats, and is empty without input", () => {
+  assert.deepEqual(parseStatusFilter(" new, ,new,"), ["new"]);
+  assert.deepEqual(parseStatusFilter(undefined), []);
+  assert.deepEqual(parseStatusFilter(""), []);
 });

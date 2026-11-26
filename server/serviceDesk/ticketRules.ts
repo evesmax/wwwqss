@@ -38,6 +38,8 @@ export const isFeature = (t: string) => t === "feature_request";
 export const initialStatus = (t: string) => (isFeature(t) ? "requested" : "new");
 export const statusesFor = (t: string) => Object.keys(isFeature(t) ? FEATURE_TRANSITIONS : OPS_TRANSITIONS);
 export const nextStatuses = (t: string, from: string) => (isFeature(t) ? FEATURE_TRANSITIONS : OPS_TRANSITIONS)[from] ?? [];
+// The list filter takes one status or several, comma separated.
+export const parseStatusFilter = (raw?: string) => Array.from(new Set((raw ?? "").split(",").map((s) => s.trim()).filter(Boolean)));
 export const PAUSE_STATUSES = ["waiting_customer", "waiting_third_party"];
 
 export type Rca = { cause: string; fix: string; prevention: string; kind: "code" | "infrastructure" | "third_party" | "configuration" | "usage" };

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { SearchSelect } from "@/components/ui/search-select";
-import { STATUS_LABEL, STATUS_COLOR, TYPE_LABEL, CHANNEL_LABEL, SEV_COLOR, fmt, ago } from "./ticketUi";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { STATUS_LABEL, STATUS_COLOR, CLOSED_STATUSES, TYPE_LABEL, CHANNEL_LABEL, SEV_COLOR, fmt, ago } from "./ticketUi";
 import { buildTicketContext } from "./ticketContext";
 import { copyText } from "./clipboard";
 
@@ -84,6 +85,8 @@ export default function TicketsPage() {
 
   const set = (patch: Partial<Filters>) => { setF((x) => ({ ...x, ...patch })); setPage(0); };
   const clear = () => { setQ(""); setF(DEFAULTS); setPage(0); };
+  // Asking for a closed status while "solo abiertos" is on would silently hide it, so that filter is turned off.
+  const setStatuses = (v: string[]) => set({ status: v.join(","), ...(v.some((s) => CLOSED_STATUSES.includes(s)) ? { open: "" } : {}) });
 
   const CHIPS: { id: string; label: string; count?: number; patch: Partial<Filters> }[] = [
     { id: "open", label: "Abiertos", count: summary?.open, patch: { open: "1" } },
@@ -140,9 +143,8 @@ export default function TicketsPage() {
       <div className="bg-white border rounded-xl p-3 space-y-3">
         <div className="flex gap-2 flex-wrap items-center">
           <input className={`${inp} flex-1 min-w-[16rem]`} placeholder="Buscar folio, título, cliente o solicitante…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <SearchSelect className={`${inp} w-52`} value={f.status} onChange={(e: any) => set({ status: e.target.value })}>
-            <option value="">Todos los estados</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </SearchSelect>
+          <MultiSelect className={`${inp} w-52`} aria-label="Filtrar por estado" allLabel="Todos los estados" noun="estados"
+            options={Object.entries(STATUS_LABEL)} values={f.status ? f.status.split(",") : []} onChange={setStatuses} />
           <SearchSelect className={`${inp} w-52`} value={f.assignee} onChange={(e: any) => set({ assignee: e.target.value })}>
             <option value="">Cualquier responsable</option><option value="me">Asignados a mí</option><option value="none">Sin asignar</option>
             {agents.map((a) => <option key={a.id} value={String(a.id)}>{a.username}</option>)}
@@ -201,7 +203,7 @@ export default function TicketsPage() {
                 <td className="px-3">{t.severity ? <span className={`px-2 py-0.5 rounded text-xs font-bold ${SEV_COLOR[t.severity]}`}>{t.severity}</span>
                   : t.perceivedSeverity ? <span className="text-xs text-gray-400" title="Severidad propuesta por el cliente (sin triage)">~{t.perceivedSeverity}</span> : <span className="text-gray-300">—</span>}</td>
                 <td className="px-3 whitespace-nowrap"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[t.status] ?? "bg-gray-100 text-gray-700"}`}>{STATUS_LABEL[t.status] ?? t.status}</span>
-                  {!t.firstResponseAt && !["resolved", "closed", "cancelled", "rejected", "duplicate", "released", "deferred"].includes(t.status) && <div className="text-[11px] text-amber-600 mt-0.5">Sin 1ª respuesta</div>}</td>
+                  {!t.firstResponseAt && !CLOSED_STATUSES.includes(t.status) && <div className="text-[11px] text-amber-600 mt-0.5">Sin 1ª respuesta</div>}</td>
                 <td className="px-3 whitespace-nowrap">{t.assigneeName ? <span className="inline-flex items-center gap-1.5"><span className="w-6 h-6 rounded-full bg-gray-200 text-[10px] font-semibold flex items-center justify-center">{initials(t.assigneeName)}</span>{t.assigneeName}</span> : <span className="text-gray-400">Sin asignar</span>}</td>
                 <td className="px-3 text-gray-600">{CHANNEL_LABEL[t.channel] ?? t.channel}</td>
                 <td className="px-3 text-gray-600 whitespace-nowrap" title={fmt(t.updatedAt)}>{ago(t.updatedAt)}</td>
